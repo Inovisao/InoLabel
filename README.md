@@ -1,3 +1,4 @@
+
 # Annotation Tool
 
 Ferramenta interativa para validar detecoes da classe `car` usando um modelo YOLO treinado (`../best.pt`) e registrar resultados em um arquivo `annotations.coco.json` no formato COCO.
@@ -49,3 +50,8 @@ Os campos `image_id` e `annotation_id` sao gerados sequencialmente e começam em
 ## Dicas
 - Se quiser trabalhar com outro limiar de confianca ou classe, ajuste `CONF_THRESHOLD` e `TARGET_CLASS` no topo do `main.py`.
 - Caso o video seja longo, considere interromper com `Esc`; o progresso ate o momento sera mantido no JSON.
+
+
+
+
+# Desenvolvido por Roberto Neto - 05/11/2025
