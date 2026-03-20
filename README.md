@@ -27,6 +27,8 @@ Coloque seus videos em `videos/` (subpastas sao suportadas) e deixe `yolo11l.pt`
 - Tracking persistente via `model.track(persist=True)` com `track_id` global.
 - Anotacao manual com `track_id` exclusivo e reuso opcional por IoU.
 - Salva COCO/MOT em `output_dataset/annotations.coco.json`, frames em `output_dataset/images/` e homografias em `output_dataset/homography.json`.
+- Exporta COCO de deteccao por botao em `output_dataset/annotations_detection.coco.json`.
+- Exporta dataset YOLO por botao em `output_dataset/yolo_dataset/`, com `data.yaml`, `images/{train,val,test}` e `labels/{train,val,test}`.
 - Opcao de salvar frames retificados ou originais (`SAVE_RECTIFIED_FRAMES` em `main.py`).
 
 ## Estrutura esperada
@@ -55,6 +57,8 @@ python main.py
      - Botao esquerdo + arrastar: desenhar caixa manual (quando anotacao ON)  
      - Botao "Remover anotacao": liga/desliga modo remocao (clique sobre uma caixa)  
      - R: redefinir ROI (nao altera anotacoes ja salvas do video atual)  
+     - Botao `Salvar .coco.json`: gera um COCO de deteccao padrao
+     - Botao `Salvar .yaml`: gera um dataset YOLO com `data.yaml`
   3. Ao fim de cada video, o proximo e aberto automaticamente.
 
 - Teste rapido (sem UI):
@@ -66,7 +70,23 @@ Roda 10 frames do primeiro video encontrado em `videos/` e imprime contagens/tra
 Saidas geradas:
 - `output_dataset/images/{video}_frame_00001.jpg` (originais ou retificados, conforme `SAVE_RECTIFIED_FRAMES`)
 - `output_dataset/annotations.coco.json` (inclui `track_id` e `video`)
+- `output_dataset/annotations_detection.coco.json` (COCO deteccao padrao)
+- `output_dataset/yolo_dataset/data.yaml`
+- `output_dataset/yolo_dataset/images/{train,val,test}/...`
+- `output_dataset/yolo_dataset/labels/{train,val,test}/...`
 - `output_dataset/homography.json` (lista de homografias por video)
+
+## Conversao separada de COCO para YOLO
+Use o script abaixo para ler um `.coco.json` e gerar a estrutura YOLO com `data.yaml`:
+
+```bash
+python convert_coco_to_yolo_dataset.py output_dataset/annotations.coco.json
+```
+
+Opcoes uteis:
+- `--image-root output_dataset/images`
+- `--output-root output_dataset/yolo_dataset`
+- `--train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1`
 
 ## Configuracoes uteis em `main.py`
 - `SAVE_RECTIFIED_FRAMES`: False (salva originais) ou True (salva warpPerspective).

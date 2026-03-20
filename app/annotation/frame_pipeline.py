@@ -1,0 +1,100 @@
+from app.annotation.shared import *
+
+
+class FramePipelineMixin:
+    def process_current_frame(self, frame: np.ndarray, advance_index: bool = True):
+        if frame is None:
+            return
+
+        self.review_idx = None
+        self.live_snapshot = None
+
+        if advance_index:
+            self.frame_index += 1
+        self.current_frame = frame
+        self.current_rectified_frame = self.warp_frame(frame)
+        self.current_detections = self.run_model(frame)
+        self.manual_detections = []
+        self.selected_detection = None
+        self.annotation_mode = True
+        self.remove_mode = False
+        self.drawing_start = None
+        if self.drawing_rect_id is not None:
+            self.canvas.delete(self.drawing_rect_id)
+            self.drawing_rect_id = None
+        self.update_annotation_button()
+        self.update_remove_button()
+        self.update_display()
+
+    def load_next_frame(self):
+        if self.review_idx is not None:
+            return
+
+        if self.current_source_type == "video":
+            if self.cap is None:
+                self.finish_current_video()
+                return
+            ret, frame = self.cap.read()
+            if not ret:
+                self.finish_current_video()
+                return
+            self.current_source_image_path = None
+        else:
+            frame = self.read_next_image_frame()
+            if frame is None:
+                self.finish_current_video()
+                return
+
+        self.process_current_frame(frame)
+
+    def run_model(self, original_frame: np.ndarray) -> List[Detection]:
+        detections: List[Detection] = []
+        if original_frame is None:
+            return detections
+
+        img_height, img_width = original_frame.shape[:2]
+        dets, scores, det_category_ids = self._extract_model_candidates(original_frame, img_width, img_height)
+        img_info = (img_height, img_width)
+        img_size = (img_height, img_width)
+
+        if not dets:
+            empty = np.empty((0, 5), dtype=np.float32)
+            self.bytetracker.update(empty, img_info, img_size)
+            return detections
+
+        detections_bt = np.concatenate(
+            [np.array(dets, dtype=np.float32), np.array(scores, dtype=np.float32).reshape(-1, 1)], axis=1
+        )
+        tracks = self.bytetracker.update(detections_bt, img_info, img_size)
+
+        for track in tracks:
+            tlbr = track.tlbr
+            internal_id = int(track.track_id)
+            track_id = self.get_global_id(internal_id)
+            score = float(track.score)
+            original_box = clip_bbox(tlbr[0], tlbr[1], tlbr[2], tlbr[3], img_width, img_height)
+            if not self.is_inside_roi(original_box):
+                continue
+            matched_category_id = self._match_track_category(original_box, dets, det_category_ids)
+            warp_box = None
+            if self.homography_matrix is not None and self.warp_size is not None:
+                warp_box = self.project_bbox(original_box, self.homography_matrix, self.warp_size[0], self.warp_size[1])
+            self.track_history.setdefault(track_id, []).append({"frame": self.frame_index, "bbox": original_box.tolist()})
+            detections.append(
+                Detection(
+                    original_bbox=original_box,
+                    warp_bbox=warp_box,
+                    confidence=score,
+                    category_id=matched_category_id,
+                    track_id=track_id,
+                    source="model",
+                    internal_id=internal_id,
+                )
+            )
+
+        frame_tracks = [{"id": det.track_id, "bbox": det.original_bbox.copy()} for det in detections]
+        self.recent_tracks.append({"frame": self.frame_index, "tracks": frame_tracks})
+        if len(self.recent_tracks) > self.history_window:
+            self.recent_tracks.pop(0)
+
+        return detections
