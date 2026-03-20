@@ -1,5 +1,5 @@
 videos/*
-yolo11l.pt
 output_dataset
 __pycache__
 imagens/
+models/

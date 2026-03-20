@@ -1,9 +1,7 @@
 ultralytics
-opencv
-pillow
+opencv-python
+Pillow
 numpy
-cmake
-lap
-yolox
-cython_bbox
 scipy
+lap
+cython-bbox
