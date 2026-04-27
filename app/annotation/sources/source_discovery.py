@@ -81,5 +81,19 @@ class SourceDiscoveryMixin:
         self.current_source_image_path = None
         return None
 
-    # ===================== CONTROLE DE VIDEOS =====================
+    def remove_current_image_from_sequence(self, image_path: Path):
+        """Remove uma imagem da sequencia atual e ajusta o cursor."""
+        resolved = image_path.resolve()
+        for idx, candidate in enumerate(list(self.current_image_paths)):
+            try:
+                same_file = candidate.resolve() == resolved
+            except Exception:  # pylint: disable=broad-except
+                same_file = candidate == image_path
+            if not same_file:
+                continue
+            del self.current_image_paths[idx]
+            if idx < self.current_image_cursor:
+                self.current_image_cursor = max(0, self.current_image_cursor - 1)
+            return
 
+    # ===================== CONTROLE DE VIDEOS =====================

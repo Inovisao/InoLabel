@@ -10,7 +10,7 @@ class Detection:
     warp_bbox: Optional[np.ndarray]
     confidence: float
     category_id: int
-    track_id: int
+    track_id: Optional[int]
     source: str
     internal_id: Optional[int] = None
 

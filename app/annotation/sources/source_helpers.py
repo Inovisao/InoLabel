@@ -7,6 +7,8 @@ class SourceHelpersMixin:
             self.cap.release()
 
     def _reset_model_tracking_state(self):
+        if self.model is None:
+            return
         if hasattr(self.model, "reset"):
             try:
                 self.model.reset()
@@ -32,6 +34,7 @@ class SourceHelpersMixin:
         self.live_snapshot = None
         self.recent_tracks.clear()
         self.tracker_id_map.clear()
+        self.multiclass_tracker.reset()
         self.edit_id_mode = False
         self.selected_detection = None
 
@@ -40,6 +43,8 @@ class SourceHelpersMixin:
             return 0
         last_frame_saved = 0
         saved_for_video = [img for img in self.images if img.get("video") in (str(self.video_path), self.video_name)]
+        if not self.is_video_source(self.video_path):
+            return len(saved_for_video)
         for img in saved_for_video:
             parsed = parse_frame_number_from_name(img.get("file_name", ""), self.video_name)
             if parsed is not None:
@@ -81,6 +86,7 @@ class SourceHelpersMixin:
         fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.frame_rate = int(fps) if fps and fps > 1 else 30
         self.bytetracker = BYTETracker(ByteTrackerArgs(), frame_rate=self.frame_rate)
+        self.multiclass_tracker = MultiClassByteTracker(ByteTrackerArgs(), frame_rate=self.frame_rate)
         if self.frame_index > 0:
             try:
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, float(self.frame_index))
@@ -101,6 +107,7 @@ class SourceHelpersMixin:
         self.current_image_cursor = self.frame_index
         self.frame_rate = 30
         self.bytetracker = BYTETracker(ByteTrackerArgs(), frame_rate=self.frame_rate)
+        self.multiclass_tracker = MultiClassByteTracker(ByteTrackerArgs(), frame_rate=self.frame_rate)
         if not self.current_image_paths:
             print(f"[ERRO] Nenhuma imagem valida encontrada para: {self.video_path}")
             return None
@@ -109,4 +116,3 @@ class SourceHelpersMixin:
             print(f"[ERRO] Falha ao ler imagens da fonte: {self.video_path}")
             return None
         return first_frame
-

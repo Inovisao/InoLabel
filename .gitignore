@@ -3,3 +3,8 @@ output_dataset
 __pycache__
 imagens/
 models/
+dataset/
+docs
+.codex
+dataset_original
+.local/

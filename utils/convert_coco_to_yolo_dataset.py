@@ -49,6 +49,7 @@ def main() -> int:
     print(f"[OK] Dataset YOLO exportado em: {report['dataset_root']}")
     print(f"[OK] data.yaml: {report['data_yaml']}")
     print(f"[INFO] Imagens por split: {report['images_per_split']}")
+    print(f"[INFO] Imagens sem anotacao por split: {report['empty_images_per_split']}")
     print(f"[INFO] Labels por split: {report['labels_per_split']}")
     print(f"[INFO] Classes presentes: {report['classes_present']}")
     if report["images_without_annotation"]:

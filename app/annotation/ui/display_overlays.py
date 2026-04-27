@@ -2,6 +2,19 @@ from app.annotation.shared import *
 
 
 class DisplayOverlaysMixin:
+    @staticmethod
+    def hex_to_bgr(color: str) -> Tuple[int, int, int]:
+        clean = color.strip().lstrip("#")
+        if len(clean) != 6:
+            return (0, 255, 0)
+        try:
+            r = int(clean[0:2], 16)
+            g = int(clean[2:4], 16)
+            b = int(clean[4:6], 16)
+        except ValueError:
+            return (0, 255, 0)
+        return (b, g, r)
+
     def _draw_roi_overlay_on_canvas(self):
         if not self.roi_points:
             return
@@ -35,17 +48,19 @@ class DisplayOverlaysMixin:
         self.drawing_rect_id = self.canvas.create_rectangle(x, y, x, y, outline="yellow", width=2, dash=(4, 2))
 
     def draw_detections(self, frame: np.ndarray, detections: List[Detection], source_tag: str):
-        category_name_by_id = {cat.get("id"): cat.get("name", "obj") for cat in self.categories}
+        category_name_by_id = self.category_name_by_id()
+        category_color_by_id = self.category_color_by_id()
         for idx, det in enumerate(detections):
             x1, y1, x2, y2 = det.original_bbox.astype(int)
-            color = (0, 255, 0) if det.source == "model" else (0, 255, 255)
+            color = self.hex_to_bgr(category_color_by_id.get(det.category_id, "#22c55e"))
             thickness = 2
             if self.selected_detection == (source_tag, idx):
-                color = (0, 0, 255)
                 thickness = 3
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
             class_name = str(category_name_by_id.get(det.category_id, det.category_id))
-            label = f"{class_name} | ID {det.track_id}"
+            label = class_name
+            if det.track_id is not None:
+                label += f" | ID {det.track_id}"
             if det.source == "model":
                 label += f" {det.confidence * 100:.1f}%"
             else:

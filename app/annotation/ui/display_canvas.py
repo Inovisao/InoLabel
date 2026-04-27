@@ -35,8 +35,10 @@ class DisplayCanvasMixin:
         frame_h, frame_w = annotated.shape[:2]
         screen_w = self.window.winfo_screenwidth()
         screen_h = self.window.winfo_screenheight()
-        max_canvas_w = max(320, screen_w - WINDOW_MARGIN_PX)
-        max_canvas_h = max(240, screen_h - WINDOW_TOP_RESERVED_PX)
+        available_w = self.canvas_frame.winfo_width() if hasattr(self, "canvas_frame") else 0
+        available_h = self.canvas_frame.winfo_height() if hasattr(self, "canvas_frame") else 0
+        max_canvas_w = max(320, min(screen_w - WINDOW_MARGIN_PX, available_w or screen_w - WINDOW_MARGIN_PX))
+        max_canvas_h = max(240, min(screen_h - WINDOW_TOP_RESERVED_PX, available_h or screen_h - WINDOW_TOP_RESERVED_PX))
         disp_w, disp_h = self._compute_display_size(frame_w, frame_h, max_canvas_w, max_canvas_h)
         if self.display_scale < 1.0:
             annotated = cv2.resize(annotated, (disp_w, disp_h), interpolation=cv2.INTER_AREA)

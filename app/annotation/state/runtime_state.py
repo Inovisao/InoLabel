@@ -6,6 +6,7 @@ class RuntimeStateMixin:
         self.default_tracker_args = ByteTrackerArgs()
         self.frame_rate = 30
         self.bytetracker = BYTETracker(self.default_tracker_args, frame_rate=self.frame_rate)
+        self.multiclass_tracker = MultiClassByteTracker(self.default_tracker_args, frame_rate=self.frame_rate)
         self.cap: Optional[cv2.VideoCapture] = None
         self.current_source_type = "video"
         self.current_image_paths: List[Path] = []
@@ -50,7 +51,7 @@ class RuntimeStateMixin:
         self.track_history: Dict[int, List[dict]] = {}
         self.recent_tracks: List[dict] = []
         self.history_window = 5
-        self.tracker_id_map: Dict[int, int] = {}
+        self.tracker_id_map: Dict[Tuple[int, int], int] = {}
         self.edit_id_mode = False
         self.selected_detection: Optional[Tuple[str, int]] = None
         self.offset_x = 0
@@ -61,4 +62,3 @@ class RuntimeStateMixin:
         self.review_idx: Optional[int] = None
         self.live_snapshot: Optional[dict] = None
         self.closed = False
-

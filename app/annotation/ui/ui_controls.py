@@ -10,10 +10,13 @@ class UIControlsMixin:
         self.window.bind("K", lambda event: self.toggle_annotation_mode())
         self.window.bind("r", lambda event: self.reset_roi())
         self.window.bind("R", lambda event: self.reset_roi())
-        self.window.bind("e", lambda event: self.toggle_edit_id_mode())
-        self.window.bind("E", lambda event: self.toggle_edit_id_mode())
+        if self.tracking_enabled:
+            self.window.bind("e", lambda event: self.toggle_edit_id_mode())
+            self.window.bind("E", lambda event: self.toggle_edit_id_mode())
         self.window.bind("<Left>", lambda event: self.on_prev_saved())
         self.window.bind("<Right>", lambda event: self.on_next_saved())
+        for key in "123456789":
+            self.window.bind(key, self.on_class_shortcut)
 
     def _build_canvas(self):
         self.canvas = tk.Canvas(self.window, bg="black", highlightthickness=0)
@@ -30,9 +33,13 @@ class UIControlsMixin:
         self.remove_button.config(state=tk.NORMAL)
         self.apply_id_button.config(state=tk.NORMAL)
         self.edit_id_button.config(state=tk.NORMAL)
+        if not self.tracking_enabled:
+            self.apply_id_button.config(state=tk.DISABLED)
+            self.edit_id_button.config(state=tk.DISABLED)
         self.save_yaml_button.config(state=tk.NORMAL)
         self.save_coco_button.config(state=tk.NORMAL)
         self.info_var.set(self.build_status_message())
+        self.update_class_panel()
 
     def disable_controls_for_roi(self):
         """Desabilita botoes enquanto ROI nao for definido."""
@@ -60,6 +67,9 @@ class UIControlsMixin:
     def update_edit_id_button(self):
         """Atualiza o texto do botao de edicao de ID."""
         if hasattr(self, "edit_id_button"):
+            if not self.tracking_enabled:
+                self.edit_id_button.config(text="Editar ID indisponivel")
+                return
             estado = "ON" if self.edit_id_mode else "OFF"
             self.edit_id_button.config(text=f"Editar ID {estado} (E)")
 

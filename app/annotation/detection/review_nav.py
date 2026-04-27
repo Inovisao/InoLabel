@@ -52,7 +52,7 @@ class ReviewNavMixin:
                     warp_bbox=None,
                     confidence=float(ann.get("score", 1.0)),
                     category_id=int(ann.get("category_id", 1)),
-                    track_id=int(ann.get("track_id", -1)),
+                    track_id=(int(ann["track_id"]) if ann.get("track_id") is not None else None),
                     source=ann.get("source", "manual"),
                     internal_id=None,
                 )
@@ -140,4 +140,3 @@ class ReviewNavMixin:
             self.go_to_saved_frame(next_idx)
         else:
             self.exit_review_mode()
-

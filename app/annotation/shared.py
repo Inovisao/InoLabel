@@ -11,10 +11,13 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 import tkinter as tk
+from tkinter import messagebox
 from PIL import Image, ImageTk
 from ultralytics import YOLO
 
 from tracker.byte_tracker import BYTETracker
+from app.core.session import AnnotationSessionConfig, AnnotationTaskMode
+from app.tracking import MultiClassByteTracker
 from app.config import (
     ANNOTATIONS_PATH,
     CANVAS_PADDING_PX,

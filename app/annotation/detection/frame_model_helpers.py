@@ -5,7 +5,8 @@ class FrameModelHelpersMixin:
     def _extract_model_candidates(
         self, frame: np.ndarray, img_width: int, img_height: int
     ) -> Tuple[List[np.ndarray], List[float], List[int]]:
-        yolo_result = self.model(frame, verbose=False)[0]
+        model = self.ensure_model_loaded()
+        yolo_result = model(frame, verbose=False)[0]
         names = yolo_result.names
 
         dets: List[np.ndarray] = []
@@ -35,7 +36,7 @@ class FrameModelHelpersMixin:
         return str(cls_id)
 
     def _should_keep_detection(self, conf: float, label: str) -> bool:
-        if conf < CONF_THRESHOLD:
+        if conf < self.conf_threshold:
             return False
         if not self.uses_text_prompt and self.target_classes and label not in self.class_to_category_id:
             return False

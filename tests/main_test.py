@@ -9,10 +9,10 @@ from ultralytics import YOLO
 
 VIDEOS_ROOT = Path(__file__).resolve().parent / "videos"
 VIDEO_EXTENSIONS = (".mp4", ".avi", ".mov", ".mkv")
-WEIGHTS_PATH = Path(__file__).resolve().parent / "yolo11l.pt"
+WEIGHTS_PATH = Path(__file__).resolve().parent / "yolo26m.pt"
 CONF_THRESHOLD = 0.40
 TARGET_CLASS = "car"
-
+    
 
 def find_first_video() -> Optional[Path]:
     """Retorna o primeiro video encontrado (ordenado) dentro de `videos/`."""
