@@ -79,34 +79,32 @@ class MouseEventsMixin:
             print("[INFO] Caixa manual ignorada pois esta fora do ROI.")
             return
 
-        track_id = self.consume_manual_id_override()
-        if track_id is None:
-            track_id = self.match_manual_to_history(bbox)
-        if track_id is None:
-            track_id = self.new_track_id()
+        track_id = None
+        if self.tracking_enabled:
+            track_id = self.consume_manual_id_override()
+            if track_id is None:
+                track_id = self.match_manual_to_history(bbox)
+            if track_id is None:
+                track_id = self.new_track_id()
 
         warp_bbox = None
         if self.homography_matrix is not None and self.warp_size is not None:
             warp_bbox = self.project_bbox(bbox, self.homography_matrix, self.warp_size[0], self.warp_size[1])
 
-        manual_class_name = self.manual_class_var.get().strip() if self.manual_class_var is not None else ""
-        if not manual_class_name:
-            manual_class_name = self.target_classes[0] if self.target_classes else "object"
-        manual_category_id = self.register_category(manual_class_name)
-
         manual_det = Detection(
             original_bbox=bbox,
             warp_bbox=warp_bbox,
             confidence=1.0,
-            category_id=manual_category_id,
+            category_id=self.active_category_id(),
             track_id=track_id,
             source="manual",
         )
         self.manual_detections.append(manual_det)
-        self.track_history.setdefault(track_id, []).append({"frame": self.frame_index, "bbox": bbox.tolist()})
-        self.recent_tracks.append({"frame": self.frame_index, "tracks": [{"id": track_id, "bbox": bbox.copy()}]})
-        if len(self.recent_tracks) > self.history_window:
-            self.recent_tracks.pop(0)
+        if track_id is not None:
+            self.track_history.setdefault(track_id, []).append({"frame": self.frame_index, "bbox": bbox.tolist()})
+            self.recent_tracks.append({"frame": self.frame_index, "tracks": [{"id": track_id, "bbox": bbox.copy()}]})
+            if len(self.recent_tracks) > self.history_window:
+                self.recent_tracks.pop(0)
         self.update_display()
 
     def remove_annotation_at(self, x: int, y: int) -> bool:
@@ -114,6 +112,7 @@ class MouseEventsMixin:
             det = self.manual_detections[idx]
             x1, y1, x2, y2 = det.original_bbox
             if x1 <= x <= x2 and y1 <= y <= y2:
+                self.remove_detection_from_runtime_state(det)
                 del self.manual_detections[idx]
                 self.selected_detection = None
                 print("[INFO] Caixa manual removida.")
@@ -124,6 +123,7 @@ class MouseEventsMixin:
             det = self.current_detections[idx]
             x1, y1, x2, y2 = det.original_bbox
             if x1 <= x <= x2 and y1 <= y <= y2:
+                self.remove_detection_from_runtime_state(det)
                 del self.current_detections[idx]
                 self.selected_detection = None
                 print("[INFO] Deteccao removida.")

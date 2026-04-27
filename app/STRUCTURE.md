@@ -1,32 +1,45 @@
 # Estrutura de Codigo
 
-## Entry point
+## Entrada
 - `main.py`: entrada simples da aplicacao.
-- `app/runner.py`: bootstrap, tratamento de erro e encerramento.
+- `app/runner.py`: abre o wizard inicial, cria a sessao e inicia a anotacao.
 
-## Nucleo de anotacao (modularizado por area)
-- `app/annotation/tool.py`: composicao final da classe `AnnotationTool` via mixins.
-- `app/annotation/core_init.py`: inicializacao principal.
-- `app/annotation/runtime_state.py`: estado de execucao.
-- `app/annotation/ui_layout.py`: construcao de layout/botoes.
-- `app/annotation/ui_controls.py`: atalhos e estados de botoes.
-- `app/annotation/source_discovery.py`: descoberta e leitura de fontes.
-- `app/annotation/source_loading.py` + `source_helpers.py`: ciclo de carregamento da fonte.
-- `app/annotation/roi_state.py` + `roi_projection.py`: ROI e homografia.
-- `app/annotation/display_canvas.py` + `display_overlays.py` + `display_status.py`: renderizacao e status.
-- `app/annotation/mouse_events.py` + `mode_toggles.py`: eventos do mouse e modos da UI.
-- `app/annotation/frame_pipeline.py` + `frame_model_helpers.py`: pipeline de frame e inferencia.
-- `app/annotation/tracking_ids.py`: gerenciamento de IDs.
-- `app/annotation/workflow_actions.py`: acoes principais (aceitar/rejeitar/sair).
-- `app/annotation/review_nav.py`: navegacao e revisao de frames salvos.
-- `app/annotation/selection_edit.py`: selecao e edicao de track_id.
-- `app/annotation/persistence.py`: persistencia de anotacoes e encerramento.
-- `app/annotation/shared.py`: dependencias compartilhadas entre mixins.
+## Core
+- `app/core/session.py`: contrato de sessao (`AnnotationSessionConfig`) e modo (`tracking` ou `detection`).
 
-## Compatibilidade
-- `app/annotation_tool.py`: reexporta `AnnotationTool` para manter imports antigos.
+## Startup UI
+- `app/ui/startup/wizard.py`: fluxo responsivo em 3 etapas:
+  1. escolher tracking ou deteccao padrao;
+  2. importar/validar dataset;
+  3. escolher modelo auxiliar e classes.
+- `app/ui/theme.py`: tokens centrais de cores, fontes, espacamentos e tamanhos.
+- `app/ui/layout/scale.py`: escala visual baseada em altura do monitor e DPI.
+- `app/ui/layout/responsive_window.py`: dimensionamento baseado no monitor.
+- `app/ui/layout/scrollable_frame.py`: telas rolaveis para monitores menores.
+- `app/startup_dialog.py`: compatibilidade, reexporta o wizard atual.
 
-## Configuracoes e utilitarios
-- `app/config.py`: constantes, paths e flags.
-- `app/models.py`: dataclasses (`Detection`, `ByteTrackerArgs`).
-- `app/geometry.py`: utilitarios geometricos e de bbox.
+## Descoberta de Fontes
+- `app/sources/discovery.py`: servico independente de UI para descobrir videos, imagens e listas.
+- `app/annotation/sources/`: leitura de frames e ciclo das fontes durante a anotacao.
+
+## Anotacao
+- `app/annotation/tool.py`: composicao da ferramenta por mixins.
+- `app/annotation/state/`: inicializacao, estado runtime e configuracao de classes.
+- `app/annotation/ui/`: tela de anotacao, canvas, controles, status e eventos.
+- `app/annotation/roi/`: ROI e homografia.
+- `app/annotation/detection/`: pipeline de inferencia, workflow, revisao, edicao e persistencia.
+
+## Tracking
+- `app/tracking/multiclass_byte_tracking.py`: `BYTETracker` independente por classe para reduzir troca de identidade entre classes.
+- Modo `tracking`: salva `track_id`.
+- Modo `detection`: salva anotacoes COCO sem depender de `track_id`.
+
+## Exportacao e Utilitarios
+- `app/dataset_export.py`: exportacao COCO/YOLO.
+- `utils/`: scripts auxiliares de conversao, merge e augment.
+- `tracker/`: implementacao ByteTrack.
+
+## Testes
+- `tests/test_session_config.py`: sessao e descoberta de fontes.
+- `tests/test_scale.py` e `tests/test_theme.py`: escala visual e tokens de tema.
+- `tests/test_dataset_export.py`: exportacao, persistencia e workflow.

@@ -2,6 +2,40 @@ from app.annotation.shared import *
 
 
 class SelectionEditMixin:
+    def remove_detection_from_runtime_state(self, det: Detection):
+        """Remove referencias da deteccao apagada do estado temporario do frame."""
+        if det.track_id is None:
+            return
+        if det.source == "manual":
+            memory = self.manual_track_memory.get(det.track_id)
+            if memory is not None and self.bbox_close(memory.get("bbox"), det.original_bbox):
+                self.manual_track_memory.pop(det.track_id, None)
+
+        entries = self.track_history.get(det.track_id, [])
+        filtered_entries = [
+            entry
+            for entry in entries
+            if not (entry.get("frame") == self.frame_index and self.bbox_close(entry.get("bbox"), det.original_bbox))
+        ]
+        if filtered_entries:
+            self.track_history[det.track_id] = filtered_entries
+        else:
+            self.track_history.pop(det.track_id, None)
+
+        filtered_recent_tracks = []
+        for frame_data in self.recent_tracks:
+            if frame_data.get("frame") != self.frame_index:
+                filtered_recent_tracks.append(frame_data)
+                continue
+            tracks = [
+                track
+                for track in frame_data.get("tracks", [])
+                if not (track.get("id") == det.track_id and self.bbox_close(track.get("bbox"), det.original_bbox))
+            ]
+            if tracks:
+                filtered_recent_tracks.append({"frame": frame_data.get("frame"), "tracks": tracks})
+        self.recent_tracks = filtered_recent_tracks
+
     def validate_selected_detection(self):
         """Limpa selecao se o indice estiver invalido."""
         if self.get_selected_detection() is None:
@@ -55,6 +89,11 @@ class SelectionEditMixin:
         det = self.get_selected_detection()
         if det is not None:
             self.manual_id_var.set(str(det.track_id))
+            class_name = self.category_name_by_id().get(det.category_id)
+            manual_var = getattr(self, "manual_class_var", None)
+            if class_name and manual_var is not None:
+                manual_var.set(class_name)
+            self.update_class_panel()
         self.update_display()
 
     def apply_manual_id_to_selection(self):
@@ -76,7 +115,7 @@ class SelectionEditMixin:
             return
         det.track_id = new_id
         if det.source == "model" and det.internal_id is not None:
-            self.tracker_id_map[det.internal_id] = new_id
+            self.tracker_id_map[(det.category_id, det.internal_id)] = new_id
         self.update_track_history_for_edit(old_id, new_id, det.original_bbox)
         self.update_recent_tracks_for_edit(old_id, new_id, det.original_bbox)
         if det.source == "manual":
@@ -114,4 +153,3 @@ class SelectionEditMixin:
             for tr in frame_data.get("tracks", []):
                 if tr.get("id") == old_id and self.bbox_close(tr.get("bbox"), bbox):
                     tr["id"] = new_id
-

@@ -27,11 +27,12 @@ class TrackingIdsMixin:
         self.track_history[tid] = []
         return tid
 
-    def get_global_id(self, internal_id: int) -> int:
+    def get_global_id(self, internal_id: int, category_id: Optional[int] = None) -> int:
         """Mapeia ID interno do ByteTrack para ID global fixo e sequencial."""
-        if internal_id not in self.tracker_id_map:
-            self.tracker_id_map[internal_id] = self.new_track_id()
-        return self.tracker_id_map[internal_id]
+        key = (int(category_id or 0), int(internal_id))
+        if key not in self.tracker_id_map:
+            self.tracker_id_map[key] = self.new_track_id()
+        return self.tracker_id_map[key]
 
     def match_manual_to_history(self, manual_bbox: np.ndarray) -> Optional[int]:
         """Associa anotacao manual priorizando deteccoes do frame atual, depois historico recente."""
@@ -64,4 +65,3 @@ class TrackingIdsMixin:
         return None
 
     # ===================== CONTROLE DE FLUXO =====================
-

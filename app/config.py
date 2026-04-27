@@ -1,11 +1,11 @@
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_ROOT = BASE_DIR / "imagens"
+DATA_ROOT = Path("dataset")
 VIDEO_EXTENSIONS = (".mp4", ".avi", ".mov", ".mkv")
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
 IMAGE_LIST_EXTENSIONS = (".txt", ".lst")
-WEIGHTS_PATH = BASE_DIR / "models/detectarDocs.pt"
+WEIGHTS_PATH = Path("model.pt")
 OUTPUT_DIR = BASE_DIR / "output_dataset"
 OUTPUT_IMAGES_DIR = OUTPUT_DIR / "images"
 ANNOTATIONS_PATH = OUTPUT_DIR / "annotations.coco.json"

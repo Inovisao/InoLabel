@@ -1,6 +1,6 @@
 # Ferramenta de Anotacao com ROI, Homografia e Tracking (YOLO)
 
-Interface Tkinter para validar e anotar deteccoes de multiplos videos em sequencia, aplicando ROI via 4 cliques, homografia (warpPerspective), tracking persistente (YOLO `model.track`) e salvando em formato COCO/MOT com `track_id`.
+Interface Tkinter para validar e anotar deteccoes de imagens ou videos. O fluxo inicial permite escolher entre tracking e deteccao padrao, importar o dataset, selecionar o modelo auxiliar e configurar classes antes de abrir a tela de anotacao.
 
 Bytetracker retirado de: https://github.com/FoundationVision/ByteTrack
 
@@ -18,30 +18,26 @@ conda activate tracking-anotator
 conda install -c conda-forge --file requirements.txt
 ```
 
-Coloque seus videos em `videos/` (subpastas sao suportadas) e deixe `yolo11l.pt` na raiz do repo. A pasta `output_dataset/` sera criada automaticamente.
+Os caminhos de dataset e modelo podem ser escolhidos na tela inicial. Os valores de `app/config.py` funcionam apenas como defaults.
 
 ## Funcionalidades principais
-- Percorre todos os videos em `videos/` (subpastas incluidas) e processa um por vez.
+- Percorre todas as fontes validas selecionadas no wizard e processa uma por vez.
 - Selecao de ROI por 4 cliques; calcula homografia (M e M_inv) e aplica warpPerspective.
 - Detecta na imagem retificada, mapeia caixas de volta ao frame original e descarta deteccoes fora do ROI.
-- Tracking persistente via `model.track(persist=True)` com `track_id` global.
-- Anotacao manual com `track_id` exclusivo e reuso opcional por IoU.
+- Modo tracking com `BYTETracker` separado por classe para reduzir troca de identidade em cenarios multiclass.
+- Modo deteccao padrao sem dependencia de `track_id`.
+- Anotacao manual com `track_id` em tracking, ou bbox simples em deteccao padrao.
 - Salva COCO/MOT em `output_dataset/annotations.coco.json`, frames em `output_dataset/images/` e homografias em `output_dataset/homography.json`.
 - Exporta COCO de deteccao por botao em `output_dataset/annotations_detection.coco.json`.
 - Exporta dataset YOLO por botao em `output_dataset/yolo_dataset/`, com `data.yaml`, `images/{train,val,test}` e `labels/{train,val,test}`.
-- Opcao de salvar frames retificados ou originais (`SAVE_RECTIFIED_FRAMES` em `main.py`).
+- Opcao de salvar frames retificados ou originais (`SAVE_RECTIFIED_FRAMES` em `app/config.py`).
 
 ## Estrutura esperada
 ```
 tracking-anotator/
 ├── main.py
-├── main_test.py
-├── yolo11l.pt
-└── videos/
-    ├── Classe 1
-    │   └── video1.mp4
-    └── Classe 2
-        └── video2.avi
+├── app/
+└── utils/
 ```
 
 ## Como rodar
@@ -50,7 +46,11 @@ tracking-anotator/
 python main.py
 ```
   1. Ao abrir cada video, clique 4 pontos para definir o ROI (ordem livre; o codigo ordena).  
-  2. Interface apos ROI:
+  2. Antes da anotacao, escolha:
+     - Tracking ou deteccao padrao
+     - Dataset/fonte de dados
+     - Modelo auxiliar e classes iniciais
+  3. Interface apos ROI:
      - Enter: validar/salvar frame atual  
      - Espaco: pular frame  
      - K: liga/desliga modo anotacao manual  
@@ -59,17 +59,11 @@ python main.py
      - R: redefinir ROI (nao altera anotacoes ja salvas do video atual)  
      - Botao `Salvar .coco.json`: gera um COCO de deteccao padrao
      - Botao `Salvar .yaml`: gera um dataset YOLO com `data.yaml`
-  3. Ao fim de cada video, o proximo e aberto automaticamente.
-
-- Teste rapido (sem UI):
-```bash
-python main_test.py
-```
-Roda 10 frames do primeiro video encontrado em `videos/` e imprime contagens/track_ids (nao abre a interface).
+  4. Ao fim de cada fonte, a proxima e aberta automaticamente.
 
 Saidas geradas:
 - `output_dataset/images/{video}_frame_00001.jpg` (originais ou retificados, conforme `SAVE_RECTIFIED_FRAMES`)
-- `output_dataset/annotations.coco.json` (inclui `track_id` e `video`)
+- `output_dataset/annotations.coco.json` (inclui `track_id` no modo tracking)
 - `output_dataset/annotations_detection.coco.json` (COCO deteccao padrao)
 - `output_dataset/yolo_dataset/data.yaml`
 - `output_dataset/yolo_dataset/images/{train,val,test}/...`
@@ -80,7 +74,7 @@ Saidas geradas:
 Use o script abaixo para ler um `.coco.json` e gerar a estrutura YOLO com `data.yaml`:
 
 ```bash
-python convert_coco_to_yolo_dataset.py output_dataset/annotations.coco.json
+python utils/convert_coco_to_yolo_dataset.py output_dataset/annotations.coco.json
 ```
 
 Opcoes uteis:
@@ -88,13 +82,23 @@ Opcoes uteis:
 - `--output-root output_dataset/yolo_dataset`
 - `--train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1`
 
-## Configuracoes uteis em `main.py`
+## Unir todos os splits YOLO em train
+Use o script abaixo para consolidar um dataset YOLO existente em uma unica pasta `train`, util para validacao cruzada posterior sobre o conjunto completo:
+
+```bash
+python utils/merge_yolo_splits.py output_dataset/yolo_dataset
+```
+
+Opcao util:
+- `--output-root output_dataset/yolo_dataset_train_only`
+
+## Configuracoes uteis em `app/config.py`
 - `SAVE_RECTIFIED_FRAMES`: False (salva originais) ou True (salva warpPerspective).
 - `CONF_THRESHOLD`: limiar de confianca do YOLO.
-- `TARGET_CLASS`: classe alvo (padrao `car`).
+- `TARGET_CLASSES`: classes iniciais sugeridas no wizard.
 
 ## Resolucao de problemas
 - Tkinter nao abre no WSL: precisa de X server e variavel DISPLAY; ou rode em ambiente grafico nativo.
 - Tkinter ausente no Linux: `sudo apt-get install python3-tk`.
 - `lap`/`cython_bbox` falhando ao compilar: instale `build-essential python3-dev cmake` e tente novamente.
-- Pesos nao encontrados: confirme `yolo11l.pt` na raiz ou ajuste `WEIGHTS_PATH` em `main.py`.
+- Pesos nao encontrados: selecione o `.pt` no wizard ou ajuste `WEIGHTS_PATH` em `app/config.py`.

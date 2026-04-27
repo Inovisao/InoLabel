@@ -4,10 +4,11 @@ from app.annotation.shared import *
 class SourceLoadingMixin:
     def load_existing_annotations(self):
         """Carrega anotacoes existentes para continuar de onde parou."""
-        if not ANNOTATIONS_PATH.exists():
+        annotations_path = getattr(self, "annotations_path", ANNOTATIONS_PATH)
+        if not annotations_path.exists():
             return
         try:
-            with open(ANNOTATIONS_PATH, "r", encoding="utf-8") as f:
+            with open(annotations_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[AVISO] Falha ao ler anotacoes existentes: {exc}")
@@ -18,6 +19,7 @@ class SourceLoadingMixin:
         if cats:
             self.categories = cats
             self.class_to_category_id = {}
+            self.ensure_category_metadata()
             for cat in self.categories:
                 name = str(cat.get("name", "")).strip()
                 cid = int(cat.get("id", 0))
@@ -31,7 +33,7 @@ class SourceLoadingMixin:
         max_img_id = max((img.get("id", 0) for img in self.images), default=0)
         self.annotation_id = max_ann_id + 1
         self.image_id = max_img_id + 1
-        max_track = max((ann.get("track_id", 0) for ann in self.annotations), default=0)
+        max_track = max((ann.get("track_id", 0) or 0 for ann in self.annotations), default=0)
         self.global_track_counter = max(max_track + 1, 1)
         print(
             f"[INFO] Anotacoes carregadas. imagens={len(self.images)}, "
@@ -83,4 +85,3 @@ class SourceLoadingMixin:
             self.finish_processing("Todas as fontes foram processadas.")
 
     # ===================== ROI & HOMOGRAFIA =====================
-

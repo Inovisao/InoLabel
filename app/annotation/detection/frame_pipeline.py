@@ -57,25 +57,43 @@ class FramePipelineMixin:
         img_info = (img_height, img_width)
         img_size = (img_height, img_width)
 
-        if not dets:
-            empty = np.empty((0, 5), dtype=np.float32)
-            self.bytetracker.update(empty, img_info, img_size)
+        if not self.tracking_enabled:
+            for box, score, category_id in zip(dets, scores, det_category_ids):
+                original_box = clip_bbox(box[0], box[1], box[2], box[3], img_width, img_height)
+                if not self.is_inside_roi(original_box):
+                    continue
+                warp_box = None
+                if self.homography_matrix is not None and self.warp_size is not None:
+                    warp_box = self.project_bbox(
+                        original_box, self.homography_matrix, self.warp_size[0], self.warp_size[1]
+                    )
+                detections.append(
+                    Detection(
+                        original_bbox=original_box,
+                        warp_bbox=warp_box,
+                        confidence=float(score),
+                        category_id=int(category_id),
+                        track_id=None,
+                        source="model",
+                        internal_id=None,
+                    )
+                )
             return detections
 
-        detections_bt = np.concatenate(
-            [np.array(dets, dtype=np.float32), np.array(scores, dtype=np.float32).reshape(-1, 1)], axis=1
-        )
-        tracks = self.bytetracker.update(detections_bt, img_info, img_size)
+        if not dets:
+            self.multiclass_tracker.update([], [], [], img_info, img_size)
+            return detections
 
-        for track in tracks:
+        tracks = self.multiclass_tracker.update(dets, scores, det_category_ids, img_info, img_size)
+
+        for category_id, track in tracks:
             tlbr = track.tlbr
             internal_id = int(track.track_id)
-            track_id = self.get_global_id(internal_id)
+            track_id = self.get_global_id(internal_id, category_id)
             score = float(track.score)
             original_box = clip_bbox(tlbr[0], tlbr[1], tlbr[2], tlbr[3], img_width, img_height)
             if not self.is_inside_roi(original_box):
                 continue
-            matched_category_id = self._match_track_category(original_box, dets, det_category_ids)
             warp_box = None
             if self.homography_matrix is not None and self.warp_size is not None:
                 warp_box = self.project_bbox(original_box, self.homography_matrix, self.warp_size[0], self.warp_size[1])
@@ -85,7 +103,7 @@ class FramePipelineMixin:
                     original_bbox=original_box,
                     warp_bbox=warp_box,
                     confidence=score,
-                    category_id=matched_category_id,
+                    category_id=int(category_id),
                     track_id=track_id,
                     source="model",
                     internal_id=internal_id,

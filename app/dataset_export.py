@@ -187,6 +187,7 @@ def _normalize_yolo_bbox(
     norm_width = width / float(image_width)
     norm_height = height / float(image_height)
     values = (x_center, y_center, norm_width, norm_height)
+
     if any(value < 0.0 or value > 1.0 for value in values):
         return None
     return values
@@ -253,11 +254,11 @@ def export_yolo_dataset(
     if not names:
         raise ValueError("Nenhuma categoria valida encontrada para exportacao YOLO.")
 
-    split_assignments = _assign_splits(images, normalized_ratios)
     annotations_by_image: Dict[int, List[Dict[str, Any]]] = {}
     for ann in annotations:
         image_id = int(ann.get("image_id"))
         annotations_by_image.setdefault(image_id, []).append(ann)
+    split_assignments = _assign_splits(images, normalized_ratios)
 
     for split in ("train", "val", "test"):
         (dataset_root / "images" / split).mkdir(parents=True, exist_ok=True)
@@ -265,6 +266,7 @@ def export_yolo_dataset(
 
     images_per_split = {"train": 0, "val": 0, "test": 0}
     labels_per_split = {"train": 0, "val": 0, "test": 0}
+    empty_images_per_split = {"train": 0, "val": 0, "test": 0}
     images_without_annotation: List[str] = []
     malformed_labels: List[str] = []
     present_classes: Set[int] = set()
@@ -286,8 +288,9 @@ def export_yolo_dataset(
             raise FileNotFoundError(f"Imagem nao encontrada para exportacao: {source_image_path}")
 
         target_image_path = dataset_root / "images" / split / file_name
-        target_label_path = dataset_root / "labels" / split / f"{Path(file_name).stem}.txt"
+        target_label_path = dataset_root / "labels" / split / Path(file_name).with_suffix(".txt")
         target_image_path.parent.mkdir(parents=True, exist_ok=True)
+        target_label_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_image_path, target_image_path)
 
         image_width = int(image.get("width", 0))
@@ -295,6 +298,7 @@ def export_yolo_dataset(
         image_annotations = annotations_by_image.get(image_id, [])
         if not image_annotations:
             images_without_annotation.append(file_name)
+            empty_images_per_split[split] += 1
         label_count = _write_label_file(
             target_label_path,
             image_annotations,
@@ -315,6 +319,7 @@ def export_yolo_dataset(
         "data_yaml": data_yaml_path.resolve(),
         "images_per_split": images_per_split,
         "labels_per_split": labels_per_split,
+        "empty_images_per_split": empty_images_per_split,
         "images_without_annotation": images_without_annotation,
         "malformed_labels": malformed_labels,
         "classes_present": {class_id: names[class_id] for class_id in sorted(present_classes)},
