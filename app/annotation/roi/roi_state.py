@@ -43,6 +43,14 @@ class ROIStateMixin:
         """Registra ponto clicado para ROI."""
         if len(self.roi_points) >= 4:
             return
+        if self.current_frame is not None:
+            frame_h, frame_w = self.current_frame.shape[:2]
+            x = int(np.clip(x, 0, frame_w - 1))
+            y = int(np.clip(y, 0, frame_h - 1))
+        for px, py in self.roi_points:
+            if abs(px - x) < 3 and abs(py - y) < 3:
+                print("[AVISO] Ponto de ROI muito proximo de outro ponto; escolha outro local.")
+                return
         self.roi_points.append((float(x), float(y)))
         if len(self.roi_points) == 4:
             self.compute_homography()
@@ -54,6 +62,19 @@ class ROIStateMixin:
             return
         src = order_points(np.array(self.roi_points, dtype=np.float32))
         width, height = destination_size(src)
+        area = cv2.contourArea(src.astype(np.float32))
+        if width < 5 or height < 5 or area < 25:
+            print("[ERRO] ROI invalida. Selecione 4 pontos formando uma area maior.")
+            self.roi_points = []
+            self.roi_defined = False
+            self.roi_capture_mode = True
+            self.homography_matrix = None
+            self.inverse_homography = None
+            self.warp_size = None
+            self.roi_polygon = None
+            self.dest_points = None
+            self.update_display()
+            return
         dst = np.array(
             [
                 [0, 0],
@@ -63,8 +84,17 @@ class ROIStateMixin:
             ],
             dtype=np.float32,
         )
-        self.homography_matrix = cv2.getPerspectiveTransform(src, dst)
-        self.inverse_homography = cv2.getPerspectiveTransform(dst, src)
+        try:
+            self.homography_matrix = cv2.getPerspectiveTransform(src, dst)
+            self.inverse_homography = cv2.getPerspectiveTransform(dst, src)
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[ERRO] Falha ao calcular ROI: {exc}")
+            self.roi_points = []
+            self.roi_capture_mode = True
+            self.roi_defined = False
+            self.homography_matrix = None
+            self.inverse_homography = None
+            return
         self.warp_size = (width, height)
         self.roi_polygon = src
         self.dest_points = dst
@@ -94,6 +124,6 @@ class ROIStateMixin:
         }
         self.homographies = [h for h in self.homographies if h.get("video") != str(self.video_path)]
         self.homographies.append(payload)
-        with open(HOMOGRAPHY_PATH, "w", encoding="utf-8") as f:
+        with open(self.homography_path, "w", encoding="utf-8") as f:
             json.dump(self.homographies, f, indent=4, ensure_ascii=False)
-        print(f"[INFO] Homografia salva/atualizada em {HOMOGRAPHY_PATH}")
+        print(f"[INFO] Homografia salva/atualizada em {self.homography_path}")

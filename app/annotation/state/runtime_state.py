@@ -30,6 +30,7 @@ class RuntimeStateMixin:
 
         self.annotation_mode = True
         self.remove_mode = False
+        self.selection_mode = False
         self.drawing_start: Optional[Tuple[int, int]] = None
         self.drawing_rect_id: Optional[int] = None
         self.canvas_image_id: Optional[int] = None
@@ -61,4 +62,6 @@ class RuntimeStateMixin:
         self.saved_records: List[dict] = []
         self.review_idx: Optional[int] = None
         self.live_snapshot: Optional[dict] = None
+        self.undo_stack: List[dict] = []
+        self.max_undo_states = 40
         self.closed = False

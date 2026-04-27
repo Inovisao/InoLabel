@@ -10,6 +10,9 @@ class ModeTogglesMixin:
         if self.annotation_mode and self.edit_id_mode:
             self.edit_id_mode = False
             self.selected_detection = None
+        if self.annotation_mode and self.selection_mode:
+            self.selection_mode = False
+            self.selected_detection = None
         if self.annotation_mode and self.remove_mode:
             self.remove_mode = False
 
@@ -22,6 +25,27 @@ class ModeTogglesMixin:
         print(f"[INFO] Modo anotacao manual {estado_msg}. Clique e arraste para desenhar caixas.")
         self.update_status()
 
+    def toggle_selection_mode(self):
+        if self.current_frame is None:
+            return
+
+        self.selection_mode = not self.selection_mode
+        if self.selection_mode:
+            self.annotation_mode = False
+            self.remove_mode = False
+            self.edit_id_mode = False
+            if self.drawing_rect_id is not None:
+                self.canvas.delete(self.drawing_rect_id)
+                self.drawing_rect_id = None
+            self.drawing_start = None
+        else:
+            self.selected_detection = None
+            if not self.annotation_mode:
+                self.annotation_mode = True
+        estado_msg = "ativado" if self.selection_mode else "desativado"
+        print(f"[INFO] Modo selecionar anotacao {estado_msg}. Clique em uma caixa para trocar classe.")
+        self.update_status()
+
     def toggle_remove_mode(self):
         if self.current_frame is None:
             return
@@ -29,6 +53,9 @@ class ModeTogglesMixin:
         self.remove_mode = not self.remove_mode
         if self.remove_mode and self.edit_id_mode:
             self.edit_id_mode = False
+            self.selected_detection = None
+        if self.remove_mode and self.selection_mode:
+            self.selection_mode = False
             self.selected_detection = None
         if self.remove_mode:
             if self.annotation_mode:
@@ -50,6 +77,9 @@ class ModeTogglesMixin:
 
         self.edit_id_mode = not self.edit_id_mode
         if self.edit_id_mode:
+            if self.selection_mode:
+                self.selection_mode = False
+                self.selected_detection = None
             if self.annotation_mode:
                 self.annotation_mode = False
             if self.remove_mode:

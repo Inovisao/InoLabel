@@ -99,22 +99,18 @@ def export_detection_coco_json(
 def _build_zero_based_category_mapping(
     categories: Sequence[Dict[str, Any]],
 ) -> Tuple[Dict[int, int], Dict[int, str]]:
-    sorted_categories = sorted(
-        (
-            {
-                "id": int(cat.get("id")),
-                "name": str(cat.get("name", "")).strip(),
-            }
-            for cat in categories
-            if str(cat.get("name", "")).strip()
-        ),
-        key=lambda cat: cat["id"],
-    )
     old_to_new: Dict[int, int] = {}
     names: Dict[int, str] = {}
-    for new_id, category in enumerate(sorted_categories):
-        old_to_new[category["id"]] = new_id
-        names[new_id] = category["name"]
+    for cat in categories:
+        name = str(cat.get("name", "")).strip()
+        if not name:
+            continue
+        old_id = int(cat.get("id"))
+        if old_id in old_to_new:
+            continue
+        new_id = len(old_to_new)
+        old_to_new[old_id] = new_id
+        names[new_id] = name
     return old_to_new, names
 
 

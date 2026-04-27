@@ -16,19 +16,23 @@ class FramePipelineMixin:
         self.current_detections = self.run_model(frame)
         self.manual_detections = []
         self.selected_detection = None
+        self.undo_stack = []
         self.annotation_mode = True
         self.remove_mode = False
+        self.selection_mode = False
         self.drawing_start = None
         if self.drawing_rect_id is not None:
             self.canvas.delete(self.drawing_rect_id)
             self.drawing_rect_id = None
         self.update_annotation_button()
         self.update_remove_button()
+        self.update_selection_button()
         self.update_display()
 
     def load_next_frame(self):
         if self.review_idx is not None:
             return
+        self.autosave_current_frame(reason="antes de trocar frame")
 
         if self.current_source_type == "video":
             if self.cap is None:
@@ -46,6 +50,8 @@ class FramePipelineMixin:
                 return
 
         self.process_current_frame(frame)
+        self.restore_saved_annotations_for_current_frame()
+        self.update_display()
 
     def run_model(self, original_frame: np.ndarray) -> List[Detection]:
         detections: List[Detection] = []

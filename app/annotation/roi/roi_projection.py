@@ -6,7 +6,17 @@ class ROIProjectionMixin:
         """Aplica warpPerspective ao frame atual usando a homografia."""
         if self.homography_matrix is None or self.warp_size is None:
             return frame
-        return cv2.warpPerspective(frame, self.homography_matrix, self.warp_size)
+        try:
+            return cv2.warpPerspective(frame, self.homography_matrix, self.warp_size)
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[AVISO] Falha ao aplicar ROI; usando frame original: {exc}")
+            self.homography_matrix = None
+            self.inverse_homography = None
+            self.warp_size = None
+            self.roi_polygon = None
+            self.dest_points = None
+            self.roi_defined = False
+            return frame
 
     def project_bbox(
         self, bbox: np.ndarray, matrix: Optional[np.ndarray], width: int, height: int
@@ -32,6 +42,8 @@ class ROIProjectionMixin:
         """Verifica se a bbox está majoritariamente dentro do ROI."""
         if self.roi_polygon is None:
             return True
+        if len(self.roi_polygon) < 3:
+            return True
 
         x1, y1, x2, y2 = bbox
         box_pts = np.array(
@@ -44,6 +56,8 @@ class ROIProjectionMixin:
             dtype=np.float32,
         )
         poly = self.roi_polygon.astype(np.float32)
+        if cv2.contourArea(poly) <= 1:
+            return True
 
         inside_count = 0
         for (px, py) in box_pts:

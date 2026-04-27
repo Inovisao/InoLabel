@@ -55,8 +55,8 @@ SIZES = {
     "btn_pad_x":        14,
     "btn_pad_y":        10,
     "input_pad":         8,
-    "content_max_w":   920,
-    "content_min_w":   680,
+    "content_max_w":  1080,
+    "content_min_w":   760,
 }
 
 TOKENS = {

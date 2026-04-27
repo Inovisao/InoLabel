@@ -35,6 +35,33 @@ class ReviewNavMixin:
             "detections": [self.clone_detection(det) for det in detections],
         }
 
+    def remember_saved_record(self, detections: List[Detection], image_id: int, file_name: str):
+        """Insere ou atualiza cache de revisao para um frame salvo."""
+        if self.current_frame is None:
+            return
+        for idx, record in enumerate(self.saved_records):
+            if record.get("image_id") == image_id or record.get("file_name") == file_name:
+                self.update_saved_record(idx, detections, image_id, file_name)
+                return
+        self.append_saved_record(detections, image_id, file_name)
+
+    def restore_saved_annotations_for_current_frame(self):
+        """Se o frame atual ja foi salvo, restaura suas anotacoes em vez de perder estado."""
+        file_name = self.current_frame_file_name()
+        if not file_name:
+            return
+        record = self.find_image_record_by_file_name(file_name)
+        if record is None or self.current_frame is None:
+            return
+        dets = self.rebuild_detections_from_annotations(
+            int(record["id"]),
+            self.current_frame.shape[1],
+            self.current_frame.shape[0],
+        )
+        self.current_detections = [d for d in dets if d.source == "model"]
+        self.manual_detections = [d for d in dets if d.source != "model"]
+        self.selected_detection = None
+
     def rebuild_detections_from_annotations(self, image_id: int, width: int, height: int) -> List[Detection]:
         """Reconstrui deteccoes a partir das anotacoes salvas."""
         dets: List[Detection] = []
@@ -85,33 +112,80 @@ class ReviewNavMixin:
         self.current_detections = [d for d in dets if d.source == "model"]
         self.manual_detections = [d for d in dets if d.source != "model"]
         self.selected_detection = None
+        self.undo_stack = []
         self.annotation_mode = True
         self.remove_mode = False
+        self.selection_mode = False
         self.update_display()
 
     def on_prev_saved(self):
-        """Navega para frame salvo anterior."""
+        """Navega para frame salvo anterior ou frame/fonte anterior."""
+        self.autosave_current_frame(reason="antes de voltar")
         if not self.saved_records:
-            print("[INFO] Nenhum frame salvo para revisar.")
+            self.load_previous_frame()
             return
         if self.review_idx is None:
-            self.go_to_saved_frame(len(self.saved_records) - 1)
+            self.load_previous_frame()
         else:
             self.go_to_saved_frame(max(0, self.review_idx - 1))
 
     def on_next_saved(self):
-        """Navega para proximo frame salvo; se for o ultimo, sai da revisao."""
+        """Navega para proximo frame salvo ou avanca no fluxo ao vivo."""
+        self.autosave_current_frame(reason="antes de avancar")
         if not self.saved_records:
-            print("[INFO] Nenhum frame salvo para revisar.")
+            self.load_next_frame()
             return
         if self.review_idx is None:
-            self.go_to_saved_frame(0)
+            self.load_next_frame()
             return
         next_idx = self.review_idx + 1
         if next_idx < len(self.saved_records):
             self.go_to_saved_frame(next_idx)
         else:
             self.exit_review_mode()
+
+    def load_previous_frame(self):
+        """Volta um frame quando a fonte permite reposicionamento."""
+        if self.review_idx is not None:
+            return
+        if self.current_source_type == "images":
+            target_cursor = max(0, self.current_image_cursor - 2)
+            if target_cursor == self.current_image_cursor:
+                print("[INFO] Ja esta na primeira imagem.")
+                return
+            self.current_image_cursor = target_cursor
+            self.frame_index = target_cursor
+            frame = self.read_next_image_frame()
+            if frame is None:
+                print("[INFO] Nao foi possivel voltar imagem.")
+                return
+            self.process_current_frame(frame, advance_index=True)
+            self.restore_saved_annotations_for_current_frame()
+            self.update_display()
+            return
+
+        if self.current_source_type == "video" and self.cap is not None:
+            target_frame = max(0, self.frame_index - 2)
+            if target_frame == self.frame_index:
+                print("[INFO] Ja esta no primeiro frame.")
+                return
+            try:
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, float(target_frame))
+            except Exception as exc:  # pylint: disable=broad-except
+                print(f"[AVISO] Nao foi possivel reposicionar video: {exc}")
+                return
+            self.frame_index = target_frame
+            ret, frame = self.cap.read()
+            if not ret or frame is None:
+                print("[INFO] Nao foi possivel voltar frame.")
+                return
+            self.current_source_image_path = None
+            self.process_current_frame(frame, advance_index=True)
+            self.restore_saved_annotations_for_current_frame()
+            self.update_display()
+            return
+
+        print("[INFO] Fonte atual nao suporta voltar.")
 
     def exit_review_mode(self):
         """Retorna ao fluxo ao vivo apos revisao."""
@@ -124,6 +198,7 @@ class ReviewNavMixin:
             self.manual_detections = snap["manual_detections"]
             self.current_source_image_path = snap.get("source_image_path")
             self.selected_detection = None
+            self.undo_stack = []
             self.live_snapshot = None
             self.review_idx = None
             self.update_display()

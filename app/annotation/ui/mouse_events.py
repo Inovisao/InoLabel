@@ -14,7 +14,7 @@ class MouseEventsMixin:
         if self.roi_capture_mode and not self.roi_defined:
             self.add_roi_point(x, y)
             return
-        if self.edit_id_mode:
+        if self.edit_id_mode or self.selection_mode:
             self.select_detection_at(x, y)
             return
         if self.remove_mode:
@@ -78,6 +78,7 @@ class MouseEventsMixin:
         if not self.is_inside_roi(bbox):
             print("[INFO] Caixa manual ignorada pois esta fora do ROI.")
             return
+        self.push_undo_state("adicionar anotacao manual")
 
         track_id = None
         if self.tracking_enabled:
@@ -112,6 +113,7 @@ class MouseEventsMixin:
             det = self.manual_detections[idx]
             x1, y1, x2, y2 = det.original_bbox
             if x1 <= x <= x2 and y1 <= y <= y2:
+                self.push_undo_state("remover anotacao manual")
                 self.remove_detection_from_runtime_state(det)
                 del self.manual_detections[idx]
                 self.selected_detection = None
@@ -123,6 +125,7 @@ class MouseEventsMixin:
             det = self.current_detections[idx]
             x1, y1, x2, y2 = det.original_bbox
             if x1 <= x <= x2 and y1 <= y <= y2:
+                self.push_undo_state("remover deteccao")
                 self.remove_detection_from_runtime_state(det)
                 del self.current_detections[idx]
                 self.selected_detection = None

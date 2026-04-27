@@ -47,7 +47,7 @@ class StartupWizard:
         self.sizes = self.ui["sizes"]
 
         self.root.configure(bg=self.colors["bg"])
-        apply_responsive_geometry(self.root)
+        apply_responsive_geometry(self.root, width_ratio=0.92, height_ratio=0.88)
         self.root.protocol("WM_DELETE_WINDOW", self.cancel)
 
         self.cache = load_startup_cache()
@@ -318,9 +318,15 @@ class StartupWizard:
             anchor="w",
         ).grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, self.spacing["sm"]))
         entry = self._entry(form, self.data_root_var)
-        entry.grid(row=1, column=0, sticky="ew", padx=(0, self.spacing["sm"]))
-        self._button(form, "Pasta", self.browse_dataset_folder).grid(row=1, column=1, padx=(0, self.spacing["sm"]))
-        self._button(form, "Arquivo", self.browse_dataset_file).grid(row=1, column=2)
+        entry.grid(row=1, column=0, columnspan=3, sticky="ew")
+
+        actions = tk.Frame(form, bg=self.colors["panel"])
+        actions.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(self.spacing["sm"], 0))
+        actions.columnconfigure(0, weight=1)
+        self._button(actions, "Selecionar pasta", self.browse_dataset_folder).grid(
+            row=0, column=1, padx=(0, self.spacing["sm"])
+        )
+        self._button(actions, "Selecionar arquivo", self.browse_dataset_file).grid(row=0, column=2)
 
         summary_text = self._build_summary_text()
         summary = tk.Label(
@@ -333,7 +339,7 @@ class StartupWizard:
             anchor="w",
         )
         summary._responsive_wrap = True
-        summary.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(self.spacing["md"], 0))
+        summary.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(self.spacing["md"], 0))
         self._footer(body, self.show_mode_screen, self.validate_dataset_and_continue)
 
     def _entry(self, parent, variable: tk.StringVar):
@@ -356,6 +362,7 @@ class StartupWizard:
         path = filedialog.askdirectory(
             title="Selecione a pasta com imagens ou videos",
             initialdir=str(initial if initial.exists() else Path.home()),
+            parent=self.root,
         )
         if path:
             self.data_root_var.set(path)
@@ -371,6 +378,7 @@ class StartupWizard:
                 ("Fontes suportadas", "*.mp4 *.avi *.mov *.mkv *.jpg *.jpeg *.png *.bmp *.tif *.tiff *.txt *.lst"),
                 ("Todos os arquivos", "*.*"),
             ],
+            parent=self.root,
         )
         if path:
             self.data_root_var.set(path)
@@ -420,13 +428,15 @@ class StartupWizard:
             font=self.fonts["label"],
             anchor="w",
         ).grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, self.spacing["sm"]))
-        self._entry(form, self.weights_var).grid(row=1, column=0, sticky="ew", padx=(0, self.spacing["sm"]))
-        self._button(form, "Selecionar modelo", self.browse_model).grid(row=1, column=1)
-        self._button(form, "Validar modelo", self.validate_model).grid(
-            row=1,
-            column=2,
-            padx=(self.spacing["sm"], 0),
+        self._entry(form, self.weights_var).grid(row=1, column=0, columnspan=3, sticky="ew")
+
+        actions = tk.Frame(form, bg=self.colors["panel"])
+        actions.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(self.spacing["sm"], 0))
+        actions.columnconfigure(0, weight=1)
+        self._button(actions, "Selecionar modelo", self.browse_model).grid(
+            row=0, column=1, padx=(0, self.spacing["sm"])
         )
+        self._button(actions, "Validar modelo", self.validate_model).grid(row=0, column=2)
 
         tk.Label(
             form,
@@ -435,9 +445,9 @@ class StartupWizard:
             fg=self.colors["text"],
             font=self.fonts["label"],
             anchor="w",
-        ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(self.spacing["lg"], self.spacing["sm"]))
+        ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(self.spacing["lg"], self.spacing["sm"]))
         class_panel = tk.Frame(form, bg=self.colors["panel"])
-        class_panel.grid(row=3, column=0, columnspan=3, sticky="ew")
+        class_panel.grid(row=4, column=0, columnspan=3, sticky="ew")
         self._redraw_classes(class_panel)
 
         model_status = tk.Label(
@@ -450,7 +460,7 @@ class StartupWizard:
             anchor="w",
         )
         model_status._responsive_wrap = True
-        model_status.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(self.spacing["lg"], 0))
+        model_status.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(self.spacing["lg"], 0))
 
         summary = tk.Label(
             form,
@@ -462,7 +472,7 @@ class StartupWizard:
             anchor="w",
         )
         summary._responsive_wrap = True
-        summary.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(self.spacing["md"], 0))
+        summary.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(self.spacing["md"], 0))
         self._footer(body, self.show_dataset_screen, self.finish, "Iniciar anotacao")
 
     def browse_model(self):
@@ -471,6 +481,7 @@ class StartupWizard:
             title="Selecione o arquivo de pesos (.pt)",
             initialdir=str(initial.parent if initial.parent.exists() else Path.home()),
             filetypes=[("Pesos YOLO", "*.pt"), ("Todos os arquivos", "*.*")],
+            parent=self.root,
         )
         if path:
             self.weights_var.set(path)
@@ -553,6 +564,41 @@ class StartupWizard:
                 fg=self.colors["text"],
                 anchor="w",
             ).grid(row=0, column=1, sticky="ew")
+            if len(self.classes) > 1:
+                tk.Button(
+                    row,
+                    text="↑",
+                    font=self.fonts["tag"],
+                    padx=self.spacing["sm"],
+                    pady=self.spacing["sm"],
+                    bd=0,
+                    relief=tk.FLAT,
+                    cursor="hand2" if idx > 0 else "arrow",
+                    bg=self.colors["neutral"],
+                    fg=self.colors["text"],
+                    activebackground=self.colors["neutral_active"],
+                    activeforeground=self.colors["text"],
+                    disabledforeground=self.colors["muted"],
+                    state=(tk.NORMAL if idx > 0 else tk.DISABLED),
+                    command=lambda i=idx: self._move_class(panel, i, -1),
+                ).grid(row=0, column=2, sticky="e", padx=(self.spacing["sm"], 0))
+                tk.Button(
+                    row,
+                    text="↓",
+                    font=self.fonts["tag"],
+                    padx=self.spacing["sm"],
+                    pady=self.spacing["sm"],
+                    bd=0,
+                    relief=tk.FLAT,
+                    cursor="hand2" if idx < len(self.classes) - 1 else "arrow",
+                    bg=self.colors["neutral"],
+                    fg=self.colors["text"],
+                    activebackground=self.colors["neutral_active"],
+                    activeforeground=self.colors["text"],
+                    disabledforeground=self.colors["muted"],
+                    state=(tk.NORMAL if idx < len(self.classes) - 1 else tk.DISABLED),
+                    command=lambda i=idx: self._move_class(panel, i, 1),
+                ).grid(row=0, column=3, sticky="e", padx=(self.spacing["xs"], 0))
             remove_state = tk.NORMAL if len(self.classes) > 1 else tk.DISABLED
             remove_btn = tk.Button(
                 row,
@@ -571,7 +617,7 @@ class StartupWizard:
                 state=remove_state,
                 command=lambda n=name: self._remove_class(panel, n),
             )
-            remove_btn.grid(row=0, column=2, sticky="e", padx=(self.spacing["sm"], 0))
+            remove_btn.grid(row=0, column=4, sticky="e", padx=(self.spacing["sm"], 0))
         self._button(panel, "+ Nova classe", lambda: self._show_class_entry(panel)).pack(
             fill=tk.X,
             pady=self.spacing["xs"],
@@ -582,6 +628,13 @@ class StartupWizard:
             messagebox.showwarning("Classes", "Mantenha ao menos uma classe para iniciar a anotacao.")
             return
         self.classes = [item for item in self.classes if item != name]
+        self._redraw_classes(panel)
+
+    def _move_class(self, panel: tk.Frame, index: int, direction: int):
+        new_index = index + direction
+        if new_index < 0 or new_index >= len(self.classes):
+            return
+        self.classes[index], self.classes[new_index] = self.classes[new_index], self.classes[index]
         self._redraw_classes(panel)
 
     def _show_class_entry(self, panel: tk.Frame):

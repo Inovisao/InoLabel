@@ -45,6 +45,7 @@ class DisplayStatusMixin:
         self.update_image_info()
         self.update_annotation_button()
         self.update_remove_button()
+        self.update_selection_button()
         self.update_edit_id_button()
 
     def update_status_blocks(self):
@@ -81,6 +82,9 @@ class DisplayStatusMixin:
         elif self.edit_id_mode:
             self.status_mode_var.set("● Editar ID")
             self.status_mode_lbl.config(fg=COLORS["accent"])
+        elif self.selection_mode:
+            self.status_mode_var.set("● Seleção")
+            self.status_mode_lbl.config(fg=COLORS["primary"])
         else:
             self.status_mode_var.set("Validação")
             self.status_mode_lbl.config(fg=COLORS["muted"])
