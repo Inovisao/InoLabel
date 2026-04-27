@@ -71,6 +71,8 @@ class SourceLoadingMixin:
 
         self.enable_controls_after_roi()
         self.process_current_frame(first_frame, advance_index=True)
+        self.restore_saved_annotations_for_current_frame()
+        self.update_display()
 
     def finish_current_video(self):
         """Fecha o video atual e segue para o proximo se existir."""

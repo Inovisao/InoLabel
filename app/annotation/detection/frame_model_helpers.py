@@ -38,17 +38,13 @@ class FrameModelHelpersMixin:
     def _should_keep_detection(self, conf: float, label: str) -> bool:
         if conf < self.conf_threshold:
             return False
-        if not self.uses_text_prompt and self.target_classes and label not in self.class_to_category_id:
-            return False
         return True
 
     def _resolve_category_id(self, label: str) -> int:
-        category_id = self.class_to_category_id.get(label)
-        if category_id is not None:
-            return category_id
-        if self.uses_text_prompt and len(self.target_classes) == 1:
+        _ = label
+        if self.target_classes:
             return self.register_category(self.target_classes[0])
-        return self.register_category(label)
+        return self.register_category("object")
 
     @staticmethod
     def _match_track_category(original_box: np.ndarray, dets: List[np.ndarray], det_category_ids: List[int]) -> int:

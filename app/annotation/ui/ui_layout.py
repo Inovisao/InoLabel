@@ -209,6 +209,15 @@ class UILayoutMixin:
         self._apply_button_theme(self.remove_button, bg=COLORS["danger"], active_bg=COLORS["danger_active"])
         self.remove_button.pack(fill=tk.X, **p)
 
+        self.selection_button = self._sb_btn(
+            s, "Selecionar anotação  OFF  (S)", self.toggle_selection_mode, state=tk.DISABLED,
+        )
+        self._apply_button_theme(
+            self.selection_button,
+            bg=COLORS["neutral"], active_bg=COLORS["neutral_active"], fg=COLORS["text"],
+        )
+        self.selection_button.pack(fill=tk.X, **p)
+
         self.edit_id_button = self._sb_btn(
             s, "Editar ID  OFF  (E)", self.toggle_edit_id_mode, state=tk.DISABLED,
         )
@@ -225,6 +234,12 @@ class UILayoutMixin:
             self.roi_button, bg=COLORS["neutral"], active_bg=COLORS["neutral_active"], fg=COLORS["text"],
         )
         self.roi_button.pack(fill=tk.X, **p)
+
+        self.undo_button = self._sb_btn(s, "Desfazer  (Ctrl+Z)", self.undo_last_action)
+        self._apply_button_theme(
+            self.undo_button, bg=COLORS["neutral"], active_bg=COLORS["neutral_active"], fg=COLORS["text"],
+        )
+        self.undo_button.pack(fill=tk.X, **p)
 
         self._sb_divider(s)
 
@@ -278,6 +293,17 @@ class UILayoutMixin:
         self.save_coco_button = self._sb_btn(s, "Salvar .coco.json", self.on_save_coco_json, state=tk.DISABLED)
         self._apply_button_theme(self.save_coco_button, bg=COLORS["primary"], active_bg=COLORS["primary_active"])
         self.save_coco_button.pack(fill=tk.X, **p)
+
+        self.export_dataset_button = self._sb_btn(
+            s, "Exportar dataset", self.on_export_dataset, state=tk.DISABLED,
+        )
+        self._apply_button_theme(
+            self.export_dataset_button,
+            bg=COLORS["accent"],
+            active_bg=COLORS["accent_active"],
+            fg=COLORS["text"],
+        )
+        self.export_dataset_button.pack(fill=tk.X, **p)
 
         self._sb_divider(s)
 

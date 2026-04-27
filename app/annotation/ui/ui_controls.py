@@ -8,6 +8,10 @@ class UIControlsMixin:
         self.window.bind("<Escape>", lambda event: self.on_quit())
         self.window.bind("k", lambda event: self.toggle_annotation_mode())
         self.window.bind("K", lambda event: self.toggle_annotation_mode())
+        self.window.bind("s", lambda event: self.toggle_selection_mode())
+        self.window.bind("S", lambda event: self.toggle_selection_mode())
+        self.window.bind("<Control-z>", lambda event: self.undo_last_action())
+        self.window.bind("<Control-Z>", lambda event: self.undo_last_action())
         self.window.bind("r", lambda event: self.reset_roi())
         self.window.bind("R", lambda event: self.reset_roi())
         if self.tracking_enabled:
@@ -31,6 +35,7 @@ class UIControlsMixin:
         self.reject_button.config(state=tk.NORMAL)
         self.annotation_button.config(state=tk.NORMAL)
         self.remove_button.config(state=tk.NORMAL)
+        self.selection_button.config(state=tk.NORMAL)
         self.apply_id_button.config(state=tk.NORMAL)
         self.edit_id_button.config(state=tk.NORMAL)
         if not self.tracking_enabled:
@@ -38,6 +43,7 @@ class UIControlsMixin:
             self.edit_id_button.config(state=tk.DISABLED)
         self.save_yaml_button.config(state=tk.NORMAL)
         self.save_coco_button.config(state=tk.NORMAL)
+        self.export_dataset_button.config(state=tk.NORMAL)
         self.info_var.set(self.build_status_message())
         self.update_class_panel()
 
@@ -47,10 +53,12 @@ class UIControlsMixin:
         self.reject_button.config(state=tk.DISABLED)
         self.annotation_button.config(state=tk.DISABLED)
         self.remove_button.config(state=tk.DISABLED)
+        self.selection_button.config(state=tk.DISABLED)
         self.apply_id_button.config(state=tk.DISABLED)
         self.edit_id_button.config(state=tk.DISABLED)
         self.save_yaml_button.config(state=tk.DISABLED)
         self.save_coco_button.config(state=tk.DISABLED)
+        self.export_dataset_button.config(state=tk.DISABLED)
 
     def update_annotation_button(self):
         """Atualiza o texto do botao de modo de anotacao."""
@@ -63,6 +71,12 @@ class UIControlsMixin:
         if hasattr(self, "remove_button"):
             estado = "ON" if self.remove_mode else "OFF"
             self.remove_button.config(text=f"Remover anotacao {estado}")
+
+    def update_selection_button(self):
+        """Atualiza o texto do botao de selecao."""
+        if hasattr(self, "selection_button"):
+            estado = "ON" if self.selection_mode else "OFF"
+            self.selection_button.config(text=f"Selecionar anotacao {estado} (S)")
 
     def update_edit_id_button(self):
         """Atualiza o texto do botao de edicao de ID."""

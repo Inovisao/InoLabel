@@ -62,6 +62,18 @@ class ClassConfigMixin:
         self.categories.append({"id": next_id, "name": clean_name, "color": color, "supercategory": "none"})
         return next_id
 
+    def sync_category_order(self):
+        """Mantem o array COCO categories seguindo a ordem visual das classes."""
+        if not self.categories:
+            return
+        order_by_name = {name: index for index, name in enumerate(self.target_classes)}
+        self.categories.sort(
+            key=lambda cat: (
+                order_by_name.get(str(cat.get("name", "")).strip(), len(order_by_name)),
+                int(cat.get("id", 0)),
+            )
+        )
+
     def parse_classes_text(self, text: str) -> List[str]:
         items = [part.strip() for part in text.split(",")]
         parsed: List[str] = []
@@ -84,19 +96,12 @@ class ClassConfigMixin:
             self.target_classes.append(name)
         for cname in self.target_classes:
             self.register_category(cname)
+        self.sync_category_order()
         self.ensure_category_metadata()
 
         self.uses_text_prompt = False
-        model = self.model
-        if model is not None and hasattr(model, "set_classes") and self.target_classes:
-            try:
-                model.set_classes(self.target_classes)
-                self.uses_text_prompt = True
-                print(f"[INFO] Prompt de classes aplicado no modelo: {self.target_classes}")
-            except Exception as exc:  # pylint: disable=broad-except
-                print(f"[AVISO] Falha ao aplicar set_classes({self.target_classes}): {exc}")
-        elif model is not None and not hasattr(model, "set_classes"):
-            print("[AVISO] Modelo nao suporta set_classes(); usando filtro por nome de classe.")
+        if self.model is not None:
+            print("[INFO] Modelo configurado para aceitar qualquer deteccao; classes da UI serao usadas como rotulos.")
 
         if getattr(self, "target_classes_var", None) is not None:
             self.target_classes_var.set(", ".join(self.target_classes))
@@ -106,6 +111,7 @@ class ClassConfigMixin:
                 self.manual_class_var.set(self.target_classes[0] if self.target_classes else "")
         self._class_panel_snapshot = None
         self.update_class_panel(force=True)
+        self.autosave_classes()
 
     def apply_target_classes_from_ui(self):
         raw = self.target_classes_var.get() if self.target_classes_var is not None else ""
@@ -116,6 +122,17 @@ class ClassConfigMixin:
         self.apply_target_classes(parsed)
         print(f"[INFO] Classes alvo atualizadas: {self.target_classes}")
         self.update_status()
+
+    def autosave_classes(self):
+        """Persiste categorias/labels quando a UI de classes muda."""
+        if not hasattr(self, "images") or not hasattr(self, "annotations"):
+            return
+        if not hasattr(self, "write_annotations"):
+            return
+        try:
+            self.write_annotations()
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[AVISO] Falha ao salvar labels/classes automaticamente: {exc}")
 
     def set_active_class(self, class_name: str, *, apply_to_selection: bool = True):
         clean_name = class_name.strip()
@@ -128,6 +145,7 @@ class ClassConfigMixin:
 
         det = self.get_selected_detection() if apply_to_selection else None
         if det is not None:
+            self.push_undo_state("alterar classe")
             old_id = det.category_id
             det.category_id = category_id
             old_name = self.category_name_by_id().get(old_id, str(old_id))
@@ -160,6 +178,25 @@ class ClassConfigMixin:
             return
         next_classes = [c for c in self.target_classes if c != name]
         self.apply_target_classes(next_classes)
+        if getattr(self, "canvas", None):
+            self.update_status()
+
+    def move_class(self, class_name: str, direction: int):
+        """Move uma classe na ordem ativa; indice 0 segue sendo usado nas deteccoes do modelo."""
+        if class_name not in self.target_classes:
+            return
+        index = self.target_classes.index(class_name)
+        new_index = index + direction
+        if new_index < 0 or new_index >= len(self.target_classes):
+            return
+        next_classes = list(self.target_classes)
+        next_classes[index], next_classes[new_index] = next_classes[new_index], next_classes[index]
+        current_active = self.active_class_name()
+        self.apply_target_classes(next_classes)
+        if getattr(self, "manual_class_var", None) is not None:
+            self.manual_class_var.set(current_active if current_active in next_classes else next_classes[0])
+        self._class_panel_snapshot = None
+        self.update_class_panel(force=True)
         if getattr(self, "canvas", None):
             self.update_status()
 
@@ -271,6 +308,38 @@ class ClassConfigMixin:
         )
         name_btn.grid(row=0, column=1, sticky="ew")
 
+        if len(self.target_classes) > 1:
+            up_btn = tk.Button(
+                tag,
+                text="↑",
+                font=FONTS["tag"],
+                padx=SPACING["sm"], pady=SPACING["sm"],
+                bd=0, relief=tk.FLAT,
+                cursor="hand2" if idx > 0 else "arrow",
+                bg=self.theme["neutral"], fg=self.theme["text"],
+                activebackground=self.theme["neutral_active"], activeforeground=self.theme["text"],
+                disabledforeground=COLORS["muted"],
+                highlightthickness=0,
+                state=(tk.NORMAL if idx > 0 else tk.DISABLED),
+                command=lambda n=class_name: self.move_class(n, -1),
+            )
+            up_btn.grid(row=0, column=2, sticky="e", padx=(SPACING["sm"], 0))
+            down_btn = tk.Button(
+                tag,
+                text="↓",
+                font=FONTS["tag"],
+                padx=SPACING["sm"], pady=SPACING["sm"],
+                bd=0, relief=tk.FLAT,
+                cursor="hand2" if idx < len(self.target_classes) - 1 else "arrow",
+                bg=self.theme["neutral"], fg=self.theme["text"],
+                activebackground=self.theme["neutral_active"], activeforeground=self.theme["text"],
+                disabledforeground=COLORS["muted"],
+                highlightthickness=0,
+                state=(tk.NORMAL if idx < len(self.target_classes) - 1 else tk.DISABLED),
+                command=lambda n=class_name: self.move_class(n, 1),
+            )
+            down_btn.grid(row=0, column=3, sticky="e", padx=(SPACING["xs"], 0))
+
         remove_state = tk.NORMAL if len(self.target_classes) > 1 else tk.DISABLED
         remove_btn = tk.Button(
             tag,
@@ -286,7 +355,7 @@ class ClassConfigMixin:
             state=remove_state,
             command=lambda n=class_name: self.remove_class(n),
         )
-        remove_btn.grid(row=0, column=2, sticky="e", padx=(SPACING["sm"], 0))
+        remove_btn.grid(row=0, column=4, sticky="e", padx=(SPACING["sm"], 0))
 
     def _build_add_class_button(self, panel):
         btn = tk.Button(

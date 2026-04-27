@@ -2,6 +2,53 @@ from app.annotation.shared import *
 
 
 class SelectionEditMixin:
+    def push_undo_state(self, reason: str = ""):
+        """Salva estado leve do frame atual para Ctrl+Z."""
+        if self.current_frame is None:
+            return
+        snapshot = {
+            "reason": reason,
+            "current_detections": [self.clone_detection(det) for det in self.current_detections],
+            "manual_detections": [self.clone_detection(det) for det in self.manual_detections],
+            "selected_detection": self.selected_detection,
+            "track_history": {
+                tid: [dict(entry) for entry in entries] for tid, entries in self.track_history.items()
+            },
+            "recent_tracks": [
+                {
+                    "frame": item.get("frame"),
+                    "tracks": [
+                        {"id": track.get("id"), "bbox": np.array(track.get("bbox"), dtype=np.float32).copy()}
+                        for track in item.get("tracks", [])
+                    ],
+                }
+                for item in self.recent_tracks
+            ],
+            "manual_track_memory": {
+                tid: {"bbox": value["bbox"].copy()} for tid, value in self.manual_track_memory.items()
+            },
+        }
+        self.undo_stack.append(snapshot)
+        if len(self.undo_stack) > self.max_undo_states:
+            self.undo_stack.pop(0)
+
+    def undo_last_action(self):
+        """Restaura o ultimo estado de anotacoes do frame atual."""
+        if not self.undo_stack:
+            print("[INFO] Nada para desfazer.")
+            return
+        snapshot = self.undo_stack.pop()
+        self.current_detections = [self.clone_detection(det) for det in snapshot["current_detections"]]
+        self.manual_detections = [self.clone_detection(det) for det in snapshot["manual_detections"]]
+        self.selected_detection = snapshot["selected_detection"]
+        self.track_history = {
+            tid: [dict(entry) for entry in entries] for tid, entries in snapshot["track_history"].items()
+        }
+        self.recent_tracks = snapshot["recent_tracks"]
+        self.manual_track_memory = snapshot["manual_track_memory"]
+        print(f"[INFO] Desfeito: {snapshot.get('reason') or 'ultima acao'}.")
+        self.update_display()
+
     def remove_detection_from_runtime_state(self, det: Detection):
         """Remove referencias da deteccao apagada do estado temporario do frame."""
         if det.track_id is None:
@@ -113,6 +160,7 @@ class SelectionEditMixin:
         if old_id == new_id:
             print("[INFO] ID selecionado ja e o mesmo.")
             return
+        self.push_undo_state("editar ID")
         det.track_id = new_id
         if det.source == "model" and det.internal_id is not None:
             self.tracker_id_map[(det.category_id, det.internal_id)] = new_id

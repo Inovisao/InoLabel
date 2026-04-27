@@ -39,6 +39,7 @@ class WorkflowActionsMixin:
             pass
         self.remove_current_image_from_sequence(image_path)
         self.current_source_image_path = None
+        self.current_frame = None
         self.selected_detection = None
         self.current_detections = []
         self.manual_detections = []
