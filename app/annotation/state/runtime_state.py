@@ -50,18 +50,21 @@ class RuntimeStateMixin:
         self.manual_track_memory: Dict[int, Dict[str, np.ndarray]] = {}
         self.global_track_counter = 1
         self.track_history: Dict[int, List[dict]] = {}
-        self.recent_tracks: List[dict] = []
         self.history_window = 5
+        self.recent_tracks: deque = deque(maxlen=self.history_window)
         self.tracker_id_map: Dict[Tuple[int, int], int] = {}
         self.edit_id_mode = False
         self.selected_detection: Optional[Tuple[str, int]] = None
         self.offset_x = 0
         self.offset_y = 0
         self.display_scale = 1.0
+        self.zoom_scale: float = 1.0
+        self.zoom_pan_x: int = 0
+        self.zoom_pan_y: int = 0
 
         self.saved_records: List[dict] = []
         self.review_idx: Optional[int] = None
         self.live_snapshot: Optional[dict] = None
-        self.undo_stack: List[dict] = []
         self.max_undo_states = 40
+        self.undo_stack: deque = deque(maxlen=self.max_undo_states)
         self.closed = False

@@ -22,6 +22,19 @@ class SessionConfigTest(unittest.TestCase):
         self.assertEqual(config.mode, AnnotationTaskMode.DETECTION)
         self.assertEqual(config.target_classes, ("Documento",))
 
+    def test_session_config_preserves_selected_annotations_path(self):
+        config = AnnotationSessionConfig(
+            mode=AnnotationTaskMode.TRACKING,
+            data_root=Path("images"),
+            weights_path=Path("model.pt"),
+            target_classes=("car",),
+            annotations_path=Path("output/__annotations.coco.json"),
+            resume_existing_annotations=True,
+        )
+
+        self.assertEqual(config.annotations_path, Path("output/__annotations.coco.json"))
+        self.assertEqual(config.weights_paths, (Path("model.pt"),))
+
     def test_session_requires_at_least_one_class(self):
         with self.assertRaises(ValueError):
             AnnotationSessionConfig(

@@ -19,6 +19,7 @@ class UIControlsMixin:
             self.window.bind("E", lambda event: self.toggle_edit_id_mode())
         self.window.bind("<Left>", lambda event: self.on_prev_saved())
         self.window.bind("<Right>", lambda event: self.on_next_saved())
+        self.window.bind("<Control-0>", lambda event: self.reset_zoom())
         for key in "123456789":
             self.window.bind(key, self.on_class_shortcut)
 
@@ -28,6 +29,10 @@ class UIControlsMixin:
         self.canvas.bind("<ButtonPress-1>", self.on_mouse_down)
         self.canvas.bind("<B1-Motion>", self.on_mouse_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_mouse_up)
+        # Zoom: Ctrl+Scroll (Windows) e Ctrl+Button-4/5 (Linux X11)
+        self.canvas.bind("<Control-MouseWheel>", self.on_zoom)
+        self.canvas.bind("<Control-Button-4>", self.on_zoom)
+        self.canvas.bind("<Control-Button-5>", self.on_zoom)
 
     def enable_controls_after_roi(self):
         """Habilita botoes apos definir ROI."""
@@ -64,27 +69,27 @@ class UIControlsMixin:
         """Atualiza o texto do botao de modo de anotacao."""
         if hasattr(self, "annotation_button"):
             estado = "ON" if self.annotation_mode else "OFF"
-            self.annotation_button.config(text=f"Modo anotacao {estado} (K)")
+            self._config_if_changed(self.annotation_button, text=f"Modo anotacao {estado} (K)")
 
     def update_remove_button(self):
         """Atualiza o texto do botao de remocao."""
         if hasattr(self, "remove_button"):
             estado = "ON" if self.remove_mode else "OFF"
-            self.remove_button.config(text=f"Remover anotacao {estado}")
+            self._config_if_changed(self.remove_button, text=f"Remover anotacao {estado}")
 
     def update_selection_button(self):
         """Atualiza o texto do botao de selecao."""
         if hasattr(self, "selection_button"):
             estado = "ON" if self.selection_mode else "OFF"
-            self.selection_button.config(text=f"Selecionar anotacao {estado} (S)")
+            self._config_if_changed(self.selection_button, text=f"Selecionar anotacao {estado} (S)")
 
     def update_edit_id_button(self):
         """Atualiza o texto do botao de edicao de ID."""
         if hasattr(self, "edit_id_button"):
             if not self.tracking_enabled:
-                self.edit_id_button.config(text="Editar ID indisponivel")
+                self._config_if_changed(self.edit_id_button, text="Editar ID indisponivel")
                 return
             estado = "ON" if self.edit_id_mode else "OFF"
-            self.edit_id_button.config(text=f"Editar ID {estado} (E)")
+            self._config_if_changed(self.edit_id_button, text=f"Editar ID {estado} (E)")
 
     # ===================== EVENTOS DE MOUSE =====================

@@ -29,8 +29,6 @@ class SelectionEditMixin:
             },
         }
         self.undo_stack.append(snapshot)
-        if len(self.undo_stack) > self.max_undo_states:
-            self.undo_stack.pop(0)
 
     def undo_last_action(self):
         """Restaura o ultimo estado de anotacoes do frame atual."""
@@ -44,10 +42,10 @@ class SelectionEditMixin:
         self.track_history = {
             tid: [dict(entry) for entry in entries] for tid, entries in snapshot["track_history"].items()
         }
-        self.recent_tracks = snapshot["recent_tracks"]
+        self.recent_tracks = deque(snapshot["recent_tracks"], maxlen=self.history_window)
         self.manual_track_memory = snapshot["manual_track_memory"]
         print(f"[INFO] Desfeito: {snapshot.get('reason') or 'ultima acao'}.")
-        self.update_display()
+        self.update_display(refresh_status=True)
 
     def remove_detection_from_runtime_state(self, det: Detection):
         """Remove referencias da deteccao apagada do estado temporario do frame."""
@@ -81,7 +79,7 @@ class SelectionEditMixin:
             ]
             if tracks:
                 filtered_recent_tracks.append({"frame": frame_data.get("frame"), "tracks": tracks})
-        self.recent_tracks = filtered_recent_tracks
+        self.recent_tracks = deque(filtered_recent_tracks, maxlen=self.history_window)
 
     def validate_selected_detection(self):
         """Limpa selecao se o indice estiver invalido."""
@@ -130,7 +128,7 @@ class SelectionEditMixin:
         hit = self.find_detection_at(x, y)
         if hit is None:
             self.selected_detection = None
-            self.update_display()
+            self.update_display(refresh_status=True)
             return
         self.selected_detection = hit
         det = self.get_selected_detection()
@@ -141,7 +139,7 @@ class SelectionEditMixin:
             if class_name and manual_var is not None:
                 manual_var.set(class_name)
             self.update_class_panel()
-        self.update_display()
+        self.update_display(refresh_status=True)
 
     def apply_manual_id_to_selection(self):
         """Aplica o ID digitado a bbox selecionada."""
@@ -171,7 +169,7 @@ class SelectionEditMixin:
                 del self.manual_track_memory[old_id]
             self.manual_track_memory[new_id] = {"bbox": det.original_bbox.copy()}
         print(f"[INFO] Track ID atualizado: {old_id} -> {new_id}.")
-        self.update_display()
+        self.update_display(refresh_status=True)
 
     def update_track_history_for_edit(self, old_id: int, new_id: int, bbox: np.ndarray):
         """Atualiza track_history ao trocar track_id."""

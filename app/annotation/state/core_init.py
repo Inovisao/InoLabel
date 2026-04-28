@@ -15,7 +15,7 @@ class CoreInitMixin:
             session_config = AnnotationSessionConfig(
                 mode=AnnotationTaskMode.TRACKING,
                 data_root=Path(data_root),
-                weights_path=Path(weights_path),
+                weights_paths=(Path(weights_path),),
                 target_classes=tuple(str(name) for name in raw_classes),
             )
 
@@ -23,28 +23,30 @@ class CoreInitMixin:
         self.task_mode = session_config.mode
         self.tracking_enabled = session_config.tracking_enabled
         self.data_root = session_config.data_root
-        self.weights_path = session_config.weights_path
+        self.weights_paths = list(session_config.weights_paths)
         self.output_dir = session_config.output_dir
         self.output_images_dir = self.output_dir / "images"
-        self.annotations_path = self.output_dir / "annotations.coco.json"
+        self.annotations_path = session_config.annotations_path or (self.output_dir / "annotations.coco.json")
         self.coco_detection_export_path = self.output_dir / "annotations_detection.coco.json"
         self.yolo_dataset_dir = self.output_dir / "yolo_dataset"
         self.homography_path = self.output_dir / "homography.json"
         self.conf_threshold = session_config.confidence_threshold
         self._initial_classes = list(session_config.target_classes)
+        self._initial_categories = [dict(cat) for cat in session_config.category_metadata]
 
         self._validate_required_paths()
         self.video_files = self.discover_sources(self.data_root)
         if not self.video_files:
             raise FileNotFoundError(f"Nenhuma fonte valida encontrada em {self.data_root}")
 
-        self.output_dir.mkdir(exist_ok=True)
-        self.output_images_dir.mkdir(exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.output_images_dir.mkdir(parents=True, exist_ok=True)
 
         self._initialize_model_state()
         self._initialize_runtime_state()
         self._build_ui()
-        self.load_existing_annotations()
+        if self.session_config.resume_existing_annotations:
+            self.load_existing_annotations()
         self.register_signal_handlers()
         self.start_video(self.current_video_index)
 
@@ -53,20 +55,39 @@ class CoreInitMixin:
             raise FileNotFoundError(f"Origem de dados nao encontrada: {self.data_root}")
 
     def _initialize_model_state(self):
-        self.model = None
+        # models[i] is None until first inference triggers lazy loading
+        self.models: List = [None] * len(self.weights_paths)
+        self.model = None  # aponta para models[0] após carregamento (compat. legada)
         self.target_classes = [str(name).strip() for name in self._initial_classes if str(name).strip()]
         self.class_to_category_id: Dict[str, int] = {}
         self.categories: List[dict] = []
+        for cat in self._initial_categories:
+            name = str(cat.get("name", "")).strip()
+            if not name:
+                continue
+            cid = int(cat.get("id", len(self.categories) + 1) or len(self.categories) + 1)
+            cat["id"] = cid
+            cat["name"] = name
+            self.categories.append(cat)
+            self.class_to_category_id[name] = cid
         for cname in self.target_classes:
             self.register_category(cname)
         self.uses_text_prompt = False
         self.apply_target_classes(self.target_classes)
 
+    def ensure_models_loaded(self) -> List:
+        """Carrega todos os modelos lazily e retorna a lista."""
+        for i, weights_path in enumerate(self.weights_paths):
+            if self.models[i] is not None:
+                continue
+            if not weights_path.exists():
+                raise FileNotFoundError(f"Pesos nao encontrados: {weights_path}")
+            self.models[i] = YOLO(str(weights_path))
+        if self.model is None and self.models:
+            self.model = self.models[0]
+            self.apply_target_classes(self.target_classes)
+        return [m for m in self.models if m is not None]
+
     def ensure_model_loaded(self):
-        if self.model is not None:
-            return self.model
-        if not self.weights_path.exists():
-            raise FileNotFoundError(f"Pesos nao encontrados: {self.weights_path}")
-        self.model = YOLO(str(self.weights_path))
-        self.apply_target_classes(self.target_classes)
-        return self.model
+        """Carrega e retorna o primeiro modelo (compatibilidade com código legado)."""
+        return self.ensure_models_loaded()[0]

@@ -2,12 +2,15 @@ from app.annotation.shared import *
 
 
 class FramePipelineMixin:
-    def process_current_frame(self, frame: np.ndarray, advance_index: bool = True):
+    def process_current_frame(self, frame: np.ndarray, advance_index: bool = True, *, render: bool = True):
         if frame is None:
             return
 
         self.review_idx = None
         self.live_snapshot = None
+        self.zoom_scale = 1.0
+        self.zoom_pan_x = 0
+        self.zoom_pan_y = 0
 
         if advance_index:
             self.frame_index += 1
@@ -16,7 +19,7 @@ class FramePipelineMixin:
         self.current_detections = self.run_model(frame)
         self.manual_detections = []
         self.selected_detection = None
-        self.undo_stack = []
+        self.undo_stack = deque(maxlen=self.max_undo_states)
         self.annotation_mode = True
         self.remove_mode = False
         self.selection_mode = False
@@ -27,7 +30,8 @@ class FramePipelineMixin:
         self.update_annotation_button()
         self.update_remove_button()
         self.update_selection_button()
-        self.update_display()
+        if render:
+            self.update_display(refresh_status=True)
 
     def load_next_frame(self):
         if self.review_idx is not None:
@@ -49,9 +53,9 @@ class FramePipelineMixin:
                 self.finish_current_video()
                 return
 
-        self.process_current_frame(frame)
+        self.process_current_frame(frame, render=False)
         self.restore_saved_annotations_for_current_frame()
-        self.update_display()
+        self.update_display(refresh_status=True)
 
     def run_model(self, original_frame: np.ndarray) -> List[Detection]:
         detections: List[Detection] = []
@@ -60,8 +64,7 @@ class FramePipelineMixin:
 
         img_height, img_width = original_frame.shape[:2]
         dets, scores, det_category_ids = self._extract_model_candidates(original_frame, img_width, img_height)
-        img_info = (img_height, img_width)
-        img_size = (img_height, img_width)
+        img_dims = (img_height, img_width)
 
         if not self.tracking_enabled:
             for box, score, category_id in zip(dets, scores, det_category_ids):
@@ -87,10 +90,10 @@ class FramePipelineMixin:
             return detections
 
         if not dets:
-            self.multiclass_tracker.update([], [], [], img_info, img_size)
+            self.multiclass_tracker.update([], [], [], img_dims, img_dims)
             return detections
 
-        tracks = self.multiclass_tracker.update(dets, scores, det_category_ids, img_info, img_size)
+        tracks = self.multiclass_tracker.update(dets, scores, det_category_ids, img_dims, img_dims)
 
         for category_id, track in tracks:
             tlbr = track.tlbr
@@ -118,7 +121,5 @@ class FramePipelineMixin:
 
         frame_tracks = [{"id": det.track_id, "bbox": det.original_bbox.copy()} for det in detections]
         self.recent_tracks.append({"frame": self.frame_index, "tracks": frame_tracks})
-        if len(self.recent_tracks) > self.history_window:
-            self.recent_tracks.pop(0)
 
         return detections

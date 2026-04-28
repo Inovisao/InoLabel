@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import tkinter.font as _tkfont
+
 from app.ui.layout.scale import apply_scale, compute_ui_scale, get_screen_dpi
 
 COLORS = {
@@ -99,4 +101,22 @@ def install_scaled_theme(root=None, scale: float | None = None) -> dict:
     SPACING.update(theme["spacing"])
     SIZES.clear()
     SIZES.update(theme["sizes"])
+
+    # Propagate body size to all Tk dialogs (filedialog, messagebox).
+    # Named fonts alone are not enough on Linux — the option database must
+    # also be set so that Tk's Tcl-implemented dialogs (tk_chooseDirectory,
+    # tk_getOpenFile, tk_messageBox) pick up the correct font.
+    if root is not None:
+        body_size = theme["fonts"]["body"][1]
+        font_spec = f"Helvetica {body_size}"
+        root.option_add("*Font", font_spec, "userDefault")
+        for _name in (
+            "TkDefaultFont", "TkTextFont", "TkMenuFont",
+            "TkHeadingFont", "TkFixedFont", "TkIconFont",
+        ):
+            try:
+                _tkfont.nametofont(_name).configure(family="Helvetica", size=body_size)
+            except Exception:  # pylint: disable=broad-except
+                pass
+
     return theme

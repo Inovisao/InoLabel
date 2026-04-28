@@ -110,9 +110,16 @@ class PersistenceMixin:
         """Sincroniza artefatos auxiliares apos alterar anotacoes."""
         if self.coco_detection_export_path.exists():
             export_detection_coco_json(self.build_coco_payload(), self.coco_detection_export_path)
+        if (self.yolo_dataset_dir / "data.yaml").exists():
+            export_yolo_dataset(
+                self.build_coco_payload(),
+                source_images_dir=self.output_images_dir,
+                dataset_root=self.yolo_dataset_dir,
+            )
 
     def build_coco_payload(self) -> dict:
         """Monta o payload COCO/MOT atual em memoria."""
+        self.normalize_category_ids()
         self.ensure_category_metadata()
         return {
             "info": {

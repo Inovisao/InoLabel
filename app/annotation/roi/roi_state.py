@@ -37,7 +37,7 @@ class ROIStateMixin:
         self.selected_detection = None
         self.enable_controls_after_roi()
         self.info_var.set("Selecione 4 pontos do ROI (ou pressione R novamente para cancelar).")
-        self.update_display()
+        self.update_display(refresh_status=True)
 
     def add_roi_point(self, x: int, y: int):
         """Registra ponto clicado para ROI."""
@@ -54,7 +54,7 @@ class ROIStateMixin:
         self.roi_points.append((float(x), float(y)))
         if len(self.roi_points) == 4:
             self.compute_homography()
-        self.update_display()
+        self.update_display(refresh_status=True)
 
     def compute_homography(self):
         """Calcula homografia a partir dos 4 pontos clicados."""
@@ -73,7 +73,7 @@ class ROIStateMixin:
             self.warp_size = None
             self.roi_polygon = None
             self.dest_points = None
-            self.update_display()
+            self.update_display(refresh_status=True)
             return
         dst = np.array(
             [

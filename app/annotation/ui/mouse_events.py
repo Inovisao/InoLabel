@@ -106,7 +106,7 @@ class MouseEventsMixin:
             self.recent_tracks.append({"frame": self.frame_index, "tracks": [{"id": track_id, "bbox": bbox.copy()}]})
             if len(self.recent_tracks) > self.history_window:
                 self.recent_tracks.pop(0)
-        self.update_display()
+        self.update_display(refresh_status=True)
 
     def remove_annotation_at(self, x: int, y: int) -> bool:
         for idx in range(len(self.manual_detections) - 1, -1, -1):
@@ -118,7 +118,7 @@ class MouseEventsMixin:
                 del self.manual_detections[idx]
                 self.selected_detection = None
                 print("[INFO] Caixa manual removida.")
-                self.update_display()
+                self.update_display(refresh_status=True)
                 return True
 
         for idx in range(len(self.current_detections) - 1, -1, -1):
@@ -130,8 +130,60 @@ class MouseEventsMixin:
                 del self.current_detections[idx]
                 self.selected_detection = None
                 print("[INFO] Deteccao removida.")
-                self.update_display()
+                self.update_display(refresh_status=True)
                 return True
 
         print("[INFO] Nenhuma caixa encontrada para remover.")
         return False
+
+    def on_zoom(self, event):
+        """Ctrl+Scroll: zoom centrado na posição do cursor."""
+        if self.current_frame is None:
+            return
+
+        if hasattr(event, "delta") and event.delta != 0:
+            factor = 1.1 if event.delta > 0 else 1 / 1.1
+        elif event.num == 4:
+            factor = 1.1
+        elif event.num == 5:
+            factor = 1 / 1.1
+        else:
+            return
+
+        new_zoom = max(0.2, min(8.0, self.zoom_scale * factor))
+        if new_zoom == self.zoom_scale:
+            return
+
+        # Ponto da imagem sob o cursor antes do zoom
+        old_img_x = (event.x - self.offset_x) / max(self.display_scale, 1e-9)
+        old_img_y = (event.y - self.offset_y) / max(self.display_scale, 1e-9)
+
+        frame_h, frame_w = self.current_frame.shape[:2]
+        canvas_w = max(320, self.canvas.winfo_width())
+        canvas_h = max(240, self.canvas.winfo_height())
+        fit_scale = min(1.0, canvas_w / frame_w, canvas_h / frame_h)
+        new_display_scale = fit_scale * new_zoom
+        new_disp_w = max(1, int(round(frame_w * new_display_scale)))
+        new_disp_h = max(1, int(round(frame_h * new_display_scale)))
+
+        new_canvas_w = min(canvas_w, new_disp_w + CANVAS_PADDING_PX)
+        new_canvas_h = min(canvas_h, new_disp_h + CANVAS_PADDING_PX)
+        base_x = (new_canvas_w - new_disp_w) // 2
+        base_y = (new_canvas_h - new_disp_h) // 2
+
+        # Após o zoom o mesmo ponto da imagem deve estar sob o cursor:
+        # event.x = old_img_x * new_display_scale + new_offset_x
+        new_offset_x = event.x - old_img_x * new_display_scale
+        new_offset_y = event.y - old_img_y * new_display_scale
+
+        self.zoom_scale = new_zoom
+        self.zoom_pan_x = int(round(new_offset_x - base_x))
+        self.zoom_pan_y = int(round(new_offset_y - base_y))
+        self.update_display()
+
+    def reset_zoom(self):
+        """Reseta o zoom para o ajuste automático (Ctrl+0)."""
+        self.zoom_scale = 1.0
+        self.zoom_pan_x = 0
+        self.zoom_pan_y = 0
+        self.update_display()

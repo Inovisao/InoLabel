@@ -37,7 +37,8 @@ class UILayoutMixin:
     def _on_window_resize(self, _event):
         if hasattr(self, "info_label"):
             available = max(320, self.window.winfo_width() - SIZES["sidebar_w"] - 240)
-            self.info_label.configure(wraplength=available)
+            if int(float(self.info_label.cget("wraplength") or 0)) != available:
+                self.info_label.configure(wraplength=available)
         if self.current_frame is not None:
             pending = getattr(self, "_resize_after_id", None)
             if pending is not None:
