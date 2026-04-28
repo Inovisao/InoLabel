@@ -116,7 +116,7 @@ class ReviewNavMixin:
         self.annotation_mode = True
         self.remove_mode = False
         self.selection_mode = False
-        self.update_display()
+        self.update_display(refresh_status=True)
 
     def on_prev_saved(self):
         """Navega para frame salvo anterior ou frame/fonte anterior."""
@@ -159,9 +159,9 @@ class ReviewNavMixin:
             if frame is None:
                 print("[INFO] Nao foi possivel voltar imagem.")
                 return
-            self.process_current_frame(frame, advance_index=True)
+            self.process_current_frame(frame, advance_index=True, render=False)
             self.restore_saved_annotations_for_current_frame()
-            self.update_display()
+            self.update_display(refresh_status=True)
             return
 
         if self.current_source_type == "video" and self.cap is not None:
@@ -180,9 +180,9 @@ class ReviewNavMixin:
                 print("[INFO] Nao foi possivel voltar frame.")
                 return
             self.current_source_image_path = None
-            self.process_current_frame(frame, advance_index=True)
+            self.process_current_frame(frame, advance_index=True, render=False)
             self.restore_saved_annotations_for_current_frame()
-            self.update_display()
+            self.update_display(refresh_status=True)
             return
 
         print("[INFO] Fonte atual nao suporta voltar.")
@@ -201,7 +201,7 @@ class ReviewNavMixin:
             self.undo_stack = []
             self.live_snapshot = None
             self.review_idx = None
-            self.update_display()
+            self.update_display(refresh_status=True)
             return
         self.review_idx = None
         self.load_next_frame()

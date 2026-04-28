@@ -19,7 +19,7 @@ class DisplayCanvasMixin:
         y_i = int(np.clip(y, 0, frame_h - 1))
         return x_i, y_i
 
-    def update_display(self):
+    def update_display(self, *, refresh_status: bool = False):
         if self.current_frame is None:
             return
 
@@ -40,14 +40,16 @@ class DisplayCanvasMixin:
         max_canvas_w = max(320, min(screen_w - WINDOW_MARGIN_PX, available_w or screen_w - WINDOW_MARGIN_PX))
         max_canvas_h = max(240, min(screen_h - WINDOW_TOP_RESERVED_PX, available_h or screen_h - WINDOW_TOP_RESERVED_PX))
         disp_w, disp_h = self._compute_display_size(frame_w, frame_h, max_canvas_w, max_canvas_h)
-        if self.display_scale < 1.0:
-            annotated = cv2.resize(annotated, (disp_w, disp_h), interpolation=cv2.INTER_AREA)
+        if disp_w != frame_w or disp_h != frame_h:
+            interp = cv2.INTER_AREA if self.display_scale < 1.0 else cv2.INTER_LINEAR
+            annotated = cv2.resize(annotated, (disp_w, disp_h), interpolation=interp)
         self._render_frame_on_canvas(annotated, disp_w, disp_h, max_canvas_w, max_canvas_h, screen_w, screen_h)
         self._draw_roi_overlay_on_canvas()
         self._draw_active_manual_rectangle()
 
         self.last_frame_shape = (frame_w, frame_h)
-        self.update_status()
+        if refresh_status:
+            self.update_status()
 
     def _draw_roi_overlay_on_frame(self, frame: np.ndarray) -> np.ndarray:
         if not self.roi_points:
@@ -64,7 +66,8 @@ class DisplayCanvasMixin:
     def _compute_display_size(
         self, frame_w: int, frame_h: int, max_canvas_w: int, max_canvas_h: int
     ) -> Tuple[int, int]:
-        self.display_scale = min(1.0, max_canvas_w / frame_w, max_canvas_h / frame_h)
+        fit_scale = min(1.0, max_canvas_w / frame_w, max_canvas_h / frame_h)
+        self.display_scale = fit_scale * self.zoom_scale
         disp_w = max(1, int(round(frame_w * self.display_scale)))
         disp_h = max(1, int(round(frame_h * self.display_scale)))
         return disp_w, disp_h
@@ -86,8 +89,11 @@ class DisplayCanvasMixin:
         self.canvas.delete("all")
         canvas_w = min(max_canvas_w, disp_w + CANVAS_PADDING_PX)
         canvas_h = min(max_canvas_h, disp_h + CANVAS_PADDING_PX)
-        self.offset_x = (canvas_w - disp_w) // 2
-        self.offset_y = (canvas_h - disp_h) // 2
-        self.canvas.config(width=canvas_w, height=canvas_h)
+        base_offset_x = (canvas_w - disp_w) // 2
+        base_offset_y = (canvas_h - disp_h) // 2
+        self.offset_x = base_offset_x + self.zoom_pan_x
+        self.offset_y = base_offset_y + self.zoom_pan_y
+        if self.canvas.winfo_width() != canvas_w or self.canvas.winfo_height() != canvas_h:
+            self.canvas.config(width=canvas_w, height=canvas_h)
         self.canvas_image_id = self.canvas.create_image(self.offset_x, self.offset_y, anchor=tk.NW, image=self.tk_image)
         self.window.maxsize(screen_w, screen_h)

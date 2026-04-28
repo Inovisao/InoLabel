@@ -3,6 +3,24 @@ from app.ui.theme import COLORS
 
 
 class DisplayStatusMixin:
+    @staticmethod
+    def _set_var_if_changed(var, value: str):
+        if var.get() != value:
+            var.set(value)
+
+    @staticmethod
+    def _config_if_changed(widget, **kwargs):
+        updates = {}
+        for key, value in kwargs.items():
+            try:
+                current = widget.cget(key)
+            except tk.TclError:
+                current = None
+            if str(current) != str(value):
+                updates[key] = value
+        if updates:
+            widget.config(**updates)
+
     def current_review_record(self) -> Optional[dict]:
         """Retorna o registro salvo atualmente em revisao."""
         if self.review_idx is None or not self.saved_records:
@@ -39,7 +57,7 @@ class DisplayStatusMixin:
 
     def update_status(self):
         """Atualiza barra de topo, blocos de status e botões."""
-        self.info_var.set(self.build_status_message())
+        self._set_var_if_changed(self.info_var, self.build_status_message())
         self.update_class_panel()
         self.update_status_blocks()
         self.update_image_info()
@@ -60,34 +78,34 @@ class DisplayStatusMixin:
             frame_info = f"Rev. {self.review_idx + 1}/{len(self.saved_records)}"
         else:
             frame_info = f"Frame {self.frame_index}"
-        self.status_source_var.set(f"{self.video_name}  [{idx}/{total}]  ·  {frame_info}")
+        self._set_var_if_changed(self.status_source_var, f"{self.video_name}  [{idx}/{total}]  ·  {frame_info}")
 
         # Bloco 2: ROI
         if self.roi_defined:
             size_str = f" {self.warp_size[0]}×{self.warp_size[1]}" if self.warp_size else ""
-            self.status_roi_var.set(f"ROI ✓{size_str}")
-            self.status_roi_lbl.config(fg=COLORS["primary"])
+            self._set_var_if_changed(self.status_roi_var, f"ROI ✓{size_str}")
+            self._config_if_changed(self.status_roi_lbl, fg=COLORS["primary"])
         else:
             pts = len(self.roi_points)
-            self.status_roi_var.set(f"ROI {pts}/4 pts")
-            self.status_roi_lbl.config(fg=COLORS["muted"])
+            self._set_var_if_changed(self.status_roi_var, f"ROI {pts}/4 pts")
+            self._config_if_changed(self.status_roi_lbl, fg=COLORS["muted"])
 
         # Bloco 3: modo ativo
         if self.annotation_mode:
-            self.status_mode_var.set("● Anotação")
-            self.status_mode_lbl.config(fg=COLORS["accent"])
+            self._set_var_if_changed(self.status_mode_var, "● Anotação")
+            self._config_if_changed(self.status_mode_lbl, fg=COLORS["accent"])
         elif self.remove_mode:
-            self.status_mode_var.set("● Remoção")
-            self.status_mode_lbl.config(fg=COLORS["danger"])
+            self._set_var_if_changed(self.status_mode_var, "● Remoção")
+            self._config_if_changed(self.status_mode_lbl, fg=COLORS["danger"])
         elif self.edit_id_mode:
-            self.status_mode_var.set("● Editar ID")
-            self.status_mode_lbl.config(fg=COLORS["accent"])
+            self._set_var_if_changed(self.status_mode_var, "● Editar ID")
+            self._config_if_changed(self.status_mode_lbl, fg=COLORS["accent"])
         elif self.selection_mode:
-            self.status_mode_var.set("● Seleção")
-            self.status_mode_lbl.config(fg=COLORS["primary"])
+            self._set_var_if_changed(self.status_mode_var, "● Seleção")
+            self._config_if_changed(self.status_mode_lbl, fg=COLORS["primary"])
         else:
-            self.status_mode_var.set("Validação")
-            self.status_mode_lbl.config(fg=COLORS["muted"])
+            self._set_var_if_changed(self.status_mode_var, "Validação")
+            self._config_if_changed(self.status_mode_lbl, fg=COLORS["muted"])
 
         # Bloco 4: classe ativa + contagem
         active = self.active_class_name() if hasattr(self, "active_class_name") else ""
@@ -95,16 +113,16 @@ class DisplayStatusMixin:
         cat_colors = self.category_color_by_id() if hasattr(self, "category_color_by_id") else {}
         cat_id = self.class_to_category_id.get(active, 0)
         cls_color = cat_colors.get(cat_id, COLORS["muted"])
-        self.status_class_var.set(f"● {active}  ·  {n_det} det.")
-        self.status_class_lbl.config(fg=cls_color)
+        self._set_var_if_changed(self.status_class_var, f"● {active}  ·  {n_det} det.")
+        self._config_if_changed(self.status_class_lbl, fg=cls_color)
 
         # Bloco 5: seleção
         sel = self.get_selected_detection() if hasattr(self, "get_selected_detection") else None
         if sel is not None and sel.track_id is not None:
-            self.status_sel_var.set(f"ID #{sel.track_id}")
-            self.status_sel_lbl.config(fg=COLORS["text"])
+            self._set_var_if_changed(self.status_sel_var, f"ID #{sel.track_id}")
+            self._config_if_changed(self.status_sel_lbl, fg=COLORS["text"])
         else:
-            self.status_sel_var.set("")
+            self._set_var_if_changed(self.status_sel_var, "")
 
     def current_display_file_name(self) -> str:
         """Nome amigavel da imagem/frame atual."""
@@ -132,11 +150,11 @@ class DisplayStatusMixin:
 
     def update_image_info(self):
         """Atualiza label do nome da imagem e estado do botao 'Ver em folder'."""
-        self.image_name_var.set(f"Imagem: {self.current_display_file_name()}")
+        self._set_var_if_changed(self.image_name_var, f"Imagem: {self.current_display_file_name()}")
         target = self.current_open_target_path()
-        self.open_folder_button.config(state=(tk.NORMAL if target is not None else tk.DISABLED))
+        self._config_if_changed(self.open_folder_button, state=(tk.NORMAL if target is not None else tk.DISABLED))
         delete_target = self.current_deletable_image_path()
-        self.delete_image_button.config(state=(tk.NORMAL if delete_target is not None else tk.DISABLED))
+        self._config_if_changed(self.delete_image_button, state=(tk.NORMAL if delete_target is not None else tk.DISABLED))
 
     def open_in_file_manager(self, target: Path) -> bool:
         """Abre o gerenciador de arquivos e tenta destacar o arquivo alvo."""

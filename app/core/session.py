@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Tuple
+from typing import Iterable, Optional, Tuple
 
 from app.config import CONF_THRESHOLD, OUTPUT_DIR
 
@@ -29,16 +29,35 @@ class AnnotationSessionConfig:
 
     mode: AnnotationTaskMode
     data_root: Path
-    weights_path: Path
-    target_classes: Tuple[str, ...]
+    weights_paths: Tuple[Path, ...] = ()
+    target_classes: Tuple[str, ...] = ()
+    weights_path: Optional[Path] = None
     output_dir: Path = OUTPUT_DIR
+    annotations_path: Optional[Path] = None
+    resume_existing_annotations: bool = False
+    category_metadata: Tuple[dict, ...] = ()
     confidence_threshold: float = CONF_THRESHOLD
 
     def __post_init__(self):
         object.__setattr__(self, "data_root", Path(self.data_root).expanduser())
-        object.__setattr__(self, "weights_path", Path(self.weights_path).expanduser())
+        raw_weights = self.weights_paths
+        if isinstance(raw_weights, (str, Path)):
+            raw_weights = (Path(raw_weights),)
+        if not raw_weights and self.weights_path is not None:
+            raw_weights = (self.weights_path,)
+        object.__setattr__(
+            self,
+            "weights_paths",
+            tuple(Path(p).expanduser() for p in raw_weights),
+        )
+        object.__setattr__(self, "weights_path", self.weights_paths[0] if self.weights_paths else None)
         object.__setattr__(self, "output_dir", Path(self.output_dir).expanduser())
+        if self.annotations_path is not None:
+            object.__setattr__(self, "annotations_path", Path(self.annotations_path).expanduser())
         object.__setattr__(self, "target_classes", normalize_class_names(self.target_classes))
+        object.__setattr__(self, "category_metadata", tuple(dict(cat) for cat in self.category_metadata))
+        if not self.weights_paths:
+            raise ValueError("Informe ao menos um arquivo de pesos.")
         if not self.target_classes:
             raise ValueError("Informe ao menos uma classe.")
         if self.confidence_threshold < 0 or self.confidence_threshold > 1:
@@ -61,4 +80,3 @@ def normalize_class_names(values: Iterable[str]) -> Tuple[str, ...]:
         seen.add(name)
         cleaned.append(name)
     return tuple(cleaned)
-

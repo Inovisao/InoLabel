@@ -4,7 +4,7 @@ from app.annotation.shared import *
 class WorkflowActionsMixin:
     def _delete_review_image(self, record: dict):
         file_name = str(record.get("file_name", "")).strip()
-        image_id = int(record.get("image_id"))
+        image_id = int(record.get("image_id") or 0)
         current_idx = self.review_idx if self.review_idx is not None else 0
 
         removed_annotations = self.delete_image_annotations(image_id)
@@ -86,7 +86,7 @@ class WorkflowActionsMixin:
         if self.review_idx is not None and self.saved_records:
             record = self.saved_records[self.review_idx]
             image_id, file_name = self.store_annotations(
-                detections_to_save, existing_image_id=record["image_id"], existing_file_name=record["file_name"]
+                detections_to_save, existing_image_id=record.get("image_id"), existing_file_name=record.get("file_name")
             )
             self.update_manual_memory_after_accept(detections_to_save)
             self.update_saved_record(self.review_idx, detections_to_save, image_id, file_name)

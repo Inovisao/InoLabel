@@ -5,27 +5,62 @@ class FrameModelHelpersMixin:
     def _extract_model_candidates(
         self, frame: np.ndarray, img_width: int, img_height: int
     ) -> Tuple[List[np.ndarray], List[float], List[int]]:
-        model = self.ensure_model_loaded()
-        yolo_result = model(frame, verbose=False)[0]
-        names = yolo_result.names
+        models = self.ensure_models_loaded()
+        all_dets: List[np.ndarray] = []
+        all_scores: List[float] = []
+        all_cat_ids: List[int] = []
 
-        dets: List[np.ndarray] = []
-        scores: List[float] = []
-        det_category_ids: List[int] = []
-        for box in getattr(yolo_result, "boxes", []):
-            conf = float(box.conf)
-            cls_id = int(box.cls)
-            label = self._resolve_class_label(names, cls_id)
-            if not self._should_keep_detection(conf, label):
-                continue
-            category_id = self._resolve_category_id(label)
-            xyxy = box.xyxy.cpu().numpy()[0]
-            xyxy[0::2] = np.clip(xyxy[0::2], 0, img_width - 1)
-            xyxy[1::2] = np.clip(xyxy[1::2], 0, img_height - 1)
-            dets.append(xyxy)
-            scores.append(conf)
-            det_category_ids.append(category_id)
-        return dets, scores, det_category_ids
+        for model in models:
+            yolo_result = model(frame, verbose=False)[0]
+            names = yolo_result.names
+            for box in getattr(yolo_result, "boxes", []):
+                conf = float(box.conf)
+                cls_id = int(box.cls)
+                label = self._resolve_class_label(names, cls_id)
+                if not self._should_keep_detection(conf, label):
+                    continue
+                category_id = self._resolve_category_id(label)
+                xyxy = box.xyxy.cpu().numpy()[0]
+                xyxy[0::2] = np.clip(xyxy[0::2], 0, img_width - 1)
+                xyxy[1::2] = np.clip(xyxy[1::2], 0, img_height - 1)
+                all_dets.append(xyxy)
+                all_scores.append(conf)
+                all_cat_ids.append(category_id)
+
+        if len(models) > 1:
+            return self._nms_ensemble(all_dets, all_scores, all_cat_ids)
+        return all_dets, all_scores, all_cat_ids
+
+    @staticmethod
+    def _nms_ensemble(
+        dets: List[np.ndarray],
+        scores: List[float],
+        category_ids: List[int],
+        iou_threshold: float = 0.5,
+    ) -> Tuple[List[np.ndarray], List[float], List[int]]:
+        """NMS por categoria para remover duplicatas do ensemble de modelos."""
+        if not dets:
+            return dets, scores, category_ids
+
+        result_dets: List[np.ndarray] = []
+        result_scores: List[float] = []
+        result_cats: List[int] = []
+
+        for cat in set(category_ids):
+            indices = [i for i, c in enumerate(category_ids) if c == cat]
+            boxes = [
+                [float(dets[i][0]), float(dets[i][1]),
+                 float(dets[i][2] - dets[i][0]), float(dets[i][3] - dets[i][1])]
+                for i in indices
+            ]
+            cat_scores = [float(scores[i]) for i in indices]
+            kept = cv2.dnn.NMSBoxes(boxes, cat_scores, score_threshold=0.0, nms_threshold=iou_threshold)
+            for k in (kept.flatten() if len(kept) > 0 else []):
+                result_dets.append(dets[indices[k]])
+                result_scores.append(scores[indices[k]])
+                result_cats.append(cat)
+
+        return result_dets, result_scores, result_cats
 
     @staticmethod
     def _resolve_class_label(names, cls_id: int) -> str:

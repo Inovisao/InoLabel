@@ -7,19 +7,19 @@ class SourceHelpersMixin:
             self.cap.release()
 
     def _reset_model_tracking_state(self):
-        if self.model is None:
-            return
-        if hasattr(self.model, "reset"):
-            try:
-                self.model.reset()
-            except Exception:  # pylint: disable=broad-except
-                pass
-            return
-        if hasattr(self.model, "tracker"):
-            try:
-                self.model.tracker = None
-            except Exception:  # pylint: disable=broad-except
-                pass
+        for m in getattr(self, "models", []):
+            if m is None:
+                continue
+            if hasattr(m, "reset"):
+                try:
+                    m.reset()
+                except Exception:  # pylint: disable=broad-except
+                    pass
+            elif hasattr(m, "tracker"):
+                try:
+                    m.tracker = None
+                except Exception:  # pylint: disable=broad-except
+                    pass
 
     def _prepare_source_state(self, index: int):
         self.video_path = self.video_files[index]
