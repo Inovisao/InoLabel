@@ -37,6 +37,7 @@ class RuntimeStateMixin:
 
         self.images: List[dict] = []
         self.annotations: List[dict] = []
+        self.annotation_state: dict = {}
         self.homographies: List[dict] = []
         self.roi_points: List[Tuple[int, int]] = []
         self.roi_defined = False
@@ -61,6 +62,10 @@ class RuntimeStateMixin:
         self.zoom_scale: float = 1.0
         self.zoom_pan_x: int = 0
         self.zoom_pan_y: int = 0
+        self.pan_mode = False
+        self.pan_drag_start: Optional[Tuple[int, int]] = None
+        self.pan_start_offset: Tuple[int, int] = (0, 0)
+        self.key_mapping_mode = "arrows"
 
         self.saved_records: List[dict] = []
         self.review_idx: Optional[int] = None

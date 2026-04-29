@@ -380,7 +380,7 @@ class ClassConfigMixin:
         self.selected_detection = None
 
         if getattr(self, "canvas", None):
-            self.update_display(refresh_status=True)
+            self.update_display()
             self.update_status()
 
     def category_id_for_class_name(self, name: str) -> Optional[int]:

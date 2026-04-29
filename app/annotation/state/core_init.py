@@ -47,12 +47,23 @@ class CoreInitMixin:
         self._build_ui()
         if self.session_config.resume_existing_annotations:
             self.load_existing_annotations()
+            self.current_video_index = self._initial_source_index_from_annotation_state()
         self.register_signal_handlers()
         self.start_video(self.current_video_index)
 
     def _validate_required_paths(self):
         if not self.data_root.exists():
             raise FileNotFoundError(f"Origem de dados nao encontrada: {self.data_root}")
+
+    def _initial_source_index_from_annotation_state(self) -> int:
+        state = getattr(self, "annotation_state", {}) or {}
+        try:
+            index = int(state.get("last_active_source_index", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+        if 0 <= index < len(self.video_files):
+            return index
+        return 0
 
     def _initialize_model_state(self):
         # models[i] is None until first inference triggers lazy loading

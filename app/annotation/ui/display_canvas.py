@@ -19,6 +19,38 @@ class DisplayCanvasMixin:
         y_i = int(np.clip(y, 0, frame_h - 1))
         return x_i, y_i
 
+    def _canvas_viewport_limits(self) -> Tuple[int, int, int, int]:
+        screen_w = self.window.winfo_screenwidth()
+        screen_h = self.window.winfo_screenheight()
+        available_w = self.canvas_frame.winfo_width() if hasattr(self, "canvas_frame") else 0
+        available_h = self.canvas_frame.winfo_height() if hasattr(self, "canvas_frame") else 0
+        max_canvas_w = max(320, min(screen_w - WINDOW_MARGIN_PX, available_w or screen_w - WINDOW_MARGIN_PX))
+        max_canvas_h = max(240, min(screen_h - WINDOW_TOP_RESERVED_PX, available_h or screen_h - WINDOW_TOP_RESERVED_PX))
+        return max_canvas_w, max_canvas_h, screen_w, screen_h
+
+    def clamp_zoom_pan(
+        self,
+        disp_w: int,
+        disp_h: int,
+        canvas_w: int,
+        canvas_h: int,
+        base_offset_x: int,
+        base_offset_y: int,
+    ):
+        if disp_w <= canvas_w:
+            self.zoom_pan_x = 0
+        else:
+            min_pan_x = canvas_w - disp_w - base_offset_x
+            max_pan_x = -base_offset_x
+            self.zoom_pan_x = int(np.clip(self.zoom_pan_x, min_pan_x, max_pan_x))
+
+        if disp_h <= canvas_h:
+            self.zoom_pan_y = 0
+        else:
+            min_pan_y = canvas_h - disp_h - base_offset_y
+            max_pan_y = -base_offset_y
+            self.zoom_pan_y = int(np.clip(self.zoom_pan_y, min_pan_y, max_pan_y))
+
     def update_display(self, *, refresh_status: bool = False):
         if self.current_frame is None:
             return
@@ -33,12 +65,7 @@ class DisplayCanvasMixin:
             annotated = self.draw_detections(annotated, self.manual_detections, "manual")
 
         frame_h, frame_w = annotated.shape[:2]
-        screen_w = self.window.winfo_screenwidth()
-        screen_h = self.window.winfo_screenheight()
-        available_w = self.canvas_frame.winfo_width() if hasattr(self, "canvas_frame") else 0
-        available_h = self.canvas_frame.winfo_height() if hasattr(self, "canvas_frame") else 0
-        max_canvas_w = max(320, min(screen_w - WINDOW_MARGIN_PX, available_w or screen_w - WINDOW_MARGIN_PX))
-        max_canvas_h = max(240, min(screen_h - WINDOW_TOP_RESERVED_PX, available_h or screen_h - WINDOW_TOP_RESERVED_PX))
+        max_canvas_w, max_canvas_h, screen_w, screen_h = self._canvas_viewport_limits()
         disp_w, disp_h = self._compute_display_size(frame_w, frame_h, max_canvas_w, max_canvas_h)
         if disp_w != frame_w or disp_h != frame_h:
             interp = cv2.INTER_AREA if self.display_scale < 1.0 else cv2.INTER_LINEAR
@@ -91,6 +118,7 @@ class DisplayCanvasMixin:
         canvas_h = min(max_canvas_h, disp_h + CANVAS_PADDING_PX)
         base_offset_x = (canvas_w - disp_w) // 2
         base_offset_y = (canvas_h - disp_h) // 2
+        self.clamp_zoom_pan(disp_w, disp_h, canvas_w, canvas_h, base_offset_x, base_offset_y)
         self.offset_x = base_offset_x + self.zoom_pan_x
         self.offset_y = base_offset_y + self.zoom_pan_y
         if self.canvas.winfo_width() != canvas_w or self.canvas.winfo_height() != canvas_h:

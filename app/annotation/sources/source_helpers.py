@@ -25,7 +25,7 @@ class SourceHelpersMixin:
         self.video_path = self.video_files[index]
         self.video_name = self.video_path.stem
         self.current_video_index = index
-        self.frame_index = self._find_last_saved_frame()
+        self.frame_index = self._resolve_resume_frame_index(index)
         self.frames_saved_in_current_video = self.frame_index
 
         self.manual_track_memory.clear()
@@ -50,6 +50,27 @@ class SourceHelpersMixin:
             if parsed is not None:
                 last_frame_saved = max(last_frame_saved, parsed)
         return last_frame_saved
+
+    def _resolve_resume_frame_index(self, source_index: int) -> int:
+        state = getattr(self, "annotation_state", {}) or {}
+        try:
+            saved_source_index = int(state.get("last_active_source_index", -1))
+        except (TypeError, ValueError):
+            saved_source_index = -1
+        if saved_source_index != source_index:
+            return self._find_last_saved_frame()
+
+        try:
+            saved_frame_index = int(state.get("last_active_frame_index", 0) or 0)
+        except (TypeError, ValueError):
+            saved_frame_index = 0
+
+        if saved_frame_index <= 0:
+            return self._find_last_saved_frame()
+
+        # frame_index is incremented immediately after reading a frame; rewind one
+        # position so the same active image/frame is shown when resuming.
+        return max(0, saved_frame_index - 1)
 
     def _reset_source_runtime_data(self):
         self.roi_points = []
@@ -104,7 +125,11 @@ class SourceHelpersMixin:
         self.current_source_type = "images"
         self.cap = None
         self.current_image_paths = self.build_image_sequence(self.video_path)
-        self.current_image_cursor = self.frame_index
+        resume_cursor = self._find_resume_image_cursor()
+        if resume_cursor is None:
+            self.frame_index = self._find_last_saved_frame()
+            resume_cursor = self.frame_index
+        self.current_image_cursor = resume_cursor
         self.frame_rate = 30
         self.bytetracker = BYTETracker(ByteTrackerArgs(), frame_rate=self.frame_rate)
         self.multiclass_tracker = MultiClassByteTracker(ByteTrackerArgs(), frame_rate=self.frame_rate)
@@ -116,3 +141,27 @@ class SourceHelpersMixin:
             print(f"[ERRO] Falha ao ler imagens da fonte: {self.video_path}")
             return None
         return first_frame
+
+    def _find_resume_image_cursor(self) -> Optional[int]:
+        state = getattr(self, "annotation_state", {}) or {}
+        target_name = str(state.get("last_active_file_name", "") or "")
+        if not target_name:
+            return self.frame_index
+        for idx, image_path in enumerate(self.current_image_paths):
+            if self._source_image_output_name(image_path) == target_name:
+                return idx
+        return None
+
+    def _source_image_output_name(self, source_path: Path) -> str:
+        try:
+            return source_path.resolve().relative_to(self.data_root.resolve()).as_posix()
+        except ValueError:
+            pass
+
+        if self.video_path is not None and self.video_path.is_dir():
+            try:
+                return source_path.resolve().relative_to(self.video_path.resolve()).as_posix()
+            except ValueError:
+                pass
+
+        return source_path.name

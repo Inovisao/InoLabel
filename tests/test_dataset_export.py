@@ -5,7 +5,9 @@ from pathlib import Path
 import numpy as np
 
 from app.annotation.detection.persistence import PersistenceMixin
+from app.annotation.ui.display_canvas import DisplayCanvasMixin
 from app.annotation.detection.workflow_actions import WorkflowActionsMixin
+from app.annotation.sources.source_helpers import SourceHelpersMixin
 from app.config import DATA_ROOT
 from app.dataset_export import export_yolo_dataset
 from utils.merge_yolo_splits import merge_yolo_splits
@@ -153,6 +155,139 @@ class WorkflowActionsTest(unittest.TestCase):
         self.assertEqual(len(workflow.saved_records), 1)
         self.assertEqual(workflow.saved_records[0]["detections"], [])
         self.assertEqual(workflow.load_next_frame_calls, 1)
+
+
+class ExportOutputDatasetPathTest(unittest.TestCase):
+    def test_external_folder_receives_output_folder_name(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            output_dir = tmp_path / "outputs" / "output_dataset1"
+            destination_root = tmp_path / "exports"
+            output_dir.mkdir(parents=True)
+            destination_root.mkdir()
+
+            class DummyPersistence(PersistenceMixin):
+                pass
+
+            persistence = DummyPersistence()
+            persistence.output_dir = output_dir
+
+            self.assertEqual(
+                persistence.resolve_export_dataset_path(destination_root),
+                destination_root / output_dir.name,
+            )
+
+    def test_output_folder_selection_exports_to_sibling(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_dir = Path(tmp_dir) / "output_dataset1"
+            output_dir.mkdir()
+
+            class DummyPersistence(PersistenceMixin):
+                pass
+
+            persistence = DummyPersistence()
+            persistence.output_dir = output_dir
+
+            destination = persistence.resolve_export_dataset_path(output_dir)
+
+            self.assertNotEqual(destination, output_dir.resolve())
+            self.assertEqual(destination.parent, output_dir.parent.resolve())
+            self.assertTrue(destination.name.startswith(f"{output_dir.name}_export"))
+
+    def test_output_subfolder_selection_exports_to_sibling(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_dir = Path(tmp_dir) / "output_dataset1"
+            subfolder = output_dir / "subfolder"
+            subfolder.mkdir(parents=True)
+
+            class DummyPersistence(PersistenceMixin):
+                pass
+
+            persistence = DummyPersistence()
+            persistence.output_dir = output_dir
+
+            destination = persistence.resolve_export_dataset_path(subfolder)
+
+            self.assertNotEqual(destination, output_dir.resolve())
+            self.assertFalse(output_dir.resolve() in destination.parents)
+
+
+class ResumeStateTest(unittest.TestCase):
+    def test_resume_state_rewinds_one_position_to_reopen_active_image(self):
+        class DummySource(SourceHelpersMixin):
+            def __init__(self):
+                self.annotation_state = {
+                    "last_active_source_index": 0,
+                    "last_active_frame_index": 21,
+                    "last_active_file_name": "img_021.jpg",
+                }
+
+            def _find_last_saved_frame(self):
+                return 30
+
+        source = DummySource()
+
+        self.assertEqual(source._resolve_resume_frame_index(0), 20)
+
+    def test_resume_state_falls_back_when_source_does_not_match(self):
+        class DummySource(SourceHelpersMixin):
+            def __init__(self):
+                self.annotation_state = {
+                    "last_active_source_index": 1,
+                    "last_active_frame_index": 21,
+                }
+
+            def _find_last_saved_frame(self):
+                return 30
+
+        source = DummySource()
+
+        self.assertEqual(source._resolve_resume_frame_index(0), 30)
+
+    def test_resume_image_cursor_uses_persisted_file_name(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            data_root = Path(tmp_dir)
+            image_paths = [data_root / f"img_{idx:03d}.jpg" for idx in range(1, 4)]
+
+            class DummySource(SourceHelpersMixin):
+                def __init__(self):
+                    self.annotation_state = {"last_active_file_name": "img_002.jpg"}
+                    self.current_image_paths = image_paths
+                    self.data_root = data_root
+                    self.video_path = data_root
+                    self.frame_index = 0
+
+            source = DummySource()
+
+            self.assertEqual(source._find_resume_image_cursor(), 1)
+
+
+class PanZoomMathTest(unittest.TestCase):
+    def test_clamp_recenters_image_when_smaller_than_viewport(self):
+        class DummyCanvas(DisplayCanvasMixin):
+            def __init__(self):
+                self.zoom_pan_x = 120
+                self.zoom_pan_y = -80
+
+        canvas = DummyCanvas()
+
+        canvas.clamp_zoom_pan(200, 150, 320, 240, 60, 45)
+
+        self.assertEqual(canvas.zoom_pan_x, 0)
+        self.assertEqual(canvas.zoom_pan_y, 0)
+
+    def test_clamp_limits_pan_when_image_is_larger_than_viewport(self):
+        class DummyCanvas(DisplayCanvasMixin):
+            def __init__(self):
+                self.zoom_pan_x = -999
+                self.zoom_pan_y = 999
+
+        canvas = DummyCanvas()
+
+        canvas.clamp_zoom_pan(800, 600, 320, 240, -240, -180)
+
+        self.assertEqual(canvas.zoom_pan_x, -240)
+        self.assertEqual(canvas.zoom_pan_y, 180)
 
 
 class MergeYoloSplitsTest(unittest.TestCase):
