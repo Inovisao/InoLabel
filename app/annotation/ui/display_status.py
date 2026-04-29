@@ -45,7 +45,9 @@ class DisplayStatusMixin:
         """Mensagem curta para o topo — modo ativo e fonte atual."""
         if self.review_idx is not None and self.saved_records:
             return f"Revisão {self.review_idx + 1}/{len(self.saved_records)} · {self.video_name}"
-        if self.annotation_mode:
+        if self.pan_mode:
+            mode = "Pan ON"
+        elif self.annotation_mode:
             mode = "Anotação manual ON"
         elif self.remove_mode:
             mode = "Remoção ON"
@@ -65,6 +67,7 @@ class DisplayStatusMixin:
         self.update_remove_button()
         self.update_selection_button()
         self.update_edit_id_button()
+        self.update_pan_button()
 
     def update_status_blocks(self):
         """Popula os cinco blocos da status strip com estado estruturado."""
@@ -91,7 +94,10 @@ class DisplayStatusMixin:
             self._config_if_changed(self.status_roi_lbl, fg=COLORS["muted"])
 
         # Bloco 3: modo ativo
-        if self.annotation_mode:
+        if self.pan_mode:
+            self._set_var_if_changed(self.status_mode_var, "● Pan")
+            self._config_if_changed(self.status_mode_lbl, fg=COLORS["primary"])
+        elif self.annotation_mode:
             self._set_var_if_changed(self.status_mode_var, "● Anotação")
             self._config_if_changed(self.status_mode_lbl, fg=COLORS["accent"])
         elif self.remove_mode:

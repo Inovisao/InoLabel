@@ -24,6 +24,33 @@ class PersistenceMixin:
                 return image
         return None
 
+    def _source_image_output_name(self, source_path: Path) -> str:
+        try:
+            return source_path.resolve().relative_to(self.data_root.resolve()).as_posix()
+        except ValueError:
+            pass
+
+        if self.video_path is not None and self.video_path.is_dir():
+            try:
+                return source_path.resolve().relative_to(self.video_path.resolve()).as_posix()
+            except ValueError:
+                pass
+
+        return source_path.name
+
+    def update_annotation_state(self):
+        """Persiste o ponto exato de retomada da sessao."""
+        if self.current_frame is None:
+            return
+        self.annotation_state = {
+            "last_active_file_name": self.current_frame_file_name(),
+            "last_active_frame_index": int(self.frame_index),
+            "last_active_source_index": int(self.current_video_index),
+            "last_active_source": str(self.video_path) if self.video_path else "",
+            "last_active_source_type": str(self.current_source_type),
+            "updated_at": datetime.now().isoformat(timespec="seconds"),
+        }
+
     def autosave_current_frame(self, *, reason: str = "") -> Optional[Tuple[int, str]]:
         """Salva automaticamente frame, anotacoes e categorias atuais em COCO."""
         if self.current_frame is None or getattr(self, "closed", False):
@@ -64,19 +91,7 @@ class PersistenceMixin:
             return existing_file_name
 
         if self.current_source_type == "images" and self.current_source_image_path is not None:
-            source_path = self.current_source_image_path
-            try:
-                return source_path.resolve().relative_to(self.data_root.resolve()).as_posix()
-            except ValueError:
-                pass
-
-            if self.video_path is not None and self.video_path.is_dir():
-                try:
-                    return source_path.resolve().relative_to(self.video_path.resolve()).as_posix()
-                except ValueError:
-                    pass
-
-            return source_path.name
+            return self._source_image_output_name(self.current_source_image_path)
 
         return f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
 
@@ -133,6 +148,7 @@ class PersistenceMixin:
             "categories": self.categories,
             "images": self.images,
             "annotations": self.annotations,
+            "annotation_state": getattr(self, "annotation_state", {}),
         }
 
     def store_annotations(
@@ -198,6 +214,7 @@ class PersistenceMixin:
 
     def write_annotations(self):
         """Grava o arquivo annotations.coco.json com as anotacoes atuais."""
+        self.update_annotation_state()
         data = self.build_coco_payload()
         self.annotations_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.annotations_path, "w", encoding="utf-8") as f:
@@ -206,6 +223,7 @@ class PersistenceMixin:
 
     def on_save_coco_json(self):
         """Exporta as anotacoes atuais para COCO de deteccao."""
+        self.autosave_current_frame(reason="exportar .coco.json")
         if not self.images:
             self.info_var.set("Nenhuma imagem salva para exportar em .coco.json.")
             return
@@ -225,6 +243,7 @@ class PersistenceMixin:
 
     def on_save_yaml(self):
         """Exporta as anotacoes atuais para dataset YOLO com data.yaml."""
+        self.autosave_current_frame(reason="exportar .yaml")
         if not self.images:
             self.info_var.set("Nenhuma imagem salva para exportar em .yaml.")
             return
@@ -271,10 +290,17 @@ class PersistenceMixin:
     def resolve_export_dataset_path(self, selected_dir: Path) -> Path:
         """Retorna um destino output_dataset sem sobrescrever exportacoes anteriores."""
         selected_dir = Path(selected_dir).expanduser()
-        if selected_dir.name == self.output_dir.name:
+        output_dir = self.output_dir.resolve()
+        selected_resolved = selected_dir.resolve()
+        if selected_resolved == output_dir or output_dir in selected_resolved.parents:
+            candidate = output_dir.with_name(f"{output_dir.name}_export")
+        elif selected_dir.name == self.output_dir.name:
             candidate = selected_dir
         else:
             candidate = selected_dir / self.output_dir.name
+        candidate = candidate.resolve()
+        if candidate == output_dir or output_dir in candidate.parents:
+            candidate = output_dir.with_name(f"{output_dir.name}_export")
         if not candidate.exists():
             return candidate
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -286,6 +312,10 @@ class PersistenceMixin:
             raise RuntimeError("Nenhuma imagem/anotacao salva para exportar.")
         self.prepare_output_dataset()
         destination = self.resolve_export_dataset_path(selected_dir)
+        output_dir = self.output_dir.resolve()
+        destination = destination.resolve()
+        if destination == output_dir or output_dir in destination.parents:
+            raise RuntimeError("Destino de exportacao nao pode ser a propria pasta de output ou uma subpasta dela.")
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(self.output_dir, destination)
         return destination
@@ -315,6 +345,12 @@ class PersistenceMixin:
             return
         self.autosave_current_frame(reason="encerramento")
         self.closed = True
+        key_mapping_dialog = getattr(self, "_key_mapping_dialog", None)
+        if key_mapping_dialog is not None:
+            try:
+                key_mapping_dialog.destroy()
+            except Exception:  # pylint: disable=broad-except
+                pass
         if self.cap is not None:
             self.cap.release()
             self.cap = None
@@ -325,6 +361,7 @@ class PersistenceMixin:
         self.reject_button.config(state=tk.DISABLED)
         self.quit_button.config(state=tk.DISABLED)
         self.delete_image_button.config(state=tk.DISABLED)
+        self.pan_button.config(state=tk.DISABLED)
         self.save_yaml_button.config(state=tk.DISABLED)
         self.save_coco_button.config(state=tk.DISABLED)
         self.export_dataset_button.config(state=tk.DISABLED)

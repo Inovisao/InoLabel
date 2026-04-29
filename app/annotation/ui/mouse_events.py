@@ -5,6 +5,9 @@ class MouseEventsMixin:
     def on_mouse_down(self, event):
         if self.current_frame is None:
             return
+        if self.pan_mode:
+            self.on_pan_start(event)
+            return "break"
 
         img_coords = self.canvas_to_image_coords(event.x, event.y)
         if img_coords is None:
@@ -35,6 +38,9 @@ class MouseEventsMixin:
         )
 
     def on_mouse_drag(self, event):
+        if self.pan_mode:
+            self.on_pan_drag(event)
+            return "break"
         if self.remove_mode or not self.annotation_mode or self.drawing_start is None:
             return
 
@@ -52,6 +58,9 @@ class MouseEventsMixin:
         self.canvas.coords(self.drawing_rect_id, start_cx, start_cy, event.x, event.y)
 
     def on_mouse_up(self, event):
+        if self.pan_mode:
+            self.on_pan_end(event)
+            return "break"
         if self.remove_mode or not self.annotation_mode or self.drawing_start is None:
             return
 
@@ -136,16 +145,62 @@ class MouseEventsMixin:
         print("[INFO] Nenhuma caixa encontrada para remover.")
         return False
 
+    def on_pan_start(self, event):
+        if self.current_frame is None:
+            return
+        self.pan_drag_start = (event.x, event.y)
+        self.pan_start_offset = (self.zoom_pan_x, self.zoom_pan_y)
+        try:
+            self.canvas.config(cursor="fleur")
+        except Exception:  # pylint: disable=broad-except
+            pass
+
+    def on_pan_drag(self, event):
+        if self.current_frame is None or self.pan_drag_start is None:
+            return
+        start_x, start_y = self.pan_drag_start
+        start_pan_x, start_pan_y = self.pan_start_offset
+        self.zoom_pan_x = start_pan_x + int(event.x - start_x)
+        self.zoom_pan_y = start_pan_y + int(event.y - start_y)
+        self.update_display()
+
+    def on_pan_end(self, _event):
+        self.pan_drag_start = None
+        self.update_canvas_cursor()
+
+    def update_canvas_cursor(self):
+        cursor = "fleur" if self.pan_mode else "crosshair"
+        try:
+            self.canvas.config(cursor=cursor)
+        except Exception:  # pylint: disable=broad-except
+            pass
+
+    def toggle_pan_mode(self):
+        self.pan_mode = not self.pan_mode
+        if self.pan_mode:
+            self.annotation_mode = False
+            self.remove_mode = False
+            self.selection_mode = False
+        self.pan_drag_start = None
+        self.update_annotation_button()
+        self.update_remove_button()
+        self.update_selection_button()
+        self.update_canvas_cursor()
+        self.info_var.set("Pan ON: arraste a imagem para mover." if self.pan_mode else "Pan OFF.")
+        self.update_status()
+
     def on_zoom(self, event):
         """Ctrl+Scroll: zoom centrado na posição do cursor."""
         if self.current_frame is None:
             return
 
-        if hasattr(event, "delta") and event.delta != 0:
-            factor = 1.1 if event.delta > 0 else 1 / 1.1
-        elif event.num == 4:
+        event_delta = getattr(event, "delta", 0)
+        event_num = getattr(event, "num", None)
+        if event_delta != 0:
+            factor = 1.1 if event_delta > 0 else 1 / 1.1
+        elif event_num == 4:
             factor = 1.1
-        elif event.num == 5:
+        elif event_num == 5:
             factor = 1 / 1.1
         else:
             return
@@ -159,15 +214,14 @@ class MouseEventsMixin:
         old_img_y = (event.y - self.offset_y) / max(self.display_scale, 1e-9)
 
         frame_h, frame_w = self.current_frame.shape[:2]
-        canvas_w = max(320, self.canvas.winfo_width())
-        canvas_h = max(240, self.canvas.winfo_height())
-        fit_scale = min(1.0, canvas_w / frame_w, canvas_h / frame_h)
+        max_canvas_w, max_canvas_h, _, _ = self._canvas_viewport_limits()
+        fit_scale = min(1.0, max_canvas_w / frame_w, max_canvas_h / frame_h)
         new_display_scale = fit_scale * new_zoom
         new_disp_w = max(1, int(round(frame_w * new_display_scale)))
         new_disp_h = max(1, int(round(frame_h * new_display_scale)))
 
-        new_canvas_w = min(canvas_w, new_disp_w + CANVAS_PADDING_PX)
-        new_canvas_h = min(canvas_h, new_disp_h + CANVAS_PADDING_PX)
+        new_canvas_w = min(max_canvas_w, new_disp_w + CANVAS_PADDING_PX)
+        new_canvas_h = min(max_canvas_h, new_disp_h + CANVAS_PADDING_PX)
         base_x = (new_canvas_w - new_disp_w) // 2
         base_y = (new_canvas_h - new_disp_h) // 2
 
@@ -179,6 +233,7 @@ class MouseEventsMixin:
         self.zoom_scale = new_zoom
         self.zoom_pan_x = int(round(new_offset_x - base_x))
         self.zoom_pan_y = int(round(new_offset_y - base_y))
+        self.clamp_zoom_pan(new_disp_w, new_disp_h, new_canvas_w, new_canvas_h, base_x, base_y)
         self.update_display()
 
     def reset_zoom(self):

@@ -23,6 +23,8 @@ class FramePipelineMixin:
         self.annotation_mode = True
         self.remove_mode = False
         self.selection_mode = False
+        self.pan_mode = False
+        self.pan_drag_start = None
         self.drawing_start = None
         if self.drawing_rect_id is not None:
             self.canvas.delete(self.drawing_rect_id)

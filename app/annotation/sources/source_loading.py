@@ -15,6 +15,8 @@ class SourceLoadingMixin:
             return
         self.images = data.get("images", [])
         self.annotations = data.get("annotations", [])
+        state = data.get("annotation_state", {})
+        self.annotation_state = state if isinstance(state, dict) else {}
         cats = data.get("categories")
         if cats:
             self.categories = cats
@@ -35,9 +37,11 @@ class SourceLoadingMixin:
         self.image_id = max_img_id + 1
         max_track = max((ann.get("track_id", 0) or 0 for ann in self.annotations), default=0)
         self.global_track_counter = max(max_track + 1, 1)
+        resume_file = self.annotation_state.get("last_active_file_name")
         print(
             f"[INFO] Anotacoes carregadas. imagens={len(self.images)}, "
-            f"anotacoes={len(self.annotations)}, prox_image_id={self.image_id}, prox_annotation_id={self.annotation_id}"
+            f"anotacoes={len(self.annotations)}, prox_image_id={self.image_id}, "
+            f"prox_annotation_id={self.annotation_id}, retomada={resume_file or 'auto'}"
         )
 
     def register_signal_handlers(self):
