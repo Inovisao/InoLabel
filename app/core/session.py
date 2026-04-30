@@ -15,11 +15,14 @@ class AnnotationTaskMode(str, Enum):
 
     TRACKING = "tracking"
     DETECTION = "detection"
+    OBB = "obb"
 
     @property
     def label(self) -> str:
         if self is AnnotationTaskMode.TRACKING:
             return "Tracking"
+        if self is AnnotationTaskMode.OBB:
+            return "Deteccao orientada (OBB)"
         return "Deteccao padrao"
 
 
