@@ -1,3 +1,5 @@
+import sys
+
 from app.annotation.shared import *
 
 
@@ -347,7 +349,9 @@ class ClassServiceMixin:
                 f"{saved_count} anotacao(es) salva(s) e "
                 f"{frame_count} deteccao(oes) em memoria com essa classe."
             )
-        if not messagebox.askyesno("Remover classe", prompt):
+        compat_module = sys.modules.get("app.annotation.state.class_config")
+        confirm_box = getattr(compat_module, "messagebox", messagebox)
+        if not confirm_box.askyesno("Remover classe", prompt):
             return
 
         if cat_id is not None:

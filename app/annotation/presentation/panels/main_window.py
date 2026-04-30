@@ -37,7 +37,7 @@ class MainWindowMixin:
             available = max(320, self.window.winfo_width() - SIZES["sidebar_w"] - 240)
             if int(float(self.info_label.cget("wraplength") or 0)) != available:
                 self.info_label.configure(wraplength=available)
-        if self.current_frame is not None:
+        if self.current_frame is not None and not getattr(self, "export_screen_active", False):
             pending = getattr(self, "_resize_after_id", None)
             if pending is not None:
                 try:

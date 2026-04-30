@@ -32,6 +32,7 @@ class OutputState:
     class_names: tuple[str, ...]
     image_count: int
     annotation_count: int
+    source_paths: tuple[Path, ...]
 
     @property
     def label(self) -> str:
@@ -54,6 +55,7 @@ class LoadedAnnotationState:
     categories: tuple[dict, ...]
     image_count: int
     annotation_count: int
+    source_paths: tuple[Path, ...]
 
 
 def annotations_path_for(output_dir: Path) -> Path:
@@ -104,6 +106,30 @@ def latest_output_state(outputs_dir: Path = OUTPUTS_DIR) -> Optional[OutputState
     return states[-1]
 
 
+def list_output_states_for_sources(
+    sources: Iterable[Path],
+    outputs_dir: Path = OUTPUTS_DIR,
+) -> list[OutputState]:
+    """List output states associated with the selected dataset/source paths."""
+
+    project_sources = _normalize_source_paths(sources)
+    if not project_sources:
+        return []
+    return [state for state in list_output_states(outputs_dir) if _state_matches_sources(state, project_sources)]
+
+
+def latest_output_state_for_sources(
+    sources: Iterable[Path],
+    outputs_dir: Path = OUTPUTS_DIR,
+) -> Optional[OutputState]:
+    """Return the newest output state for the selected dataset/source paths."""
+
+    states = list_output_states_for_sources(sources, outputs_dir)
+    if not states:
+        return None
+    return states[-1]
+
+
 def create_new_output_dir(
     outputs_dir: Path = OUTPUTS_DIR,
     *,
@@ -141,6 +167,7 @@ def load_annotation_state(path: Path) -> LoadedAnnotationState:
     class_names = normalize_class_names(str(cat.get("name", "")) for cat in categories)
     info = payload.get("info", {}) if isinstance(payload.get("info"), dict) else {}
     mode = _parse_mode(info.get("task_mode"))
+    source_paths = _extract_source_paths(info, payload.get("annotation_state", {}))
     return LoadedAnnotationState(
         annotations_path=annotations_path,
         output_dir=annotations_path.parent,
@@ -149,6 +176,7 @@ def load_annotation_state(path: Path) -> LoadedAnnotationState:
         categories=categories,
         image_count=len(payload.get("images", []) or []),
         annotation_count=len(payload.get("annotations", []) or []),
+        source_paths=source_paths,
     )
 
 
@@ -167,6 +195,7 @@ def _build_state(path: Path, annotations_path: Path) -> Optional[OutputState]:
         class_names=loaded.class_names,
         image_count=loaded.image_count,
         annotation_count=loaded.annotation_count,
+        source_paths=loaded.source_paths,
     )
 
 
@@ -199,3 +228,58 @@ def _next_index(outputs_dir: Path, *, prefix: str) -> int:
         if match:
             indexes.append(int(match.group("index")))
     return max(indexes, default=0) + 1
+
+
+def _extract_source_paths(info: dict, annotation_state) -> tuple[Path, ...]:
+    raw_sources = []
+    data_root = info.get("data_root")
+    if data_root:
+        raw_sources.append(data_root)
+    raw_sources.extend(info.get("video_sources") or [])
+    if isinstance(annotation_state, dict) and annotation_state.get("last_active_source"):
+        raw_sources.append(annotation_state["last_active_source"])
+    return _normalize_source_paths(raw_sources)
+
+
+def _normalize_source_paths(paths: Iterable[Path]) -> tuple[Path, ...]:
+    normalized = []
+    seen = set()
+    for raw_path in paths:
+        if not raw_path:
+            continue
+        path = Path(raw_path).expanduser()
+        try:
+            path = path.resolve()
+        except OSError:
+            path = path.absolute()
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(path)
+    return tuple(normalized)
+
+
+def _state_matches_sources(state: OutputState, project_sources: tuple[Path, ...]) -> bool:
+    state_sources = set(state.source_paths)
+    if not state_sources:
+        return False
+    for source in project_sources:
+        if source in state_sources:
+            return True
+        if any(_paths_overlap(source, state_source) for state_source in state_sources):
+            return True
+    return False
+
+
+def _paths_overlap(left: Path, right: Path) -> bool:
+    try:
+        left.relative_to(right)
+        return True
+    except ValueError:
+        pass
+    try:
+        right.relative_to(left)
+        return True
+    except ValueError:
+        return False

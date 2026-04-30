@@ -35,6 +35,11 @@ Cada camada está em sua própria pasta dentro de `app/annotation/`.
 Lógica pura de negócio — sem UI, sem I/O, sem dependência de Tkinter ou arquivo.
 
 - `app/annotation/core/services/class_service.py` — gerenciamento de categorias: registro, remapeamento de IDs, reordenação, remoção, cor, atalhos de teclado.
+- `app/annotation/core/augmentation/augmentation_types.py` — catálogo canônico e dataclasses de configuração de data augmentation.
+- `app/annotation/core/augmentation/augmentation_service.py` — transformações puras de augmentation sobre imagem BGR e bboxes YOLO normalizadas.
+- `app/annotation/core/export/export_types.py` — dataclasses compartilhadas de configuração de exportação.
+- `app/annotation/core/export/split_service.py` — cálculo puro de split train/val/test.
+- `app/annotation/core/export/yolo_label_service.py` — conversão pura COCO bbox → YOLO normalizado e formatação de labels.
 
 ---
 
@@ -46,6 +51,8 @@ Implementações concretas de I/O: leitura/escrita de arquivos, chamadas a bibli
 
 - `app/annotation/infrastructure/persistence/coco_storage.py` — operações COCO em memória e disco: `store_annotations`, `write_annotations`, `build_coco_payload`, `delete_image_annotations`, etc.
 - `app/annotation/infrastructure/persistence/export_actions.py` — ações de exportação disparadas pela UI: salvar `.coco.json`, salvar `.yaml`, exportar dataset completo.
+- `app/annotation/infrastructure/export/coco_exporter.py` — conversão e escrita COCO.
+- `app/annotation/infrastructure/export/yolo_exporter.py` — escrita YOLO, cópia de imagens, labels e cópias aumentadas.
 
 ---
 
@@ -72,6 +79,11 @@ Construção de widgets e painéis Tkinter. Nenhuma regra de negócio aqui.
 #### Widgets
 
 - `app/annotation/presentation/widgets/class_panel_widget.py` — widget de lista de classes com tags coloridas, botões de reordenar/remover e entrada inline de nova classe.
+
+#### Exportação
+
+- `app/annotation/presentation/export/export_screen.py` — tela interna de exportação com destino, formato, split e data augmentation.
+- `app/annotation/presentation/export/preview_dialog.py` — modal de preview antes/depois para uma augmentation específica.
 
 ---
 
@@ -127,7 +139,7 @@ Arquivos já focados que não foram divididos.
 - `app/core/session.py` — `AnnotationSessionConfig` e `AnnotationTaskMode`.
 - `app/models.py` — dataclasses `Detection` e `ByteTrackerArgs`.
 - `app/geometry.py` — utilitários geométricos (`bbox_iou`, `clip_bbox`, `order_points`, etc.).
-- `app/dataset_export.py` — `export_detection_coco_json` e `export_yolo_dataset`.
+- `app/dataset_export.py` — fachada compatível para `export_detection_coco_json`, `export_yolo_dataset` e `export_yolo_no_split`.
 - `app/config.py` — constantes e defaults de configuração.
 - `app/tracking/multiclass_byte_tracking.py` — `BYTETracker` independente por classe.
 - `app/ui/theme.py` — tokens de cores, fontes, espaçamentos e tamanhos.

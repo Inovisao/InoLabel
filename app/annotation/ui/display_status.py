@@ -149,6 +149,11 @@ class DisplayStatusMixin:
                 if saved_path.exists():
                     return saved_path
             return None
+        file_name = self.current_frame_file_name()
+        if file_name:
+            saved_path = self.output_images_dir / file_name
+            if saved_path.exists():
+                return saved_path
         if self.current_source_type == "images" and self.current_source_image_path is not None:
             if self.current_source_image_path.exists():
                 return self.current_source_image_path
@@ -166,7 +171,14 @@ class DisplayStatusMixin:
         """Abre o gerenciador de arquivos e tenta destacar o arquivo alvo."""
         target = target.resolve()
         folder = target.parent
-        kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "check": False}
+
+        def _spawn(cmd: List[str]) -> bool:
+            try:
+                subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return True
+            except Exception:  # pylint: disable=broad-except
+                return False
+
         try:
             if sys.platform.startswith("linux"):
                 candidates = []
@@ -178,16 +190,19 @@ class DisplayStatusMixin:
                 if thunar:
                     candidates.append([thunar, str(target)])
                 for cmd in candidates:
-                    if subprocess.run(cmd, **kwargs).returncode == 0:
+                    if _spawn(cmd):
                         return True
+                gio = shutil.which("gio")
+                if gio and _spawn([gio, "open", str(folder)]):
+                    return True
                 xdg_open = shutil.which("xdg-open")
                 if xdg_open:
-                    return subprocess.run([xdg_open, str(folder)], **kwargs).returncode == 0
+                    return _spawn([xdg_open, str(folder)])
                 return False
             if sys.platform == "darwin":
-                return subprocess.run(["open", "-R", str(target)], **kwargs).returncode == 0
+                return _spawn(["open", "-R", str(target)])
             if os.name == "nt":
-                return subprocess.run(["explorer", "/select,", str(target)], **kwargs).returncode == 0
+                return _spawn(["explorer", "/select,", str(target)])
         except Exception:  # pylint: disable=broad-except
             return False
         return False
@@ -195,6 +210,11 @@ class DisplayStatusMixin:
     def on_open_in_folder(self):
         """Evento do botao para abrir a imagem atual no gerenciador de arquivos."""
         target = self.current_open_target_path()
+        if target is None and self.current_frame is not None:
+            saved = self.autosave_current_frame(reason="abrir no folder")
+            if saved is not None:
+                _image_id, file_name = saved
+                target = self.output_images_dir / file_name
         if target is None:
             print("[INFO] Nenhuma imagem de arquivo disponivel neste frame.")
             return

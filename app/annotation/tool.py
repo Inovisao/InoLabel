@@ -37,6 +37,7 @@ from app.annotation.presentation.panels.topbar_panel import TopbarPanelMixin
 from app.annotation.presentation.panels.statusbar_panel import StatusbarPanelMixin
 from app.annotation.presentation.panels.sidebar_panel import SidebarPanelMixin
 from app.annotation.presentation.panels.canvas_panel import CanvasPanelMixin
+from app.annotation.presentation.export.export_screen import ExportScreenMixin
 
 # ── Apresentação: widgets ────────────────────────────────────────────────────
 from app.annotation.presentation.widgets.class_panel_widget import ClassPanelWidgetMixin
@@ -81,6 +82,7 @@ class AnnotationTool(
     StatusbarPanelMixin,
     SidebarPanelMixin,
     CanvasPanelMixin,
+    ExportScreenMixin,
     # UI — widgets
     ClassPanelWidgetMixin,
     # UI — controles e renderização

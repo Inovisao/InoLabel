@@ -80,8 +80,6 @@ class UIControlsMixin:
         if not self.tracking_enabled:
             self.apply_id_button.config(state=tk.DISABLED)
             self.edit_id_button.config(state=tk.DISABLED)
-        self.save_yaml_button.config(state=tk.NORMAL)
-        self.save_coco_button.config(state=tk.NORMAL)
         self.export_dataset_button.config(state=tk.NORMAL)
 
     def update_pan_button(self):
@@ -101,8 +99,6 @@ class UIControlsMixin:
         self.selection_button.config(state=tk.DISABLED)
         self.apply_id_button.config(state=tk.DISABLED)
         self.edit_id_button.config(state=tk.DISABLED)
-        self.save_yaml_button.config(state=tk.DISABLED)
-        self.save_coco_button.config(state=tk.DISABLED)
         self.export_dataset_button.config(state=tk.DISABLED)
 
     def update_annotation_button(self):
