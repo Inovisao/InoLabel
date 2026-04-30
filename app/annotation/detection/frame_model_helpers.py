@@ -19,7 +19,9 @@ class FrameModelHelpersMixin:
                 label = self._resolve_class_label(names, cls_id)
                 if not self._should_keep_detection(conf, label):
                     continue
-                category_id = self._resolve_category_id(label)
+                category_id = self._resolve_category_id(label, cls_id)
+                if category_id is None:
+                    continue
                 xyxy = box.xyxy.cpu().numpy()[0]
                 xyxy[0::2] = np.clip(xyxy[0::2], 0, img_width - 1)
                 xyxy[1::2] = np.clip(xyxy[1::2], 0, img_height - 1)
@@ -75,11 +77,28 @@ class FrameModelHelpersMixin:
             return False
         return True
 
-    def _resolve_category_id(self, label: str) -> int:
-        _ = label
-        if self.target_classes:
-            return self.register_category(self.target_classes[0])
-        return self.register_category("object")
+    def _resolve_category_id(self, label: str, cls_id: Optional[int] = None) -> Optional[int]:
+        clean_label = str(label).strip()
+        if not clean_label:
+            return None
+
+        for class_name in self.target_classes:
+            if clean_label == class_name:
+                return self.register_category(class_name)
+
+        normalized_label = clean_label.casefold()
+        for class_name in self.target_classes:
+            if normalized_label == class_name.casefold():
+                return self.register_category(class_name)
+
+        if cls_id is not None and 0 <= int(cls_id) < len(self.target_classes):
+            return self.register_category(self.target_classes[int(cls_id)])
+
+        if not self.target_classes:
+            return self.register_category(clean_label)
+
+        print(f"[AVISO] Classe do modelo ignorada por nao existir na UI: {clean_label}")
+        return None
 
     @staticmethod
     def _match_track_category(original_box: np.ndarray, dets: List[np.ndarray], det_category_ids: List[int]) -> int:

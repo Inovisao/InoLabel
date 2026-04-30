@@ -1,7 +1,6 @@
 """Operações de leitura/escrita do payload COCO em memória e disco."""
 
 from app.annotation.shared import *
-from datetime import datetime
 
 
 class CocoStorageMixin:
@@ -50,7 +49,6 @@ class CocoStorageMixin:
             "last_active_source_index": int(self.current_video_index),
             "last_active_source": str(self.video_path) if self.video_path else "",
             "last_active_source_type": str(self.current_source_type),
-            "updated_at": datetime.now().isoformat(timespec="seconds"),
         }
 
     def build_coco_payload(self) -> dict:
@@ -61,6 +59,7 @@ class CocoStorageMixin:
                 "description": "Validacao manual de deteccoes com ROI e homografia",
                 "version": "1.0",
                 "task_mode": self.task_mode.value,
+                "data_root": str(self.data_root),
                 "video_sources": [str(v) for v in self.video_files],
                 "frames_are_rectified": SAVE_RECTIFIED_FRAMES,
             },
@@ -140,6 +139,15 @@ class CocoStorageMixin:
         with open(self.annotations_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
         print(f"[INFO] Anotacoes atualizadas em {self.annotations_path}")
+
+    def backup_annotations_file(self):
+        if not self.annotations_path.exists():
+            return None
+        backup_path = self.annotations_path.with_name(f"{self.annotations_path.name}.bak")
+        shutil.copy2(self.annotations_path, backup_path)
+        for stale_backup in self.annotations_path.parent.glob(f"{self.annotations_path.name}.bak_*"):
+            stale_backup.unlink()
+        return backup_path
 
     def delete_image_annotations(self, image_id: int) -> int:
         removed = sum(1 for ann in self.annotations if ann.get("image_id") == image_id)

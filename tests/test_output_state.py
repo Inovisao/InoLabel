@@ -6,6 +6,8 @@ from pathlib import Path
 
 from app.core.output_state import (
     create_new_output_dir,
+    latest_output_state_for_sources,
+    list_output_states_for_sources,
     latest_output_state,
     list_output_states,
     load_annotation_state,
@@ -14,9 +16,24 @@ from app.core.session import AnnotationTaskMode
 
 
 class OutputStateTest(unittest.TestCase):
-    def _write_annotations(self, root: Path, *, mode="tracking", categories=None, images=None, annotations=None):
+    def _write_annotations(
+        self,
+        root: Path,
+        *,
+        mode="tracking",
+        categories=None,
+        images=None,
+        annotations=None,
+        sources=None,
+        data_root=None,
+    ):
+        info = {"task_mode": mode}
+        if sources is not None:
+            info["video_sources"] = [str(source) for source in sources]
+        if data_root is not None:
+            info["data_root"] = str(data_root)
         payload = {
-            "info": {"task_mode": mode},
+            "info": info,
             "categories": categories or [{"id": 2, "name": "car"}, {"id": 7, "name": "bus"}],
             "images": images or [{"id": 1, "file_name": "img.jpg"}],
             "annotations": annotations or [{"id": 1, "image_id": 1, "category_id": 2}],
@@ -70,6 +87,26 @@ class OutputStateTest(unittest.TestCase):
 
         self.assertEqual(loaded.annotations_path.name, "__annotations.coco.json")
         self.assertEqual(loaded.class_names, ("person",))
+
+    def test_filters_output_states_by_project_sources(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_a = root / "project_a"
+            project_b = root / "project_b"
+            project_a.mkdir()
+            project_b.mkdir()
+            outputs = root / "outputs"
+            old_for_a = outputs / "output_dataset1_20260427_100000"
+            newer_for_b = outputs / "output_dataset2_20260427_110000"
+            self._write_annotations(old_for_a, categories=[{"id": 1, "name": "a"}], sources=[project_a])
+            self._write_annotations(newer_for_b, categories=[{"id": 1, "name": "b"}], sources=[project_b])
+
+            states = list_output_states_for_sources([project_a], outputs)
+            latest = latest_output_state_for_sources([project_a], outputs)
+
+        self.assertEqual([state.path.name for state in states], [old_for_a.name])
+        self.assertEqual(latest.path.name, old_for_a.name)
+        self.assertEqual(latest.class_names, ("a",))
 
 
 if __name__ == "__main__":

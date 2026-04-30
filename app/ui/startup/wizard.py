@@ -14,8 +14,8 @@ from app.config import DATA_ROOT, WEIGHTS_PATH
 from app.core.output_state import (
     OutputState,
     create_new_output_dir,
-    latest_output_state,
-    list_output_states,
+    latest_output_state_for_sources,
+    list_output_states_for_sources,
     load_annotation_state,
 )
 from app.core.session import AnnotationSessionConfig, AnnotationTaskMode, normalize_class_names
@@ -78,13 +78,7 @@ class StartupWizard:
         self.classes: List[str] = []
         self.class_panel: Optional[tk.Frame] = None
         self.summary: Optional[SourceSummary] = None
-        self.output_states: list[OutputState] = list_output_states()
-        latest = latest_output_state()
-        if latest is not None:
-            self.output_state_mode_var.set("resume_latest")
-            self.selected_state_path = latest.annotations_path
-            self.output_state_status_var.set(f"Ultimo estado encontrado: {latest.label}")
-            self._apply_state_template(latest.annotations_path)
+        self.output_states: list[OutputState] = []
 
         self.page = tk.Frame(self.root, bg=self.colors["bg"])
         self.page.pack(fill=tk.BOTH, expand=True)
@@ -567,17 +561,24 @@ class StartupWizard:
             ).grid(row=0, column=1, padx=(0, self.spacing["xs"]))
 
     def show_state_screen(self):
-        self.output_states = list_output_states()
+        project_sources = self._current_project_sources()
+        self.output_states = list_output_states_for_sources(project_sources) if project_sources else []
         latest = self.output_states[-1] if self.output_states else None
         if latest is not None and self.output_state_mode_var.get() == "new" and self.selected_state_path is None:
             self.output_state_mode_var.set("resume_latest")
             self.selected_state_path = latest.annotations_path
             self.output_state_status_var.set(f"Ultimo estado encontrado: {latest.label}")
             self._apply_state_template(latest.annotations_path)
+        elif latest is None and self.output_state_mode_var.get() in {"resume_latest", "template_latest"}:
+            self.output_state_mode_var.set("new")
+            self.selected_state_path = None
+            self.loaded_state_categories = ()
+            self.classes = []
+            self.output_state_status_var.set("Nenhum estado salvo encontrado para este projeto.")
 
         body = self._screen(
             "Escolha o estado de saida",
-            "Continue um output anterior, use um annotations.coco.json como modelo de classes, ou crie um output novo isolado.",
+            "Continue um output deste projeto, use um annotations.coco.json manualmente, ou crie um output novo isolado.",
             step=3,
         )
         form = self._build_card(body)
@@ -598,7 +599,7 @@ class StartupWizard:
             row=1,
             value="template_latest",
             title="Usar ultimo estado como modelo",
-            description="Carrega classes/configuracoes do ultimo output e cria um output novo vazio.",
+            description="Carrega classes/configuracoes do ultimo output deste projeto e cria um output novo vazio.",
             enabled=latest is not None,
         )
         self._state_option(
@@ -666,15 +667,22 @@ class StartupWizard:
 
     def _on_state_mode_changed(self, value: str):
         if value in {"resume_latest", "template_latest"}:
-            latest = latest_output_state()
+            latest = latest_output_state_for_sources(self._current_project_sources())
             self.selected_state_path = latest.annotations_path if latest is not None else None
             if latest is not None:
                 self.output_state_status_var.set(f"Estado selecionado: {latest.label}")
                 self._apply_state_template(latest.annotations_path)
+            else:
+                self.output_state_mode_var.set("new")
+                self.loaded_state_categories = ()
+                self.classes = []
+                self.output_state_status_var.set("Nenhum estado salvo encontrado para este projeto.")
+                self._refresh_classes_panel()
         elif value == "new":
             self.selected_state_path = None
+            self.loaded_state_categories = ()
+            self.classes = []
             self.output_state_status_var.set("Novo estado sera criado ao iniciar.")
-            self._sync_loaded_categories_to_classes()
             self._refresh_classes_panel()
 
     def browse_annotation_state(self):
@@ -758,6 +766,12 @@ class StartupWizard:
 
     def _state_classes_are_authoritative(self) -> bool:
         return self.output_state_mode_var.get() != "new" and bool(self.loaded_state_categories)
+
+    def _current_project_sources(self) -> tuple[Path, ...]:
+        if self.summary is not None and self.summary.sources:
+            return tuple(Path(source).expanduser() for source in self.summary.sources)
+        raw_path = self.data_root_var.get().strip()
+        return (Path(raw_path).expanduser(),) if raw_path else ()
 
     def browse_model(self):
         initial_dir = Path.home()
@@ -1015,18 +1029,18 @@ class StartupWizard:
         category_metadata: tuple[dict, ...] = ()
 
         if state_mode == "resume_latest":
-            latest = latest_output_state()
+            latest = latest_output_state_for_sources(self._current_project_sources())
             if latest is None:
-                messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado.")
+                messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
             self.selected_state_path = latest.annotations_path
             output_dir = latest.path
             annotations_path = latest.annotations_path
             resume_existing = True
         elif state_mode == "template_latest":
-            latest = latest_output_state()
+            latest = latest_output_state_for_sources(self._current_project_sources())
             if latest is None:
-                messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado.")
+                messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
             self.selected_state_path = latest.annotations_path
             output_dir = create_new_output_dir()

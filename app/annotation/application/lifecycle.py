@@ -37,6 +37,7 @@ class LifecycleMixin:
 
     def finish_processing(self, message: str):
         if self.closed:
+            self._destroy_window()
             return
         self.autosave_current_frame(reason="encerramento")
         self.closed = True
@@ -46,26 +47,50 @@ class LifecycleMixin:
                 key_mapping_dialog.destroy()
             except Exception:  # pylint: disable=broad-except
                 pass
-        if self.cap is not None:
-            self.cap.release()
-            self.cap = None
-        self.window.unbind("<Return>")
-        self.window.unbind("<space>")
-        self.window.unbind("<Escape>")
-        self.accept_button.config(state=tk.DISABLED)
-        self.reject_button.config(state=tk.DISABLED)
-        self.quit_button.config(state=tk.DISABLED)
-        self.delete_image_button.config(state=tk.DISABLED)
-        self.pan_button.config(state=tk.DISABLED)
-        self.save_yaml_button.config(state=tk.DISABLED)
-        self.save_coco_button.config(state=tk.DISABLED)
-        self.export_dataset_button.config(state=tk.DISABLED)
-        if self.images or self.annotations:
-            self.write_annotations()
-        if self.homographies:
-            with open(self.homography_path, "w", encoding="utf-8") as f:
-                json.dump(self.homographies, f, indent=4, ensure_ascii=False)
-        self.info_var.set(message)
+        try:
+            if self.cap is not None:
+                self.cap.release()
+                self.cap = None
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[AVISO] Falha ao liberar fonte: {exc}")
+        for shortcut in ("<Return>", "<space>", "<Escape>"):
+            try:
+                self.window.unbind(shortcut)
+            except Exception:  # pylint: disable=broad-except
+                pass
+        for button_name in (
+            "accept_button",
+            "reject_button",
+            "quit_button",
+            "delete_image_button",
+            "pan_button",
+            "export_dataset_button",
+        ):
+            button = getattr(self, button_name, None)
+            if button is not None:
+                try:
+                    button.config(state=tk.DISABLED)
+                except Exception:  # pylint: disable=broad-except
+                    pass
+        try:
+            if self.images or self.annotations:
+                self.write_annotations()
+                self.backup_annotations_file()
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[ERRO] Falha ao salvar anotacoes no encerramento: {exc}")
+        try:
+            if self.homographies:
+                with open(self.homography_path, "w", encoding="utf-8") as f:
+                    json.dump(self.homographies, f, indent=4, ensure_ascii=False)
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[ERRO] Falha ao salvar homografias no encerramento: {exc}")
+        try:
+            self.info_var.set(message)
+        except Exception:  # pylint: disable=broad-except
+            pass
+        self._destroy_window()
+
+    def _destroy_window(self):
         try:
             self.window.after(500, self.window.destroy)
         except Exception:  # pylint: disable=broad-except

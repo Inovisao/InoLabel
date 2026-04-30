@@ -1,10 +1,14 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
+import cv2
 import numpy as np
 
+from app.annotation.core.augmentation.augmentation_types import AugEntry, AugmentationPreset
 from app.annotation.detection.persistence import PersistenceMixin
+from app.annotation.infrastructure.persistence.export_actions import ExportActionsMixin
 from app.annotation.ui.display_canvas import DisplayCanvasMixin
 from app.annotation.detection.workflow_actions import WorkflowActionsMixin
 from app.annotation.sources.source_helpers import SourceHelpersMixin
@@ -55,6 +59,88 @@ class ExportYoloDatasetTest(unittest.TestCase):
                 "",
             )
             self.assertTrue((dataset_root / "images" / "train" / "img_001.jpg").exists())
+
+    def test_yolo_export_writes_augmented_images_and_labels_in_same_split(self):
+        payload = {
+            "images": [{"id": 1, "file_name": "img_001.jpg", "width": 100, "height": 100}],
+            "annotations": [{"id": 1, "image_id": 1, "category_id": 1, "bbox": [10, 20, 20, 20]}],
+            "categories": [{"id": 1, "name": "car"}],
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            source_images_dir = tmp_path / "images"
+            dataset_root = tmp_path / "yolo_dataset"
+            source_images_dir.mkdir(parents=True, exist_ok=True)
+            cv2.imwrite(str(source_images_dir / "img_001.jpg"), np.zeros((100, 100, 3), dtype=np.uint8))
+
+            preset = AugmentationPreset(
+                enabled=True,
+                copies_per_image=1,
+                entries=[AugEntry(key="flip_h", enabled=True, params={"prob": 1.0})],
+            )
+
+            report = export_yolo_dataset(
+                payload,
+                source_images_dir=source_images_dir,
+                dataset_root=dataset_root,
+                split_ratios=(1.0, 0.0, 0.0),
+                augmentation_preset=preset,
+            )
+
+            self.assertTrue((dataset_root / "images" / "train" / "img_001_aug1.jpg").exists())
+            aug_label = (dataset_root / "labels" / "train" / "img_001_aug1.txt").read_text(encoding="utf-8")
+            self.assertIn("0 0.800000 0.300000 0.200000 0.200000", aug_label)
+            self.assertEqual(report["images_per_split"]["train"], 2)
+            self.assertEqual(report["labels_per_split"]["train"], 2)
+
+    def test_yolo_export_keeps_all_originals_when_augmentation_has_multiple_copies(self):
+        payload = {
+            "images": [
+                {"id": idx, "file_name": f"img_{idx:03d}.jpg", "width": 100, "height": 100}
+                for idx in range(1, 4)
+            ],
+            "annotations": [
+                {"id": idx, "image_id": idx, "category_id": 1, "bbox": [10, 10, 20, 20]}
+                for idx in range(1, 4)
+            ],
+            "categories": [{"id": 1, "name": "car"}],
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            source_images_dir = tmp_path / "images"
+            dataset_root = tmp_path / "yolo_dataset"
+            source_images_dir.mkdir(parents=True, exist_ok=True)
+            for image in payload["images"]:
+                cv2.imwrite(
+                    str(source_images_dir / image["file_name"]),
+                    np.zeros((100, 100, 3), dtype=np.uint8),
+                )
+
+            preset = AugmentationPreset(
+                enabled=True,
+                copies_per_image=2,
+                entries=[AugEntry(key="flip_h", enabled=True, params={"prob": 1.0})],
+            )
+
+            report = export_yolo_dataset(
+                payload,
+                source_images_dir=source_images_dir,
+                dataset_root=dataset_root,
+                split_ratios=(1.0, 0.0, 0.0),
+                augmentation_preset=preset,
+            )
+
+            for idx in range(1, 4):
+                stem = f"img_{idx:03d}"
+                self.assertTrue((dataset_root / "images" / "train" / f"{stem}.jpg").exists())
+                self.assertTrue((dataset_root / "images" / "train" / f"{stem}_aug1.jpg").exists())
+                self.assertTrue((dataset_root / "images" / "train" / f"{stem}_aug2.jpg").exists())
+                self.assertTrue((dataset_root / "labels" / "train" / f"{stem}.txt").exists())
+
+            self.assertEqual(report["images_per_split"]["train"], 9)
+            self.assertEqual(report["labels_per_split"]["train"], 9)
 
     def test_preserves_subfolders_for_images_and_labels(self):
         payload = {
@@ -210,6 +296,63 @@ class ExportOutputDatasetPathTest(unittest.TestCase):
 
             self.assertNotEqual(destination, output_dir.resolve())
             self.assertFalse(output_dir.resolve() in destination.parents)
+
+    def test_user_export_root_never_points_inside_output_state(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_dir = Path(tmp_dir) / "output_dataset1"
+            output_dir.mkdir()
+
+            class DummyExportActions(ExportActionsMixin):
+                pass
+
+            actions = DummyExportActions()
+            actions.output_dir = output_dir
+
+            destination = actions.resolve_user_export_root(output_dir.parent, output_dir.name)
+
+            self.assertNotEqual(destination, output_dir.resolve())
+            self.assertFalse(output_dir.resolve() in destination.parents)
+            self.assertEqual(destination.parent, output_dir.parent.resolve())
+
+    def test_load_export_payload_uses_persisted_state_instead_of_memory(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            output_dir = root / "output_dataset1"
+            images_dir = output_dir / "images"
+            images_dir.mkdir(parents=True)
+            annotations_path = output_dir / "annotations.coco.json"
+            persisted_payload = {
+                "images": [
+                    {"id": 1, "file_name": "img_001.jpg", "width": 10, "height": 10},
+                ],
+                "annotations": [],
+                "categories": [{"id": 1, "name": "car"}],
+            }
+            annotations_path.write_text(json.dumps(persisted_payload), encoding="utf-8")
+            for name in ("img_001.jpg", "img_002.jpg", "img_003.jpg"):
+                cv2.imwrite(str(images_dir / name), np.zeros((10, 10, 3), dtype=np.uint8))
+
+            class DummyExportActions(ExportActionsMixin):
+                def autosave_current_frame(self, *, reason=""):
+                    self.autosave_reason = reason
+
+                def write_annotations(self):
+                    self.write_called = True
+
+            actions = DummyExportActions()
+            actions.annotations_path = annotations_path
+            actions.output_images_dir = images_dir
+            actions.images = [{"id": 99, "file_name": "only_memory.jpg"}]
+
+            payload = actions.load_export_payload_from_state()
+
+            self.assertTrue(actions.write_called)
+            self.assertEqual(actions.autosave_reason, "exportar dataset")
+            self.assertEqual(len(payload["images"]), 3)
+            self.assertEqual(
+                sorted(image["file_name"] for image in payload["images"]),
+                ["img_001.jpg", "img_002.jpg", "img_003.jpg"],
+            )
 
 
 class ResumeStateTest(unittest.TestCase):

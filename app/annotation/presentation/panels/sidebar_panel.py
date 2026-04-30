@@ -5,11 +5,11 @@ from app.ui.theme import COLORS, FONTS, SIZES, SPACING
 
 class SidebarPanelMixin:
     def _build_body(self):
-        body = tk.Frame(self.window, bg=COLORS["bg"])
-        body.pack(fill=tk.BOTH, expand=True)
+        self.body_frame = tk.Frame(self.window, bg=COLORS["bg"])
+        self.body_frame.pack(fill=tk.BOTH, expand=True)
 
         sidebar_frame = tk.Frame(
-            body,
+            self.body_frame,
             width=SIZES["sidebar_w"],
             bg=COLORS["panel"],
             highlightbackground=COLORS["border"],
@@ -19,9 +19,20 @@ class SidebarPanelMixin:
         sidebar_frame.pack_propagate(False)
         self._build_sidebar(sidebar_frame)
 
-        canvas_area = tk.Frame(body, bg=COLORS["canvas_bg"])
-        canvas_area.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self._build_canvas_area(canvas_area)
+        self.main_content_area = tk.Frame(self.body_frame, bg=COLORS["canvas_bg"])
+        self.main_content_area.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.show_annotation_screen()
+
+    def _clear_main_content(self):
+        for child in self.main_content_area.winfo_children():
+            child.destroy()
+
+    def show_annotation_screen(self):
+        self._clear_main_content()
+        self.export_screen_active = False
+        self._build_canvas_area(self.main_content_area)
+        if self.current_frame is not None:
+            self.update_display(refresh_status=True)
 
     def _build_sidebar(self, container):
         scroll = ScrollableFrame(container, bg=COLORS["panel"])
@@ -141,14 +152,6 @@ class SidebarPanelMixin:
 
         # ── Seção: Exportar ────────────────────────────────────────
         self._sb_section(s, "Exportar")
-        self.save_yaml_button = self._sb_btn(s, "Salvar .yaml", self.on_save_yaml, state=tk.DISABLED)
-        self._apply_button_theme(self.save_yaml_button, bg=COLORS["primary"], active_bg=COLORS["primary_active"])
-        self.save_yaml_button.pack(fill=tk.X, **p)
-
-        self.save_coco_button = self._sb_btn(s, "Salvar .coco.json", self.on_save_coco_json, state=tk.DISABLED)
-        self._apply_button_theme(self.save_coco_button, bg=COLORS["primary"], active_bg=COLORS["primary_active"])
-        self.save_coco_button.pack(fill=tk.X, **p)
-
         self.export_dataset_button = self._sb_btn(
             s, "Exportar dataset", self.on_export_dataset, state=tk.DISABLED,
         )
