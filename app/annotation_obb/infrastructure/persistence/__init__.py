@@ -1,0 +1,1 @@
+"""Persistencia do modo OBB."""

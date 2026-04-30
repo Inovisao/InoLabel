@@ -284,12 +284,16 @@ class StartupWizard:
         options.grid(row=2, column=0, sticky="nsew")
         options.columnconfigure(0, weight=1)
         options.columnconfigure(1, weight=1)
+        options.columnconfigure(2, weight=1)
 
         self._mode_card(options, AnnotationTaskMode.TRACKING, "Mantem IDs por objeto e usa rastreamento multiclass.").grid(
-            row=0, column=0, sticky="nsew", padx=(0, 10), pady=8
+            row=0, column=0, sticky="nsew", padx=(0, 8), pady=8
         )
         self._mode_card(options, AnnotationTaskMode.DETECTION, "Gera caixas independentes, sem IDs de tracking.").grid(
-            row=0, column=1, sticky="nsew", padx=(10, 0), pady=8
+            row=0, column=1, sticky="nsew", padx=(8, 8), pady=8
+        )
+        self._mode_card(options, AnnotationTaskMode.OBB, "Gera caixas orientadas com angulo para exportacao YOLO OBB.").grid(
+            row=0, column=2, sticky="nsew", padx=(8, 0), pady=8
         )
         self._footer(body, None, self.show_dataset_screen)
 
@@ -729,7 +733,8 @@ class StartupWizard:
         self.classes = list(state.class_names)
         self.loaded_state_categories = state.categories
         self._sync_loaded_categories_to_classes()
-        if state.task_mode is not None:
+        current_mode = AnnotationTaskMode(self.mode_var.get())
+        if state.task_mode is not None and (state.task_mode is AnnotationTaskMode.OBB or current_mode is not AnnotationTaskMode.OBB):
             self.mode_var.set(state.task_mode.value)
         self._refresh_classes_panel()
         return True
@@ -1071,6 +1076,8 @@ class StartupWizard:
 
         try:
             mode = AnnotationTaskMode(self.mode_var.get())
+            if mode is AnnotationTaskMode.OBB and annotations_path is None:
+                annotations_path = output_dir / "annotations_obb.coco.json"
             self.result = AnnotationSessionConfig(
                 mode=mode,
                 data_root=data_root,

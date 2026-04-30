@@ -88,6 +88,29 @@ class OutputStateTest(unittest.TestCase):
         self.assertEqual(loaded.annotations_path.name, "__annotations.coco.json")
         self.assertEqual(loaded.class_names, ("person",))
 
+    def test_supports_obb_annotations_file(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "output_dataset1_20260427_100000"
+            root.mkdir(parents=True)
+            path = root / "annotations_obb.coco.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "info": {"task_mode": "obb"},
+                        "categories": [{"id": 1, "name": "seed"}],
+                        "images": [],
+                        "annotations": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            loaded = load_annotation_state(root)
+
+        self.assertEqual(loaded.annotations_path.name, "annotations_obb.coco.json")
+        self.assertEqual(loaded.task_mode, AnnotationTaskMode.OBB)
+        self.assertEqual(loaded.class_names, ("seed",))
+
     def test_filters_output_states_by_project_sources(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

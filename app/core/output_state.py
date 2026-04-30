@@ -16,7 +16,7 @@ from typing import Iterable, Optional
 from app.config import OUTPUT_DATASET_PREFIX, OUTPUTS_DIR
 from app.core.session import AnnotationTaskMode, normalize_class_names
 
-ANNOTATION_FILE_NAMES = ("annotations.coco.json", "__annotations.coco.json")
+ANNOTATION_FILE_NAMES = ("annotations.coco.json", "annotations_obb.coco.json", "__annotations.coco.json")
 STATE_PATTERN = re.compile(rf"^{re.escape(OUTPUT_DATASET_PREFIX)}(?P<index>\d+)_(?P<stamp>\d{{8}}_\d{{6}})$")
 
 
