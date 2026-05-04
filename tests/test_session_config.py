@@ -44,6 +44,27 @@ class SessionConfigTest(unittest.TestCase):
                 target_classes=("",),
             )
 
+    def test_classification_session_does_not_require_weights(self):
+        config = AnnotationSessionConfig(
+            mode=AnnotationTaskMode.CLASSIFICATION,
+            data_root=Path("images"),
+            target_classes=("ok", "falha"),
+        )
+
+        self.assertEqual(config.weights_paths, ())
+        self.assertIsNone(config.weights_path)
+        self.assertEqual(config.target_classes, ("ok", "falha"))
+
+    def test_classification_session_preserves_move_option(self):
+        config = AnnotationSessionConfig(
+            mode=AnnotationTaskMode.CLASSIFICATION,
+            data_root=Path("images"),
+            target_classes=("ok",),
+            classification_move_files=True,
+        )
+
+        self.assertTrue(config.classification_move_files)
+
 
 class SourceDiscoveryServiceTest(unittest.TestCase):
     def test_discovers_image_directory_as_single_sequence(self):

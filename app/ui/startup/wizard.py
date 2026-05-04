@@ -10,10 +10,19 @@ from typing import Callable, List, Optional
 
 from ultralytics import YOLO
 
+from app.classification.dataset import (
+    STATE_FILE_NAME as CLASSIFICATION_STATE_FILE_NAME,
+    discover_images,
+    latest_output_state_for_sources as latest_classification_state_for_sources,
+    list_output_states_for_sources as list_classification_states_for_sources,
+    load_required_state as load_classification_state,
+)
 from app.config import DATA_ROOT, WEIGHTS_PATH
 from app.core.output_state import (
+    ANNOTATION_FILE_NAMES,
     OutputState,
     create_new_output_dir,
+    find_annotations_path,
     latest_output_state_for_sources,
     list_output_states_for_sources,
     load_annotation_state,
@@ -73,6 +82,7 @@ class StartupWizard:
         self.model_status_var = tk.StringVar(value="Modelos ainda nao validados.")
         self.output_state_mode_var = tk.StringVar(value="new")
         self.output_state_status_var = tk.StringVar(value="")
+        self.classification_move_var = tk.BooleanVar(value=False)
         self.selected_state_path: Optional[Path] = None
         self.loaded_state_categories: tuple[dict, ...] = ()
         self.classes: List[str] = []
@@ -118,7 +128,10 @@ class StartupWizard:
             self._update_wraplengths(child, wrap)
 
     def _step_indicator(self, parent, current: int):
-        steps = ["Modo", "Dataset", "Modelo", "Estado"]
+        if AnnotationTaskMode(self.mode_var.get()) is AnnotationTaskMode.CLASSIFICATION:
+            steps = ["Modo", "Imagens", "Estado", "Classes"]
+        else:
+            steps = ["Modo", "Dataset", "Estado", "Modelo"]
         row = tk.Frame(parent, bg=self.colors["bg"])
         row.pack(fill=tk.X, pady=(0, self.spacing["lg"]))
 
@@ -162,6 +175,7 @@ class StartupWizard:
                 ).pack(side=tk.LEFT, padx=self.spacing["sm"])
 
     def _go_to_step(self, step: int):
+        current_mode = AnnotationTaskMode(self.mode_var.get())
         if step == 1:
             self.show_mode_screen()
             return
@@ -169,12 +183,21 @@ class StartupWizard:
             self.show_dataset_screen()
             return
         if step == 3:
+            if current_mode is AnnotationTaskMode.CLASSIFICATION:
+                if self.summary is None:
+                    self.validate_dataset_and_continue()
+                else:
+                    self.show_state_screen()
+                return
             if self.summary is None:
                 self.validate_dataset_and_continue()
             else:
                 self.show_state_screen()
             return
         if step == 4:
+            if current_mode is AnnotationTaskMode.CLASSIFICATION:
+                self.show_model_screen()
+                return
             if self.summary is None:
                 self.validate_dataset_and_continue()
             else:
@@ -282,9 +305,8 @@ class StartupWizard:
         body.rowconfigure(2, weight=1)
         options = tk.Frame(body, bg=self.colors["bg"])
         options.grid(row=2, column=0, sticky="nsew")
-        options.columnconfigure(0, weight=1)
-        options.columnconfigure(1, weight=1)
-        options.columnconfigure(2, weight=1)
+        for col in range(4):
+            options.columnconfigure(col, weight=1)
 
         self._mode_card(options, AnnotationTaskMode.TRACKING, "Mantem IDs por objeto e usa rastreamento multiclass.").grid(
             row=0, column=0, sticky="nsew", padx=(0, 8), pady=8
@@ -293,7 +315,10 @@ class StartupWizard:
             row=0, column=1, sticky="nsew", padx=(8, 8), pady=8
         )
         self._mode_card(options, AnnotationTaskMode.OBB, "Gera caixas orientadas com angulo para exportacao YOLO OBB.").grid(
-            row=0, column=2, sticky="nsew", padx=(8, 0), pady=8
+            row=0, column=2, sticky="nsew", padx=(8, 8), pady=8
+        )
+        self._mode_card(options, AnnotationTaskMode.CLASSIFICATION, "Copia imagens para subpastas ao clicar na classe.").grid(
+            row=0, column=3, sticky="nsew", padx=(8, 0), pady=8
         )
         self._footer(body, None, self.show_dataset_screen)
 
@@ -437,40 +462,54 @@ class StartupWizard:
         if not self.summary.has_sources:
             messagebox.showerror("Dataset invalido", f"Nenhuma fonte valida encontrada em:\n{data_root}")
             return
+        if AnnotationTaskMode(self.mode_var.get()) is AnnotationTaskMode.CLASSIFICATION:
+            if not discover_images(data_root):
+                messagebox.showerror("Dataset invalido", f"Nenhuma imagem valida encontrada em:\n{data_root}")
+                return
+            self.show_state_screen()
+            return
         self.show_state_screen()
 
     def show_model_screen(self):
+        is_classification = AnnotationTaskMode(self.mode_var.get()) is AnnotationTaskMode.CLASSIFICATION
         body = self._screen(
-            "Escolha os modelos auxiliares",
-            "Adicione um ou mais pesos YOLO. Com varios modelos as deteccoes sao mescladas via NMS (ensemble). Ajuste as classes iniciais para a sessao.",
-            step=4,
+            "Defina as classes" if is_classification else "Escolha os modelos auxiliares",
+            (
+                "Crie as classes de destino. O dataset final sera a pasta de saida com uma subpasta para cada classe."
+                if is_classification
+                else "Adicione um ou mais pesos YOLO. Com varios modelos as deteccoes sao mescladas via NMS (ensemble). Ajuste as classes iniciais para a sessao."
+            ),
+            step=4 if is_classification else 4,
         )
         form = self._build_card(body)
         form.grid(row=2, column=0, sticky="ew")
         form.columnconfigure(0, weight=1)
 
-        tk.Label(
-            form,
-            text="Modelos (.pt)",
-            bg=self.colors["panel"],
-            fg=self.colors["text"],
-            font=self.fonts["label"],
-            anchor="w",
-        ).grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, self.spacing["sm"]))
+        class_row = 0
+        if not is_classification:
+            tk.Label(
+                form,
+                text="Modelos (.pt)",
+                bg=self.colors["panel"],
+                fg=self.colors["text"],
+                font=self.fonts["label"],
+                anchor="w",
+            ).grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, self.spacing["sm"]))
 
-        # Lista de modelos
-        models_panel = tk.Frame(form, bg=self.colors["panel"])
-        models_panel.grid(row=1, column=0, columnspan=3, sticky="ew")
-        models_panel.columnconfigure(0, weight=1)
-        self._redraw_models(models_panel)
+            # Lista de modelos
+            models_panel = tk.Frame(form, bg=self.colors["panel"])
+            models_panel.grid(row=1, column=0, columnspan=3, sticky="ew")
+            models_panel.columnconfigure(0, weight=1)
+            self._redraw_models(models_panel)
 
-        actions = tk.Frame(form, bg=self.colors["panel"])
-        actions.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(self.spacing["sm"], 0))
-        actions.columnconfigure(0, weight=1)
-        self._button(actions, "Adicionar modelo(s)", self.browse_model).grid(
-            row=0, column=1, padx=(0, self.spacing["sm"])
-        )
-        self._button(actions, "Validar modelos", self.validate_models_for_current_state).grid(row=0, column=2)
+            actions = tk.Frame(form, bg=self.colors["panel"])
+            actions.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(self.spacing["sm"], 0))
+            actions.columnconfigure(0, weight=1)
+            self._button(actions, "Adicionar modelo(s)", self.browse_model).grid(
+                row=0, column=1, padx=(0, self.spacing["sm"])
+            )
+            self._button(actions, "Validar modelos", self.validate_models_for_current_state).grid(row=0, column=2)
+            class_row = 3
 
         tk.Label(
             form,
@@ -479,23 +518,50 @@ class StartupWizard:
             fg=self.colors["text"],
             font=self.fonts["label"],
             anchor="w",
-        ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(self.spacing["lg"], self.spacing["sm"]))
+        ).grid(row=class_row, column=0, columnspan=2, sticky="ew", pady=(self.spacing["lg"], self.spacing["sm"]))
         class_panel = tk.Frame(form, bg=self.colors["panel"])
-        class_panel.grid(row=4, column=0, columnspan=3, sticky="ew")
+        class_panel.grid(row=class_row + 1, column=0, columnspan=3, sticky="ew")
         self.class_panel = class_panel
         self._redraw_classes(class_panel)
 
-        model_status = tk.Label(
-            form,
-            textvariable=self.model_status_var,
-            bg=self.colors["panel"],
-            fg=self.colors["muted"],
-            font=self.fonts["caption"],
-            justify=tk.LEFT,
-            anchor="w",
-        )
-        model_status._responsive_wrap = True
-        model_status.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(self.spacing["lg"], 0))
+        summary_row = class_row + 2
+        if is_classification:
+            move_row = tk.Frame(form, bg=self.colors["panel"])
+            move_row.grid(row=class_row + 2, column=0, columnspan=3, sticky="ew", pady=(self.spacing["lg"], 0))
+            tk.Checkbutton(
+                move_row,
+                text="Mover imagens para o dataset em vez de copiar",
+                variable=self.classification_move_var,
+                bg=self.colors["panel"],
+                fg=self.colors["text"],
+                activebackground=self.colors["panel"],
+                selectcolor=self.colors["panel_alt"],
+                font=self.fonts["body"],
+                anchor="w",
+            ).grid(row=0, column=0, sticky="w")
+            tk.Label(
+                move_row,
+                text="Use mover quando quiser consumir a pasta de origem; use copiar para manter o banco original intacto.",
+                bg=self.colors["panel"],
+                fg=self.colors["muted"],
+                font=self.fonts["caption"],
+                justify=tk.LEFT,
+                anchor="w",
+            ).grid(row=1, column=0, sticky="ew", pady=(self.spacing["xs"], 0))
+            summary_row = class_row + 3
+        else:
+            model_status = tk.Label(
+                form,
+                textvariable=self.model_status_var,
+                bg=self.colors["panel"],
+                fg=self.colors["muted"],
+                font=self.fonts["caption"],
+                justify=tk.LEFT,
+                anchor="w",
+            )
+            model_status._responsive_wrap = True
+            model_status.grid(row=class_row + 2, column=0, columnspan=3, sticky="ew", pady=(self.spacing["lg"], 0))
+            summary_row = class_row + 3
 
         summary = tk.Label(
             form,
@@ -507,8 +573,10 @@ class StartupWizard:
             anchor="w",
         )
         summary._responsive_wrap = True
-        summary.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(self.spacing["md"], 0))
-        self._footer(body, self.show_state_screen, self.finish, "Iniciar anotacao")
+        summary.grid(row=summary_row, column=0, columnspan=3, sticky="ew", pady=(self.spacing["md"], 0))
+        back = self.show_state_screen
+        next_text = "Iniciar classificacao" if is_classification else "Iniciar anotacao"
+        self._footer(body, back, self.finish, next_text)
 
     def _redraw_models(self, panel: tk.Frame):
         for child in panel.winfo_children():
@@ -565,14 +633,18 @@ class StartupWizard:
             ).grid(row=0, column=1, padx=(0, self.spacing["xs"]))
 
     def show_state_screen(self):
+        is_classification = AnnotationTaskMode(self.mode_var.get()) is AnnotationTaskMode.CLASSIFICATION
         project_sources = self._current_project_sources()
-        self.output_states = list_output_states_for_sources(project_sources) if project_sources else []
+        if is_classification:
+            self.output_states = list_classification_states_for_sources(project_sources) if project_sources else []
+        else:
+            self.output_states = list_output_states_for_sources(project_sources) if project_sources else []
         latest = self.output_states[-1] if self.output_states else None
         if latest is not None and self.output_state_mode_var.get() == "new" and self.selected_state_path is None:
             self.output_state_mode_var.set("resume_latest")
-            self.selected_state_path = latest.annotations_path
+            self.selected_state_path = latest.state_path if is_classification else latest.annotations_path
             self.output_state_status_var.set(f"Ultimo estado encontrado: {latest.label}")
-            self._apply_state_template(latest.annotations_path)
+            self._apply_state_template(self.selected_state_path)
         elif latest is None and self.output_state_mode_var.get() in {"resume_latest", "template_latest"}:
             self.output_state_mode_var.set("new")
             self.selected_state_path = None
@@ -582,7 +654,11 @@ class StartupWizard:
 
         body = self._screen(
             "Escolha o estado de saida",
-            "Continue um output deste projeto, use um annotations.coco.json manualmente, ou crie um output novo isolado.",
+            (
+                f"Continue um output deste projeto, use um {CLASSIFICATION_STATE_FILE_NAME} manualmente, ou crie um dataset novo."
+                if is_classification
+                else "Continue um output deste projeto, use um annotations.coco.json manualmente, ou crie um output novo isolado."
+            ),
             step=3,
         )
         form = self._build_card(body)
@@ -610,7 +686,11 @@ class StartupWizard:
             form,
             row=2,
             value="manual",
-            title="Escolher annotations.coco.json manualmente",
+            title=(
+                f"Escolher {CLASSIFICATION_STATE_FILE_NAME} manualmente"
+                if is_classification
+                else "Escolher annotations.coco.json manualmente"
+            ),
             description="Permite continuar ou usar como modelo qualquer estado salvo.",
             enabled=True,
         )
@@ -670,12 +750,17 @@ class StartupWizard:
         ).grid(row=1, column=0, sticky="ew", padx=(self.spacing["lg"], 0))
 
     def _on_state_mode_changed(self, value: str):
+        is_classification = AnnotationTaskMode(self.mode_var.get()) is AnnotationTaskMode.CLASSIFICATION
         if value in {"resume_latest", "template_latest"}:
-            latest = latest_output_state_for_sources(self._current_project_sources())
-            self.selected_state_path = latest.annotations_path if latest is not None else None
+            if is_classification:
+                latest = latest_classification_state_for_sources(self._current_project_sources())
+                self.selected_state_path = latest.state_path if latest is not None else None
+            else:
+                latest = latest_output_state_for_sources(self._current_project_sources())
+                self.selected_state_path = latest.annotations_path if latest is not None else None
             if latest is not None:
                 self.output_state_status_var.set(f"Estado selecionado: {latest.label}")
-                self._apply_state_template(latest.annotations_path)
+                self._apply_state_template(self.selected_state_path)
             else:
                 self.output_state_mode_var.set("new")
                 self.loaded_state_categories = ()
@@ -690,54 +775,129 @@ class StartupWizard:
             self._refresh_classes_panel()
 
     def browse_annotation_state(self):
+        is_classification = AnnotationTaskMode(self.mode_var.get()) is AnnotationTaskMode.CLASSIFICATION
         initial = self.selected_state_path.parent if self.selected_state_path else Path.cwd()
         path = filedialog.askopenfilename(
-            title="Selecione annotations.coco.json",
+            title=f"Selecione {CLASSIFICATION_STATE_FILE_NAME}" if is_classification else "Selecione annotations.coco.json",
             initialdir=str(initial if initial.exists() else Path.cwd()),
             filetypes=[
-                ("COCO annotations", "annotations.coco.json __annotations.coco.json *.json"),
+                (
+                    "Estado de classificacao" if is_classification else "COCO annotations",
+                    CLASSIFICATION_STATE_FILE_NAME if is_classification else "annotations.coco.json __annotations.coco.json *.json",
+                ),
                 ("Todos os arquivos", "*.*"),
             ],
             parent=self.root,
         )
         if not path:
             return
-        try:
-            state = load_annotation_state(Path(path))
-        except Exception as exc:  # pylint: disable=broad-except
-            messagebox.showerror("Estado invalido", str(exc))
+        selected_path = Path(path).expanduser()
+        if is_classification:
+            if not self._is_classification_state_path(selected_path):
+                messagebox.showerror(
+                    "Estado invalido",
+                    f"Selecione um arquivo {CLASSIFICATION_STATE_FILE_NAME} para o modo classificacao.",
+                )
+                return
+        elif self._is_classification_state_path(selected_path):
+            messagebox.showerror(
+                "Estado invalido",
+                "Este e um estado de classificacao. Selecione um annotations.coco.json para deteccao/OBB.",
+            )
             return
-        if not state.class_names:
-            messagebox.showerror("Estado invalido", "O arquivo nao possui categorias/classes para carregar.")
+        elif find_annotations_path(selected_path) is None:
+            messagebox.showerror(
+                "Estado invalido",
+                "Selecione um estado COCO valido: annotations.coco.json, annotations_obb.coco.json ou __annotations.coco.json.",
+            )
             return
-        self.selected_state_path = state.annotations_path
-        self.output_state_mode_var.set("manual")
-        self.output_state_status_var.set(
-            f"Selecionado: {state.annotations_path} | {len(state.class_names)} classes | "
-            f"{state.image_count} imagens | {state.annotation_count} anotacoes"
-        )
-        self.classes = list(state.class_names)
-        self.loaded_state_categories = state.categories
-        self._sync_loaded_categories_to_classes()
+        if is_classification:
+            try:
+                state = load_classification_state(selected_path)
+            except Exception as exc:  # pylint: disable=broad-except
+                messagebox.showerror("Estado invalido", str(exc))
+                return
+            if not state.classes:
+                messagebox.showerror("Estado invalido", "O arquivo nao possui classes para carregar.")
+                return
+            self.selected_state_path = selected_path
+            self.output_state_mode_var.set("manual")
+            self.output_state_status_var.set(
+                f"Selecionado: {self.selected_state_path} | {len(state.classes)} classes | "
+                f"{len(state.records)} imagens classificadas"
+            )
+            self.classes = list(state.classes)
+            self.loaded_state_categories = ()
+        else:
+            try:
+                state = load_annotation_state(selected_path)
+            except Exception as exc:  # pylint: disable=broad-except
+                messagebox.showerror("Estado invalido", str(exc))
+                return
+            if not state.class_names:
+                messagebox.showerror("Estado invalido", "O arquivo nao possui categorias/classes para carregar.")
+                return
+            self.selected_state_path = state.annotations_path
+            self.output_state_mode_var.set("manual")
+            self.output_state_status_var.set(
+                f"Selecionado: {state.annotations_path} | {len(state.class_names)} classes | "
+                f"{state.image_count} imagens | {state.annotation_count} anotacoes"
+            )
+            self.classes = list(state.class_names)
+            self.loaded_state_categories = state.categories
+            self._sync_loaded_categories_to_classes()
         self._refresh_classes_panel()
 
     def _apply_state_template(self, annotations_path: Path) -> bool:
-        try:
-            state = load_annotation_state(annotations_path)
-        except Exception as exc:  # pylint: disable=broad-except
-            messagebox.showerror("Estado invalido", str(exc))
-            return False
-        if not state.class_names:
-            messagebox.showerror("Estado invalido", "O estado selecionado nao possui classes.")
-            return False
-        self.classes = list(state.class_names)
-        self.loaded_state_categories = state.categories
-        self._sync_loaded_categories_to_classes()
         current_mode = AnnotationTaskMode(self.mode_var.get())
-        if state.task_mode is not None and (state.task_mode is AnnotationTaskMode.OBB or current_mode is not AnnotationTaskMode.OBB):
-            self.mode_var.set(state.task_mode.value)
+        if current_mode is AnnotationTaskMode.CLASSIFICATION:
+            if not self._is_classification_state_path(annotations_path):
+                messagebox.showerror(
+                    "Estado invalido",
+                    f"O modo classificacao so aceita {CLASSIFICATION_STATE_FILE_NAME}.",
+                )
+                return False
+            try:
+                state = load_classification_state(annotations_path)
+            except Exception as exc:  # pylint: disable=broad-except
+                messagebox.showerror("Estado invalido", str(exc))
+                return False
+            if not state.classes:
+                messagebox.showerror("Estado invalido", "O estado selecionado nao possui classes.")
+                return False
+            self.classes = list(state.classes)
+            self.loaded_state_categories = ()
+        else:
+            if self._is_classification_state_path(annotations_path):
+                messagebox.showerror(
+                    "Estado invalido",
+                    "Estado de classificacao nao pode ser usado em deteccao/OBB.",
+                )
+                return False
+            try:
+                state = load_annotation_state(annotations_path)
+            except Exception as exc:  # pylint: disable=broad-except
+                messagebox.showerror("Estado invalido", str(exc))
+                return False
+            if not state.class_names:
+                messagebox.showerror("Estado invalido", "O estado selecionado nao possui classes.")
+                return False
+            self.classes = list(state.class_names)
+            self.loaded_state_categories = state.categories
+            self._sync_loaded_categories_to_classes()
+            if state.task_mode is not None and (state.task_mode is AnnotationTaskMode.OBB or current_mode is not AnnotationTaskMode.OBB):
+                self.mode_var.set(state.task_mode.value)
         self._refresh_classes_panel()
         return True
+
+    @staticmethod
+    def _is_classification_state_path(path: Path) -> bool:
+        path = Path(path).expanduser()
+        if path.is_file():
+            return path.name == CLASSIFICATION_STATE_FILE_NAME
+        if path.is_dir():
+            return (path / CLASSIFICATION_STATE_FILE_NAME).exists()
+        return path.name == CLASSIFICATION_STATE_FILE_NAME and path.name not in ANNOTATION_FILE_NAMES
 
     def _sync_loaded_categories_to_classes(self):
         metadata_by_name = {}
@@ -1017,15 +1177,16 @@ class StartupWizard:
         if not raw_data_root:
             messagebox.showerror("Dataset invalido", "Selecione uma fonte de dados antes de iniciar.")
             return
-        if not self.weights_paths:
+        mode = AnnotationTaskMode(self.mode_var.get())
+        if mode is not AnnotationTaskMode.CLASSIFICATION and not self.weights_paths:
             messagebox.showerror("Modelo invalido", "Adicione ao menos um arquivo de pesos antes de iniciar.")
             return
         if not self.classes:
             messagebox.showerror("Classes invalidas", "Adicione ao menos uma classe antes de iniciar.")
             return
         data_root = Path(raw_data_root).expanduser()
-        weights_paths = tuple(Path(p).expanduser() for p in self.weights_paths)
-        if not self.validate_models(import_classes=False, refresh_screen=False):
+        weights_paths = tuple(Path(p).expanduser() for p in self.weights_paths) if mode is not AnnotationTaskMode.CLASSIFICATION else ()
+        if mode is not AnnotationTaskMode.CLASSIFICATION and not self.validate_models(import_classes=False, refresh_screen=False):
             return
         state_mode = self.output_state_mode_var.get()
         output_dir = None
@@ -1033,7 +1194,44 @@ class StartupWizard:
         resume_existing = False
         category_metadata: tuple[dict, ...] = ()
 
-        if state_mode == "resume_latest":
+        if mode is AnnotationTaskMode.CLASSIFICATION and state_mode == "resume_latest":
+            latest = latest_classification_state_for_sources(self._current_project_sources())
+            if latest is None:
+                messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
+                return
+            self.selected_state_path = latest.state_path
+            output_dir = latest.path
+            annotations_path = latest.state_path
+            resume_existing = True
+        elif mode is AnnotationTaskMode.CLASSIFICATION and state_mode == "template_latest":
+            latest = latest_classification_state_for_sources(self._current_project_sources())
+            if latest is None:
+                messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
+                return
+            self.selected_state_path = latest.state_path
+            output_dir = create_new_output_dir(create_images_dir=False)
+        elif mode is AnnotationTaskMode.CLASSIFICATION and state_mode == "manual":
+            if self.selected_state_path is None:
+                messagebox.showerror("Estado invalido", f"Selecione um {CLASSIFICATION_STATE_FILE_NAME} antes de iniciar.")
+                return
+            if not self.selected_state_path.exists():
+                messagebox.showerror("Estado invalido", f"Arquivo nao encontrado:\n{self.selected_state_path}")
+                return
+            answer = messagebox.askyesnocancel(
+                "Carregar estado",
+                "Deseja continuar salvando neste estado?\n\n"
+                "Sim: continua o dataset selecionado e carrega classificacoes antigas.\n"
+                "Nao: usa apenas classes/configuracoes e cria um dataset novo.",
+                parent=self.root,
+            )
+            if answer is None:
+                return
+            resume_existing = bool(answer)
+            output_dir = self.selected_state_path.parent if resume_existing else create_new_output_dir(create_images_dir=False)
+            annotations_path = self.selected_state_path if resume_existing else None
+        elif mode is AnnotationTaskMode.CLASSIFICATION:
+            output_dir = create_new_output_dir(create_images_dir=False)
+        elif state_mode == "resume_latest":
             latest = latest_output_state_for_sources(self._current_project_sources())
             if latest is None:
                 messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
@@ -1075,7 +1273,6 @@ class StartupWizard:
         category_metadata = self.loaded_state_categories
 
         try:
-            mode = AnnotationTaskMode(self.mode_var.get())
             if mode is AnnotationTaskMode.OBB and annotations_path is None:
                 annotations_path = output_dir / "annotations_obb.coco.json"
             self.result = AnnotationSessionConfig(
@@ -1087,6 +1284,7 @@ class StartupWizard:
                 annotations_path=annotations_path,
                 resume_existing_annotations=resume_existing,
                 category_metadata=category_metadata,
+                classification_move_files=self.classification_move_var.get(),
             )
         except ValueError as exc:
             messagebox.showerror("Configuracao invalida", str(exc))

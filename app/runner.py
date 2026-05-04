@@ -7,7 +7,11 @@ from app.core.session import AnnotationTaskMode
 
 def main() -> int:
     session_config = ask_startup_config()
-    if session_config.mode is AnnotationTaskMode.OBB:
+    if session_config.mode is AnnotationTaskMode.CLASSIFICATION:
+        from app.classification.tool import ClassificationTool
+
+        tool_cls = ClassificationTool
+    elif session_config.mode is AnnotationTaskMode.OBB:
         from app.annotation_obb.tool import OBBAnnotationTool
 
         tool_cls = OBBAnnotationTool

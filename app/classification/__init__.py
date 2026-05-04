@@ -1,0 +1,2 @@
+"""Manual image classification workflow."""
+

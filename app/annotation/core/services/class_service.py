@@ -54,7 +54,11 @@ class ClassServiceMixin:
             raise ValueError("Nome de classe vazio.")
         if clean_name in self.class_to_category_id:
             return self.class_to_category_id[clean_name]
-        next_id = max((cat.get("id", 0) for cat in self.categories), default=0) + 1
+        used_ids = {int(cat.get("id", 0)) for cat in self.categories}
+        preferred_id = None
+        if clean_name in getattr(self, "target_classes", []):
+            preferred_id = list(self.target_classes).index(clean_name) + 1
+        next_id = preferred_id if preferred_id is not None and preferred_id not in used_ids else max(used_ids, default=0) + 1
         self.class_to_category_id[clean_name] = next_id
         color = self._category_color_for_index(len(self.categories))
         self.categories.append({"id": next_id, "name": clean_name, "color": color, "supercategory": "none"})
@@ -326,7 +330,7 @@ class ClassServiceMixin:
 
     def on_class_shortcut(self, event):
         widget = self.window.focus_get()
-        if isinstance(widget, tk.Entry):
+        if isinstance(widget, (tk.Entry, tk.Text)):
             return
         key = getattr(event, "char", "")
         if not key.isdigit() or key == "0":

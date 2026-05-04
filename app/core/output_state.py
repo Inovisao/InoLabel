@@ -135,6 +135,7 @@ def create_new_output_dir(
     *,
     now: Optional[datetime] = None,
     prefix: str = OUTPUT_DATASET_PREFIX,
+    create_images_dir: bool = True,
 ) -> Path:
     """Create a unique output state directory using index and timestamp."""
 
@@ -148,7 +149,8 @@ def create_new_output_dir(
         candidate = outputs_dir / f"{prefix}{index}_{stamp}_{suffix}"
         suffix += 1
     candidate.mkdir(parents=True, exist_ok=False)
-    (candidate / "images").mkdir(parents=True, exist_ok=True)
+    if create_images_dir:
+        (candidate / "images").mkdir(parents=True, exist_ok=True)
     return candidate
 
 
