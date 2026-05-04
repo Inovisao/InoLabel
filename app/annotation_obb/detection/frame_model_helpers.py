@@ -54,9 +54,7 @@ class OBBFrameModelHelpersMixin:
                 return self.register_category(class_name)
         if cls_id is not None and 0 <= int(cls_id) < len(self.target_classes):
             return self.register_category(self.target_classes[int(cls_id)])
-        if clean_label not in self.target_classes:
-            self.target_classes.append(clean_label)
-            if getattr(self, "target_classes_var", None) is not None:
-                self.target_classes_var.set(", ".join(self.target_classes))
-            self._class_panel_snapshot = None
-        return self.register_category(clean_label)
+        if not self.target_classes:
+            return self.register_category(clean_label)
+        print(f"[AVISO] Classe do modelo OBB ignorada por nao existir na UI: {clean_label}")
+        return None

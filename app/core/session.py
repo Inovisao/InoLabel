@@ -16,6 +16,7 @@ class AnnotationTaskMode(str, Enum):
     TRACKING = "tracking"
     DETECTION = "detection"
     OBB = "obb"
+    CLASSIFICATION = "classification"
 
     @property
     def label(self) -> str:
@@ -23,6 +24,8 @@ class AnnotationTaskMode(str, Enum):
             return "Tracking"
         if self is AnnotationTaskMode.OBB:
             return "Deteccao orientada (OBB)"
+        if self is AnnotationTaskMode.CLASSIFICATION:
+            return "Classificacao de imagens"
         return "Deteccao padrao"
 
 
@@ -40,6 +43,7 @@ class AnnotationSessionConfig:
     resume_existing_annotations: bool = False
     category_metadata: Tuple[dict, ...] = ()
     confidence_threshold: float = CONF_THRESHOLD
+    classification_move_files: bool = False
 
     def __post_init__(self):
         object.__setattr__(self, "data_root", Path(self.data_root).expanduser())
@@ -59,7 +63,7 @@ class AnnotationSessionConfig:
             object.__setattr__(self, "annotations_path", Path(self.annotations_path).expanduser())
         object.__setattr__(self, "target_classes", normalize_class_names(self.target_classes))
         object.__setattr__(self, "category_metadata", tuple(dict(cat) for cat in self.category_metadata))
-        if not self.weights_paths:
+        if self.mode is not AnnotationTaskMode.CLASSIFICATION and not self.weights_paths:
             raise ValueError("Informe ao menos um arquivo de pesos.")
         if not self.target_classes:
             raise ValueError("Informe ao menos uma classe.")

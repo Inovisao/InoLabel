@@ -1,4 +1,5 @@
 from app.annotation.shared import *
+from app.ui.file_manager import reveal_path
 from app.ui.theme import COLORS
 
 
@@ -163,49 +164,14 @@ class DisplayStatusMixin:
         """Atualiza label do nome da imagem e estado do botao 'Ver em folder'."""
         self._set_var_if_changed(self.image_name_var, f"Imagem: {self.current_display_file_name()}")
         target = self.current_open_target_path()
-        self._config_if_changed(self.open_folder_button, state=(tk.NORMAL if target is not None else tk.DISABLED))
+        can_open = target is not None or getattr(self, "current_frame", None) is not None
+        self._config_if_changed(self.open_folder_button, state=(tk.NORMAL if can_open else tk.DISABLED))
         delete_target = self.current_deletable_image_path()
         self._config_if_changed(self.delete_image_button, state=(tk.NORMAL if delete_target is not None else tk.DISABLED))
 
     def open_in_file_manager(self, target: Path) -> bool:
         """Abre o gerenciador de arquivos e tenta destacar o arquivo alvo."""
-        target = target.resolve()
-        folder = target.parent
-
-        def _spawn(cmd: List[str]) -> bool:
-            try:
-                subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                return True
-            except Exception:  # pylint: disable=broad-except
-                return False
-
-        try:
-            if sys.platform.startswith("linux"):
-                candidates = []
-                for app in ("nautilus", "nemo", "dolphin"):
-                    exe = shutil.which(app)
-                    if exe:
-                        candidates.append([exe, "--select", str(target)])
-                thunar = shutil.which("thunar")
-                if thunar:
-                    candidates.append([thunar, str(target)])
-                for cmd in candidates:
-                    if _spawn(cmd):
-                        return True
-                gio = shutil.which("gio")
-                if gio and _spawn([gio, "open", str(folder)]):
-                    return True
-                xdg_open = shutil.which("xdg-open")
-                if xdg_open:
-                    return _spawn([xdg_open, str(folder)])
-                return False
-            if sys.platform == "darwin":
-                return _spawn(["open", "-R", str(target)])
-            if os.name == "nt":
-                return _spawn(["explorer", "/select,", str(target)])
-        except Exception:  # pylint: disable=broad-except
-            return False
-        return False
+        return reveal_path(target)
 
     def on_open_in_folder(self):
         """Evento do botao para abrir a imagem atual no gerenciador de arquivos."""

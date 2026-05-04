@@ -54,6 +54,19 @@ class OutputStateTest(unittest.TestCase):
             self.assertEqual(second.name, "output_dataset2_20260427_110000")
             self.assertTrue((second / "images").exists())
 
+    def test_create_new_output_dir_can_skip_images_subfolder(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            outputs = Path(tmp_dir)
+
+            output = create_new_output_dir(
+                outputs,
+                now=datetime(2026, 4, 27, 10, 0, 0),
+                create_images_dir=False,
+            )
+
+            self.assertEqual(output.name, "output_dataset1_20260427_100000")
+            self.assertFalse((output / "images").exists())
+
     def test_lists_and_loads_output_states_from_annotations(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             outputs = Path(tmp_dir)
