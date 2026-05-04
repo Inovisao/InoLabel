@@ -2,14 +2,25 @@ import sys
 
 from app.annotation_tool import AnnotationTool
 from app.startup_dialog import ask_startup_config
+from app.core.session import AnnotationTaskMode
 
 
 def main() -> int:
     session_config = ask_startup_config()
+    if session_config.mode is AnnotationTaskMode.CLASSIFICATION:
+        from app.classification.tool import ClassificationTool
+
+        tool_cls = ClassificationTool
+    elif session_config.mode is AnnotationTaskMode.OBB:
+        from app.annotation_obb.tool import OBBAnnotationTool
+
+        tool_cls = OBBAnnotationTool
+    else:
+        tool_cls = AnnotationTool
 
     tool = None
     try:
-        tool = AnnotationTool(session_config=session_config)
+        tool = tool_cls(session_config=session_config)
         tool.run()
         return 0
     except KeyboardInterrupt:

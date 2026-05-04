@@ -50,6 +50,13 @@ class ModelClassMappingTest(unittest.TestCase):
         self.assertIsNone(category_id)
         self.assertEqual(mapper.categories, [])
 
+    def test_register_category_uses_ui_order_even_when_registered_late(self):
+        mapper = self.Mapper(["face", "text_region", "doc_id"])
+
+        category_id = mapper.register_category("doc_id")
+
+        self.assertEqual(category_id, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

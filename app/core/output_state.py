@@ -16,7 +16,7 @@ from typing import Iterable, Optional
 from app.config import OUTPUT_DATASET_PREFIX, OUTPUTS_DIR
 from app.core.session import AnnotationTaskMode, normalize_class_names
 
-ANNOTATION_FILE_NAMES = ("annotations.coco.json", "__annotations.coco.json")
+ANNOTATION_FILE_NAMES = ("annotations.coco.json", "annotations_obb.coco.json", "__annotations.coco.json")
 STATE_PATTERN = re.compile(rf"^{re.escape(OUTPUT_DATASET_PREFIX)}(?P<index>\d+)_(?P<stamp>\d{{8}}_\d{{6}})$")
 
 
@@ -135,6 +135,7 @@ def create_new_output_dir(
     *,
     now: Optional[datetime] = None,
     prefix: str = OUTPUT_DATASET_PREFIX,
+    create_images_dir: bool = True,
 ) -> Path:
     """Create a unique output state directory using index and timestamp."""
 
@@ -148,7 +149,8 @@ def create_new_output_dir(
         candidate = outputs_dir / f"{prefix}{index}_{stamp}_{suffix}"
         suffix += 1
     candidate.mkdir(parents=True, exist_ok=False)
-    (candidate / "images").mkdir(parents=True, exist_ok=True)
+    if create_images_dir:
+        (candidate / "images").mkdir(parents=True, exist_ok=True)
     return candidate
 
 
