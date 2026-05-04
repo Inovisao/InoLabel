@@ -1,7 +1,7 @@
-from app.annotation.shared import *
+from app.annotation_obb.shared import *
 
 
-class UIControlsMixin:
+class OBBUIControlsMixin:
     def _bind_shortcuts(self):
         self.window.bind("<Return>", lambda event: self._run_shortcut(event, self.on_accept))
         self.window.bind("<space>", lambda event: self._run_shortcut(event, self.on_reject))
@@ -14,9 +14,6 @@ class UIControlsMixin:
         self.window.bind("<Control-Z>", lambda event: self._run_shortcut(event, self.undo_last_action))
         self.window.bind("r", lambda event: self._run_shortcut(event, self.reset_roi))
         self.window.bind("R", lambda event: self._run_shortcut(event, self.reset_roi))
-        if self.tracking_enabled:
-            self.window.bind("e", lambda event: self._run_shortcut(event, self.toggle_edit_id_mode))
-            self.window.bind("E", lambda event: self._run_shortcut(event, self.toggle_edit_id_mode))
         self.window.bind("<Control-0>", lambda event: self._run_shortcut(event, self.reset_zoom))
         for key in "123456789":
             self.window.bind(key, self.on_class_shortcut)
@@ -35,7 +32,6 @@ class UIControlsMixin:
         mode = "wasd" if mode == "wasd" else "arrows"
         for key in ("<Left>", "<Right>", "<Up>", "<Down>", "w", "W", "a", "A", "s", "S", "d", "D"):
             self.window.unbind(key)
-
         self.key_mapping_mode = mode
         if mode == "wasd":
             for key in ("w", "W", "a", "A"):
@@ -73,7 +69,6 @@ class UIControlsMixin:
         self.canvas.bind("<ButtonPress-2>", self.on_pan_start)
         self.canvas.bind("<B2-Motion>", self.on_pan_drag)
         self.canvas.bind("<ButtonRelease-2>", self.on_pan_end)
-        # Zoom: scroll sobre o canvas; Ctrl+Scroll permanece suportado.
         self.canvas.bind("<MouseWheel>", self.on_zoom)
         self.canvas.bind("<Control-MouseWheel>", self.on_zoom)
         self.canvas.bind("<Command-MouseWheel>", self.on_zoom)
@@ -83,64 +78,51 @@ class UIControlsMixin:
         self.canvas.bind("<Control-Button-5>", self.on_zoom)
 
     def enable_controls_after_roi(self):
-        """Habilita botoes apos definir ROI."""
         self.accept_button.config(state=tk.NORMAL)
         self.reject_button.config(state=tk.NORMAL)
         self.annotation_button.config(state=tk.NORMAL)
         self.remove_button.config(state=tk.NORMAL)
         self.selection_button.config(state=tk.NORMAL)
         self.pan_button.config(state=tk.NORMAL)
-        self.apply_id_button.config(state=tk.NORMAL)
-        self.edit_id_button.config(state=tk.NORMAL)
-        if not self.tracking_enabled:
-            self.apply_id_button.config(state=tk.DISABLED)
-            self.edit_id_button.config(state=tk.DISABLED)
-        self.export_dataset_button.config(state=tk.NORMAL)
-
-    def update_pan_button(self):
-        if not hasattr(self, "pan_button"):
-            return
-        text = "Mover imagem  ON  (H)" if self.pan_mode else "Mover imagem  OFF  (H)"
-        self.pan_button.config(text=text)
-        self.info_var.set(self.build_status_message())
-        self.update_class_panel()
-
-    def disable_controls_for_roi(self):
-        """Desabilita botoes enquanto ROI nao for definido."""
-        self.accept_button.config(state=tk.DISABLED)
-        self.reject_button.config(state=tk.DISABLED)
-        self.annotation_button.config(state=tk.DISABLED)
-        self.remove_button.config(state=tk.DISABLED)
-        self.selection_button.config(state=tk.DISABLED)
         self.apply_id_button.config(state=tk.DISABLED)
         self.edit_id_button.config(state=tk.DISABLED)
-        self.export_dataset_button.config(state=tk.DISABLED)
+        self.export_dataset_button.config(state=tk.NORMAL)
+
+    def disable_controls_for_roi(self):
+        for name in (
+            "accept_button",
+            "reject_button",
+            "annotation_button",
+            "remove_button",
+            "selection_button",
+            "apply_id_button",
+            "edit_id_button",
+            "export_dataset_button",
+        ):
+            button = getattr(self, name, None)
+            if button is not None:
+                button.config(state=tk.DISABLED)
+
+    def update_pan_button(self):
+        if hasattr(self, "pan_button"):
+            text = "Mover imagem  ON  (H)" if self.pan_mode else "Mover imagem  OFF  (H)"
+            self.pan_button.config(text=text)
 
     def update_annotation_button(self):
-        """Atualiza o texto do botao de modo de anotacao."""
         if hasattr(self, "annotation_button"):
             estado = "ON" if self.annotation_mode else "OFF"
             self._config_if_changed(self.annotation_button, text=f"Modo anotacao {estado} (K)")
 
     def update_remove_button(self):
-        """Atualiza o texto do botao de remocao."""
         if hasattr(self, "remove_button"):
             estado = "ON" if self.remove_mode else "OFF"
             self._config_if_changed(self.remove_button, text=f"Remover anotacao {estado}")
 
     def update_selection_button(self):
-        """Atualiza o texto do botao de selecao."""
         if hasattr(self, "selection_button"):
             estado = "ON" if self.selection_mode else "OFF"
             self._config_if_changed(self.selection_button, text=f"Selecionar anotacao {estado} (S)")
 
     def update_edit_id_button(self):
-        """Atualiza o texto do botao de edicao de ID."""
         if hasattr(self, "edit_id_button"):
-            if not self.tracking_enabled:
-                self._config_if_changed(self.edit_id_button, text="Editar ID indisponivel")
-                return
-            estado = "ON" if self.edit_id_mode else "OFF"
-            self._config_if_changed(self.edit_id_button, text=f"Editar ID {estado} (E)")
-
-    # ===================== EVENTOS DE MOUSE =====================
+            self._config_if_changed(self.edit_id_button, text="Editar ID indisponivel")
