@@ -15,6 +15,7 @@ from app.core.session import normalize_class_names
 
 STATE_FILE_NAME = "classification_state.json"
 STATE_PATTERN = re.compile(rf"^{re.escape(OUTPUT_DATASET_PREFIX)}(?P<index>\d+)_(?P<stamp>\d{{8}}_\d{{6}})")
+NEW_STATE_PATTERN = re.compile(r"^.+_(?P<day>\d{2})\.(?P<month>\d{2})\.(?P<hour>\d{2}):(?P<minute>\d{2})(?:_\d{3})?$")
 
 
 @dataclass(frozen=True)
