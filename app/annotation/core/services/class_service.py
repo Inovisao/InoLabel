@@ -166,28 +166,31 @@ class ClassServiceMixin:
         self.manual_detections = self._remap_detection_list_by_category(
             getattr(self, "manual_detections", []), remap, valid_ids,
         )
+        if hasattr(self, "current_obb_detections"):
+            self.current_obb_detections = self.current_detections
+        if hasattr(self, "manual_obb_detections"):
+            self.manual_obb_detections = self.manual_detections
         for record in getattr(self, "saved_records", []):
             record["detections"] = self._remap_detection_list_by_category(
                 record.get("detections", []), remap, valid_ids,
             )
         snapshot = getattr(self, "live_snapshot", None)
         if snapshot is not None:
-            snapshot["detections"] = self._remap_detection_list_by_category(
-                snapshot.get("detections", []), remap, valid_ids,
-            )
-            snapshot["manual_detections"] = self._remap_detection_list_by_category(
-                snapshot.get("manual_detections", []), remap, valid_ids,
-            )
+            for key in ("detections", "current", "current_detections"):
+                if key in snapshot:
+                    snapshot[key] = self._remap_detection_list_by_category(snapshot[key], remap, valid_ids)
+            for key in ("manual_detections", "manual"):
+                if key in snapshot:
+                    snapshot[key] = self._remap_detection_list_by_category(snapshot[key], remap, valid_ids)
         self.undo_stack = deque(
             (
                 {
                     **s,
-                    "current_detections": self._remap_detection_list_by_category(
-                        s.get("current_detections", []), remap, valid_ids,
-                    ),
-                    "manual_detections": self._remap_detection_list_by_category(
-                        s.get("manual_detections", []), remap, valid_ids,
-                    ),
+                    **{
+                        key: self._remap_detection_list_by_category(s[key], remap, valid_ids)
+                        for key in ("current_detections", "manual_detections", "current", "manual")
+                        if key in s
+                    },
                     "selected_detection": None,
                 }
                 for s in getattr(self, "undo_stack", [])
@@ -369,6 +372,8 @@ class ClassServiceMixin:
         self.write_annotations()
         self.sync_export_metadata()
         self.selected_detection = None
+        if hasattr(self, "selected_obb"):
+            self.selected_obb = None
 
         if getattr(self, "canvas", None):
             self.update_display()
@@ -421,24 +426,29 @@ class ClassServiceMixin:
     def _remove_class_from_detection_caches(self, category_id: int):
         self.current_detections = self._filter_detections_by_category(self.current_detections, category_id)
         self.manual_detections = self._filter_detections_by_category(self.manual_detections, category_id)
+        if hasattr(self, "current_obb_detections"):
+            self.current_obb_detections = self.current_detections
+        if hasattr(self, "manual_obb_detections"):
+            self.manual_obb_detections = self.manual_detections
         for record in getattr(self, "saved_records", []):
             record["detections"] = self._filter_detections_by_category(record.get("detections", []), category_id)
         snapshot = getattr(self, "live_snapshot", None)
         if snapshot is not None:
-            snapshot["detections"] = self._filter_detections_by_category(snapshot.get("detections", []), category_id)
-            snapshot["manual_detections"] = self._filter_detections_by_category(
-                snapshot.get("manual_detections", []), category_id,
-            )
+            for key in ("detections", "current", "current_detections"):
+                if key in snapshot:
+                    snapshot[key] = self._filter_detections_by_category(snapshot[key], category_id)
+            for key in ("manual_detections", "manual"):
+                if key in snapshot:
+                    snapshot[key] = self._filter_detections_by_category(snapshot[key], category_id)
         self.undo_stack = deque(
             (
                 {
                     **s,
-                    "current_detections": self._filter_detections_by_category(
-                        s.get("current_detections", []), category_id
-                    ),
-                    "manual_detections": self._filter_detections_by_category(
-                        s.get("manual_detections", []), category_id
-                    ),
+                    **{
+                        key: self._filter_detections_by_category(s[key], category_id)
+                        for key in ("current_detections", "manual_detections", "current", "manual")
+                        if key in s
+                    },
                     "selected_detection": None,
                 }
                 for s in getattr(self, "undo_stack", [])
