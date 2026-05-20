@@ -525,31 +525,7 @@ class StartupWizard:
         self._redraw_classes(class_panel)
 
         summary_row = class_row + 2
-        if is_classification:
-            move_row = tk.Frame(form, bg=self.colors["panel"])
-            move_row.grid(row=class_row + 2, column=0, columnspan=3, sticky="ew", pady=(self.spacing["lg"], 0))
-            tk.Checkbutton(
-                move_row,
-                text="Mover imagens para o dataset em vez de copiar",
-                variable=self.classification_move_var,
-                bg=self.colors["panel"],
-                fg=self.colors["text"],
-                activebackground=self.colors["panel"],
-                selectcolor=self.colors["panel_alt"],
-                font=self.fonts["body"],
-                anchor="w",
-            ).grid(row=0, column=0, sticky="w")
-            tk.Label(
-                move_row,
-                text="Use mover quando quiser consumir a pasta de origem; use copiar para manter o banco original intacto.",
-                bg=self.colors["panel"],
-                fg=self.colors["muted"],
-                font=self.fonts["caption"],
-                justify=tk.LEFT,
-                anchor="w",
-            ).grid(row=1, column=0, sticky="ew", pady=(self.spacing["xs"], 0))
-            summary_row = class_row + 3
-        else:
+        if not is_classification:
             model_status = tk.Label(
                 form,
                 textvariable=self.model_status_var,
@@ -699,7 +675,7 @@ class StartupWizard:
             row=3,
             value="new",
             title="Criar estado novo",
-            description="Cria uma pasta outputs/output_dataset{indice}_{data_hora} sem misturar anotacoes antigas.",
+            description="Cria uma pasta em outputs/ com tarefa e data/hora, sem misturar anotacoes antigas.",
             enabled=True,
         )
 
@@ -1209,7 +1185,7 @@ class StartupWizard:
                 messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
             self.selected_state_path = latest.state_path
-            output_dir = create_new_output_dir(create_images_dir=False)
+            output_dir = create_new_output_dir(task_mode=mode, create_images_dir=False)
         elif mode is AnnotationTaskMode.CLASSIFICATION and state_mode == "manual":
             if self.selected_state_path is None:
                 messagebox.showerror("Estado invalido", f"Selecione um {CLASSIFICATION_STATE_FILE_NAME} antes de iniciar.")
@@ -1227,10 +1203,14 @@ class StartupWizard:
             if answer is None:
                 return
             resume_existing = bool(answer)
-            output_dir = self.selected_state_path.parent if resume_existing else create_new_output_dir(create_images_dir=False)
+            output_dir = (
+                self.selected_state_path.parent
+                if resume_existing
+                else create_new_output_dir(task_mode=mode, create_images_dir=False)
+            )
             annotations_path = self.selected_state_path if resume_existing else None
         elif mode is AnnotationTaskMode.CLASSIFICATION:
-            output_dir = create_new_output_dir(create_images_dir=False)
+            output_dir = create_new_output_dir(task_mode=mode, create_images_dir=False)
         elif state_mode == "resume_latest":
             latest = latest_output_state_for_sources(self._current_project_sources())
             if latest is None:
@@ -1246,7 +1226,7 @@ class StartupWizard:
                 messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
             self.selected_state_path = latest.annotations_path
-            output_dir = create_new_output_dir()
+            output_dir = create_new_output_dir(task_mode=mode)
         elif state_mode == "manual":
             if self.selected_state_path is None:
                 messagebox.showerror("Estado invalido", "Selecione um annotations.coco.json antes de iniciar.")
@@ -1264,10 +1244,10 @@ class StartupWizard:
             if answer is None:
                 return
             resume_existing = bool(answer)
-            output_dir = self.selected_state_path.parent if resume_existing else create_new_output_dir()
+            output_dir = self.selected_state_path.parent if resume_existing else create_new_output_dir(task_mode=mode)
             annotations_path = self.selected_state_path if resume_existing else None
         else:
-            output_dir = create_new_output_dir()
+            output_dir = create_new_output_dir(task_mode=mode)
 
         self._sync_loaded_categories_to_classes()
         category_metadata = self.loaded_state_categories
@@ -1284,7 +1264,7 @@ class StartupWizard:
                 annotations_path=annotations_path,
                 resume_existing_annotations=resume_existing,
                 category_metadata=category_metadata,
-                classification_move_files=self.classification_move_var.get(),
+                classification_move_files=False,
             )
         except ValueError as exc:
             messagebox.showerror("Configuracao invalida", str(exc))

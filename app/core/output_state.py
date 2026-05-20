@@ -18,6 +18,12 @@ from app.core.session import AnnotationTaskMode, normalize_class_names
 
 ANNOTATION_FILE_NAMES = ("annotations.coco.json", "annotations_obb.coco.json", "__annotations.coco.json")
 STATE_PATTERN = re.compile(rf"^{re.escape(OUTPUT_DATASET_PREFIX)}(?P<index>\d+)_(?P<stamp>\d{{8}}_\d{{6}})$")
+TASK_DIR_NAMES = {
+    AnnotationTaskMode.DETECTION: "detecção",
+    AnnotationTaskMode.TRACKING: "tracking",
+    AnnotationTaskMode.OBB: "obb",
+    AnnotationTaskMode.CLASSIFICATION: "classificação",
+}
 
 
 @dataclass(frozen=True)
@@ -28,6 +34,7 @@ class OutputState:
     annotations_path: Path
     index: int
     created_at: Optional[datetime]
+    modified_at: Optional[datetime]
     task_mode: Optional[AnnotationTaskMode]
     class_names: tuple[str, ...]
     image_count: int
@@ -37,7 +44,8 @@ class OutputState:
     @property
     def label(self) -> str:
         mode = self.task_mode.label if self.task_mode is not None else "modo desconhecido"
-        stamp = self.created_at.strftime("%d/%m/%Y %H:%M:%S") if self.created_at else self.path.name
+        stamp_source = self.modified_at or self.created_at
+        stamp = stamp_source.strftime("%d/%m/%Y %H:%M:%S") if stamp_source else self.path.name
         return (
             f"{self.path.name} | {stamp} | {mode} | "
             f"{len(self.class_names)} classes | {self.image_count} imagens | {self.annotation_count} anotacoes"
@@ -94,7 +102,7 @@ def list_output_states(outputs_dir: Path = OUTPUTS_DIR) -> list[OutputState]:
         state = _build_state(child, annotations_path)
         if state is not None:
             states.append(state)
-    return sorted(states, key=lambda state: (state.index, state.created_at or datetime.min, state.path.name))
+    return sorted(states, key=lambda state: (state.modified_at or state.created_at or datetime.min, state.path.name))
 
 
 def latest_output_state(outputs_dir: Path = OUTPUTS_DIR) -> Optional[OutputState]:
@@ -134,19 +142,19 @@ def create_new_output_dir(
     outputs_dir: Path = OUTPUTS_DIR,
     *,
     now: Optional[datetime] = None,
-    prefix: str = OUTPUT_DATASET_PREFIX,
+    task_mode: AnnotationTaskMode | str = AnnotationTaskMode.DETECTION,
     create_images_dir: bool = True,
 ) -> Path:
-    """Create a unique output state directory using index and timestamp."""
+    """Create a unique output state directory using task and timestamp."""
 
     outputs_dir = Path(outputs_dir).expanduser()
     outputs_dir.mkdir(parents=True, exist_ok=True)
-    index = _next_index(outputs_dir, prefix=prefix)
-    stamp = (now or datetime.now()).strftime("%Y%m%d_%H%M%S")
-    candidate = outputs_dir / f"{prefix}{index}_{stamp}"
+    task_name = _task_dir_name(task_mode)
+    stamp = (now or datetime.now()).strftime("%d.%m.%H:%M")
+    candidate = outputs_dir / f"{task_name}_{stamp}"
     suffix = 1
     while candidate.exists():
-        candidate = outputs_dir / f"{prefix}{index}_{stamp}_{suffix}"
+        candidate = outputs_dir / f"{task_name}_{stamp}_{suffix:03d}"
         suffix += 1
     candidate.mkdir(parents=True, exist_ok=False)
     if create_images_dir:
@@ -188,11 +196,13 @@ def _build_state(path: Path, annotations_path: Path) -> Optional[OutputState]:
     except Exception:
         return None
     index, created_at = _parse_state_name(path.name)
+    modified_at = _modified_at(annotations_path)
     return OutputState(
         path=path,
         annotations_path=annotations_path,
         index=index,
         created_at=created_at,
+        modified_at=modified_at,
         task_mode=loaded.task_mode,
         class_names=loaded.class_names,
         image_count=loaded.image_count,
@@ -221,15 +231,21 @@ def _parse_state_name(name: str) -> tuple[int, Optional[datetime]]:
     return int(match.group("index")), created_at
 
 
-def _next_index(outputs_dir: Path, *, prefix: str) -> int:
-    indexes = []
-    for child in Path(outputs_dir).iterdir() if Path(outputs_dir).exists() else []:
-        if not child.is_dir() or not child.name.startswith(prefix):
-            continue
-        match = re.match(rf"^{re.escape(prefix)}(?P<index>\d+)_", child.name)
-        if match:
-            indexes.append(int(match.group("index")))
-    return max(indexes, default=0) + 1
+def _task_dir_name(task_mode: AnnotationTaskMode | str) -> str:
+    if isinstance(task_mode, AnnotationTaskMode):
+        return TASK_DIR_NAMES.get(task_mode, task_mode.value)
+    try:
+        mode = AnnotationTaskMode(str(task_mode))
+    except ValueError:
+        return str(task_mode).strip().lower() or TASK_DIR_NAMES[AnnotationTaskMode.DETECTION]
+    return TASK_DIR_NAMES.get(mode, mode.value)
+
+
+def _modified_at(path: Path) -> Optional[datetime]:
+    try:
+        return datetime.fromtimestamp(Path(path).stat().st_mtime)
+    except OSError:
+        return None
 
 
 def _extract_source_paths(info: dict, annotation_state) -> tuple[Path, ...]:

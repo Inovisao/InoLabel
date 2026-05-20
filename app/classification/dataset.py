@@ -44,13 +44,15 @@ class ClassificationOutputState:
     state_path: Path
     index: int
     created_at: Optional[datetime]
+    modified_at: Optional[datetime]
     class_names: tuple[str, ...]
     image_count: int
     source_root: Path
 
     @property
     def label(self) -> str:
-        stamp = self.created_at.strftime("%d/%m/%Y %H:%M:%S") if self.created_at else self.path.name
+        stamp_source = self.modified_at or self.created_at
+        stamp = stamp_source.strftime("%d/%m/%Y %H:%M:%S") if stamp_source else self.path.name
         return f"{self.path.name} | {stamp} | classificacao | {len(self.class_names)} classes | {self.image_count} imagens"
 
 
@@ -253,12 +255,13 @@ def list_output_states(outputs_dir: Path = OUTPUTS_DIR) -> list[ClassificationOu
                 state_path=state_path,
                 index=index,
                 created_at=created_at,
+                modified_at=_modified_at(state_path),
                 class_names=state.classes,
                 image_count=len(state.records),
                 source_root=state.source_root,
             )
         )
-    return sorted(states, key=lambda item: (item.index, item.created_at or datetime.min, item.path.name))
+    return sorted(states, key=lambda item: (item.modified_at or item.created_at or datetime.min, item.path.name))
 
 
 def list_output_states_for_sources(
@@ -313,6 +316,70 @@ def write_state(
         ],
     }
     Path(state_path).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def classify_image_source(
+    image_path: Path,
+    *,
+    class_name: str,
+    output_dir: Path,
+    class_directories: dict[str, str],
+) -> ClassificationRecord:
+    """Record the selected class for an image without touching image files."""
+
+    image_path = Path(image_path).expanduser()
+    class_dir = class_directories[class_name]
+    destination_path = Path(output_dir).expanduser() / class_dir / image_path.name
+    return ClassificationRecord(
+        source_path=image_path,
+        destination_path=destination_path,
+        class_name=class_name,
+        classified_at=datetime.now().isoformat(timespec="seconds"),
+        operation="state",
+    )
+
+
+def export_classification_dataset(
+    *,
+    records: Iterable[ClassificationRecord],
+    classes: Iterable[str],
+    class_directories: dict[str, str],
+    dataset_root: Path,
+) -> dict[str, object]:
+    """Export classified images into class subfolders from the JSON state."""
+
+    dataset_root = Path(dataset_root).expanduser()
+    directories = dict(class_directories)
+    for class_name, dirname in class_directories_for(classes).items():
+        directories.setdefault(class_name, dirname)
+    for dirname in directories.values():
+        (dataset_root / dirname).mkdir(parents=True, exist_ok=True)
+
+    copied = 0
+    skipped: list[str] = []
+    exported_by_class = {class_name: 0 for class_name in normalize_class_names(classes)}
+    for record in _latest_records_by_source(records):
+        if record.class_name not in directories:
+            skipped.append(str(record.source_path))
+            continue
+        source_path = _existing_record_image_path(record)
+        if source_path is None:
+            skipped.append(str(record.source_path))
+            continue
+
+        destination_dir = dataset_root / directories[record.class_name]
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        destination_path = unique_destination_path(destination_dir / Path(record.source_path).name)
+        shutil.copy2(source_path, destination_path)
+        copied += 1
+        exported_by_class[record.class_name] = exported_by_class.get(record.class_name, 0) + 1
+
+    return {
+        "dataset_root": dataset_root,
+        "copied": copied,
+        "skipped": skipped,
+        "by_class": exported_by_class,
+    }
 
 
 def transfer_image_to_class(
@@ -395,6 +462,27 @@ def unique_destination_path(candidate: Path) -> Path:
         index += 1
 
 
+def _existing_record_image_path(record: ClassificationRecord) -> Path | None:
+    source_path = Path(record.source_path).expanduser()
+    if source_path.exists():
+        return source_path
+    destination_path = Path(record.destination_path).expanduser()
+    if destination_path.exists():
+        return destination_path
+    return None
+
+
+def _latest_records_by_source(records: Iterable[ClassificationRecord]) -> tuple[ClassificationRecord, ...]:
+    latest: dict[Path, ClassificationRecord] = {}
+    order: list[Path] = []
+    for record in records:
+        source_path = Path(record.source_path).expanduser()
+        if source_path not in latest:
+            order.append(source_path)
+        latest[source_path] = record
+    return tuple(latest[source_path] for source_path in order)
+
+
 def _same_original_name(candidate_name: str, source_name: str) -> bool:
     source = Path(source_name)
     candidate = Path(candidate_name)
@@ -428,6 +516,13 @@ def _parse_state_name(name: str) -> tuple[int, Optional[datetime]]:
     except ValueError:
         created_at = None
     return int(match.group("index")), created_at
+
+
+def _modified_at(path: Path) -> Optional[datetime]:
+    try:
+        return datetime.fromtimestamp(Path(path).stat().st_mtime)
+    except OSError:
+        return None
 
 
 def _normalize_paths(paths: Iterable[Path]) -> tuple[Path, ...]:
