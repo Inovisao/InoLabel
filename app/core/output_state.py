@@ -18,6 +18,7 @@ from app.core.session import AnnotationTaskMode, normalize_class_names
 
 ANNOTATION_FILE_NAMES = ("annotations.coco.json", "annotations_obb.coco.json", "__annotations.coco.json")
 STATE_PATTERN = re.compile(rf"^{re.escape(OUTPUT_DATASET_PREFIX)}(?P<index>\d+)_(?P<stamp>\d{{8}}_\d{{6}})$")
+NEW_STATE_PATTERN = re.compile(r"^.+_(?P<day>\d{2})\.(?P<month>\d{2})\.(?P<hour>\d{2}):(?P<minute>\d{2})(?:_\d{3})?$")
 TASK_DIR_NAMES = {
     AnnotationTaskMode.DETECTION: "detecção",
     AnnotationTaskMode.TRACKING: "tracking",
@@ -222,13 +223,26 @@ def _parse_mode(value) -> Optional[AnnotationTaskMode]:
 
 def _parse_state_name(name: str) -> tuple[int, Optional[datetime]]:
     match = STATE_PATTERN.match(name)
-    if not match:
-        return 0, None
-    try:
-        created_at = datetime.strptime(match.group("stamp"), "%Y%m%d_%H%M%S")
-    except ValueError:
-        created_at = None
-    return int(match.group("index")), created_at
+    if match:
+        try:
+            created_at = datetime.strptime(match.group("stamp"), "%Y%m%d_%H%M%S")
+        except ValueError:
+            created_at = None
+        return int(match.group("index")), created_at
+    match = NEW_STATE_PATTERN.match(name)
+    if match:
+        try:
+            created_at = datetime(
+                datetime.now().year,
+                int(match.group("month")),
+                int(match.group("day")),
+                int(match.group("hour")),
+                int(match.group("minute")),
+            )
+        except ValueError:
+            created_at = None
+        return 0, created_at
+    return 0, None
 
 
 def _task_dir_name(task_mode: AnnotationTaskMode | str) -> str:
