@@ -510,13 +510,26 @@ def _read_image_list(list_path: Path) -> list[Path]:
 
 def _parse_state_name(name: str) -> tuple[int, Optional[datetime]]:
     match = STATE_PATTERN.match(name)
-    if not match:
-        return 0, None
-    try:
-        created_at = datetime.strptime(match.group("stamp"), "%Y%m%d_%H%M%S")
-    except ValueError:
-        created_at = None
-    return int(match.group("index")), created_at
+    if match:
+        try:
+            created_at = datetime.strptime(match.group("stamp"), "%Y%m%d_%H%M%S")
+        except ValueError:
+            created_at = None
+        return int(match.group("index")), created_at
+    match = NEW_STATE_PATTERN.match(name)
+    if match:
+        try:
+            created_at = datetime(
+                datetime.now().year,
+                int(match.group("month")),
+                int(match.group("day")),
+                int(match.group("hour")),
+                int(match.group("minute")),
+            )
+        except ValueError:
+            created_at = None
+        return 0, created_at
+    return 0, None
 
 
 def _modified_at(path: Path) -> Optional[datetime]:
