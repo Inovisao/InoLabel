@@ -17,7 +17,7 @@ from app.classification.dataset import (
     list_output_states_for_sources as list_classification_states_for_sources,
     load_required_state as load_classification_state,
 )
-from app.config import DATA_ROOT, WEIGHTS_PATH
+from app.config import DATA_ROOT, LOGO_PATH, WEIGHTS_PATH
 from app.core.output_state import (
     ANNOTATION_FILE_NAMES,
     OutputState,
@@ -32,14 +32,8 @@ from app.core.startup_cache import load_startup_cache, save_startup_cache
 from app.sources.discovery import SourceDiscoveryService, SourceSummary
 from app.ui.layout.responsive_window import apply_responsive_geometry
 from app.ui.layout.scrollable_frame import ScrollableFrame
-from app.ui.theme import COLORS, FONTS, SIZES, SPACING, install_scaled_theme
-
-_THEME = COLORS
-_PALETTE = [
-    "#22c55e", "#3b82f6", "#f97316", "#e11d48",
-    "#8b5cf6", "#14b8a6", "#eab308", "#ec4899",
-    "#06b6d4", "#84cc16", "#f43f5e", "#6366f1",
-]
+from app.ui.theme import install_scaled_theme
+from app.ui.theme.palette import CLASS_COLORS
 
 
 def ask_startup_config() -> AnnotationSessionConfig:
@@ -55,7 +49,7 @@ class StartupWizard:
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Configuracao inicial")
+        self.root.title("InoLabel — Configuração")
         self.ui = install_scaled_theme(self.root)
         self.colors = self.ui["colors"]
         self.fonts = self.ui["fonts"]
@@ -203,8 +197,51 @@ class StartupWizard:
             else:
                 self.show_model_screen()
 
+    def _build_logo_bar(self, parent: tk.Frame) -> None:
+        bar = tk.Frame(parent, bg=self.colors["bg"])
+        bar.pack(fill=tk.X, padx=self.spacing["xl"], pady=(self.spacing["sm"], 0))
+        bar.columnconfigure(1, weight=1)
+
+        if LOGO_PATH.exists():
+            try:
+                from PIL import Image, ImageTk  # pylint: disable=import-outside-toplevel
+                img = Image.open(LOGO_PATH).convert("RGBA")
+                img.thumbnail((96, 40), Image.LANCZOS)
+                # Blend transparent pixels onto the wizard background
+                bg_color = tuple(int(self.colors["bg"][i:i+2], 16) for i in (1, 3, 5))
+                bg = Image.new("RGBA", img.size, bg_color + (255,))
+                bg.paste(img, mask=img.split()[3])
+                photo = ImageTk.PhotoImage(bg.convert("RGB"))
+                lbl = tk.Label(bar, image=photo, bg=self.colors["bg"], cursor="arrow")
+                lbl.image = photo
+                lbl.grid(row=0, column=0, sticky="w", padx=(0, self.spacing["sm"]))
+            except Exception:  # pylint: disable=broad-except
+                pass
+
+        tk.Label(
+            bar, text="InoLabel",
+            font=self.fonts["heading"],
+            bg=self.colors["bg"],
+            fg=self.colors["primary"],
+            anchor="w",
+        ).grid(row=0, column=1, sticky="w")
+
+        tk.Label(
+            bar, text="Inovisão",
+            font=self.fonts["caption"],
+            bg=self.colors["bg"],
+            fg=self.colors["accent"],
+            anchor="e",
+        ).grid(row=0, column=2, sticky="e")
+
+        tk.Frame(parent, height=2, bg=self.colors["accent"]).pack(
+            fill=tk.X, padx=self.spacing["xl"], pady=(self.spacing["xs"], 0)
+        )
+
     def _screen(self, title: str, subtitle: str, *, step: int):
         self._clear()
+
+        self._build_logo_bar(self.page)
 
         # Step indicator — fixed above the scroll
         step_bar = tk.Frame(self.page, bg=self.colors["bg"])
@@ -267,6 +304,8 @@ class StartupWizard:
                 activebackground=self.colors["primary_active"],
                 activeforeground=self.colors["fg_light"],
             )
+            button.bind("<Enter>", lambda _e: button.configure(bg=self.colors["primary_active"]))
+            button.bind("<Leave>", lambda _e: button.configure(bg=self.colors["primary"]))
         else:
             button.configure(
                 bg=self.colors["neutral"],
@@ -274,6 +313,8 @@ class StartupWizard:
                 activebackground=self.colors["neutral_active"],
                 activeforeground=self.colors["text"],
             )
+            button.bind("<Enter>", lambda _e: button.configure(bg=self.colors["neutral_active"]))
+            button.bind("<Leave>", lambda _e: button.configure(bg=self.colors["neutral"]))
         return button
 
     def _footer(self, parent, back: Optional[Callable], next_: Callable, next_text: str = "Continuar"):
@@ -477,7 +518,7 @@ class StartupWizard:
             (
                 "Crie as classes de destino. O dataset final sera a pasta de saida com uma subpasta para cada classe."
                 if is_classification
-                else "Adicione um ou mais pesos YOLO. Com varios modelos as deteccoes sao mescladas via NMS (ensemble). Ajuste as classes iniciais para a sessao."
+                else "Adicione um ou mais pesos YOLO (opcional). Com varios modelos as deteccoes sao mescladas via NMS (ensemble). Ajuste as classes iniciais para a sessao."
             ),
             step=4 if is_classification else 4,
         )
@@ -525,31 +566,7 @@ class StartupWizard:
         self._redraw_classes(class_panel)
 
         summary_row = class_row + 2
-        if is_classification:
-            move_row = tk.Frame(form, bg=self.colors["panel"])
-            move_row.grid(row=class_row + 2, column=0, columnspan=3, sticky="ew", pady=(self.spacing["lg"], 0))
-            tk.Checkbutton(
-                move_row,
-                text="Mover imagens para o dataset em vez de copiar",
-                variable=self.classification_move_var,
-                bg=self.colors["panel"],
-                fg=self.colors["text"],
-                activebackground=self.colors["panel"],
-                selectcolor=self.colors["panel_alt"],
-                font=self.fonts["body"],
-                anchor="w",
-            ).grid(row=0, column=0, sticky="w")
-            tk.Label(
-                move_row,
-                text="Use mover quando quiser consumir a pasta de origem; use copiar para manter o banco original intacto.",
-                bg=self.colors["panel"],
-                fg=self.colors["muted"],
-                font=self.fonts["caption"],
-                justify=tk.LEFT,
-                anchor="w",
-            ).grid(row=1, column=0, sticky="ew", pady=(self.spacing["xs"], 0))
-            summary_row = class_row + 3
-        else:
+        if not is_classification:
             model_status = tk.Label(
                 form,
                 textvariable=self.model_status_var,
@@ -699,7 +716,7 @@ class StartupWizard:
             row=3,
             value="new",
             title="Criar estado novo",
-            description="Cria uma pasta outputs/output_dataset{indice}_{data_hora} sem misturar anotacoes antigas.",
+            description="Cria uma pasta em outputs/ com tarefa e data/hora, sem misturar anotacoes antigas.",
             enabled=True,
         )
 
@@ -911,7 +928,7 @@ class StartupWizard:
             cat = dict(metadata_by_name.get(name, {}))
             cat["id"] = idx + 1
             cat["name"] = name
-            cat.setdefault("color", _PALETTE[idx % len(_PALETTE)])
+            cat.setdefault("color", CLASS_COLORS[idx % len(CLASS_COLORS)])
             cat.setdefault("supercategory", "none")
             synced.append(cat)
 
@@ -1035,7 +1052,7 @@ class StartupWizard:
             child.destroy()
         panel.columnconfigure(0, weight=1)
         for idx, name in enumerate(self.classes):
-            color = _PALETTE[idx % len(_PALETTE)]
+            color = CLASS_COLORS[idx % len(CLASS_COLORS)]
             row = tk.Frame(
                 panel,
                 bg=self.colors["input_bg"],
@@ -1178,15 +1195,12 @@ class StartupWizard:
             messagebox.showerror("Dataset invalido", "Selecione uma fonte de dados antes de iniciar.")
             return
         mode = AnnotationTaskMode(self.mode_var.get())
-        if mode is not AnnotationTaskMode.CLASSIFICATION and not self.weights_paths:
-            messagebox.showerror("Modelo invalido", "Adicione ao menos um arquivo de pesos antes de iniciar.")
-            return
         if not self.classes:
             messagebox.showerror("Classes invalidas", "Adicione ao menos uma classe antes de iniciar.")
             return
         data_root = Path(raw_data_root).expanduser()
         weights_paths = tuple(Path(p).expanduser() for p in self.weights_paths) if mode is not AnnotationTaskMode.CLASSIFICATION else ()
-        if mode is not AnnotationTaskMode.CLASSIFICATION and not self.validate_models(import_classes=False, refresh_screen=False):
+        if mode is not AnnotationTaskMode.CLASSIFICATION and self.weights_paths and not self.validate_models(import_classes=False, refresh_screen=False):
             return
         state_mode = self.output_state_mode_var.get()
         output_dir = None
@@ -1209,7 +1223,7 @@ class StartupWizard:
                 messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
             self.selected_state_path = latest.state_path
-            output_dir = create_new_output_dir(create_images_dir=False)
+            output_dir = create_new_output_dir(task_mode=mode, create_images_dir=False)
         elif mode is AnnotationTaskMode.CLASSIFICATION and state_mode == "manual":
             if self.selected_state_path is None:
                 messagebox.showerror("Estado invalido", f"Selecione um {CLASSIFICATION_STATE_FILE_NAME} antes de iniciar.")
@@ -1227,10 +1241,14 @@ class StartupWizard:
             if answer is None:
                 return
             resume_existing = bool(answer)
-            output_dir = self.selected_state_path.parent if resume_existing else create_new_output_dir(create_images_dir=False)
+            output_dir = (
+                self.selected_state_path.parent
+                if resume_existing
+                else create_new_output_dir(task_mode=mode, create_images_dir=False)
+            )
             annotations_path = self.selected_state_path if resume_existing else None
         elif mode is AnnotationTaskMode.CLASSIFICATION:
-            output_dir = create_new_output_dir(create_images_dir=False)
+            output_dir = create_new_output_dir(task_mode=mode, create_images_dir=False)
         elif state_mode == "resume_latest":
             latest = latest_output_state_for_sources(self._current_project_sources())
             if latest is None:
@@ -1246,7 +1264,7 @@ class StartupWizard:
                 messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
             self.selected_state_path = latest.annotations_path
-            output_dir = create_new_output_dir()
+            output_dir = create_new_output_dir(task_mode=mode)
         elif state_mode == "manual":
             if self.selected_state_path is None:
                 messagebox.showerror("Estado invalido", "Selecione um annotations.coco.json antes de iniciar.")
@@ -1264,10 +1282,10 @@ class StartupWizard:
             if answer is None:
                 return
             resume_existing = bool(answer)
-            output_dir = self.selected_state_path.parent if resume_existing else create_new_output_dir()
+            output_dir = self.selected_state_path.parent if resume_existing else create_new_output_dir(task_mode=mode)
             annotations_path = self.selected_state_path if resume_existing else None
         else:
-            output_dir = create_new_output_dir()
+            output_dir = create_new_output_dir(task_mode=mode)
 
         self._sync_loaded_categories_to_classes()
         category_metadata = self.loaded_state_categories
@@ -1284,7 +1302,7 @@ class StartupWizard:
                 annotations_path=annotations_path,
                 resume_existing_annotations=resume_existing,
                 category_metadata=category_metadata,
-                classification_move_files=self.classification_move_var.get(),
+                classification_move_files=False,
             )
         except ValueError as exc:
             messagebox.showerror("Configuracao invalida", str(exc))

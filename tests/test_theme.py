@@ -24,7 +24,7 @@ class ThemeTest(unittest.TestCase):
     def test_colors_are_not_scaled(self):
         theme = build_scaled_theme(scale=1.3)
 
-        self.assertEqual(theme["colors"]["primary"], "#215732")
+        self.assertEqual(theme["colors"]["primary"], "#1560BD")
 
 
 if __name__ == "__main__":
