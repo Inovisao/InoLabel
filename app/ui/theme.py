@@ -1,122 +1,15 @@
-"""Central design tokens - single source of truth for UI proportions."""
+"""Compatibility shim — all content moved to app/ui/theme/tokens.py.
 
-from __future__ import annotations
+Existing imports such as `from app.ui.theme import COLORS` continue to work.
+"""
 
-import tkinter.font as _tkfont
-
-from app.ui.layout.scale import apply_scale, compute_ui_scale, get_screen_dpi
-
-COLORS = {
-    "bg":              "#f3efe7",
-    "panel":           "#fffaf2",
-    "panel_alt":       "#f7f1e6",
-    "border":          "#d8cdbd",
-    "text":            "#2d2418",
-    "muted":           "#6e6252",
-    "primary":         "#215732",
-    "primary_active":  "#184525",
-    "danger":          "#9f3a2a",
-    "danger_active":   "#7f2d21",
-    "neutral":         "#d9c6a5",
-    "neutral_active":  "#cdb58e",
-    "accent":          "#d3a64f",
-    "accent_active":   "#bf913f",
-    "input_bg":        "#fffdf8",
-    "canvas_bg":       "#16130f",
-    "fg_light":        "#fffaf2",
-    "disabled_fg":     "#eadfce",
-}
-
-FONTS = {
-    "title":   ("Helvetica", 22, "bold"),
-    "heading": ("Helvetica", 15, "bold"),
-    "subhead": ("Helvetica", 13, "bold"),
-    "button":  ("Helvetica", 12, "bold"),
-    "body":    ("Helvetica", 12),
-    "label":   ("Helvetica", 12, "bold"),
-    "caption": ("Helvetica", 11),
-    "tag":     ("Helvetica", 11, "bold"),
-    "status":  ("Helvetica", 11),
-}
-
-SPACING = {
-    "xs":   4,
-    "sm":   8,
-    "md":  14,
-    "lg":  20,
-    "xl":  32,
-    "2xl": 48,
-}
-
-SIZES = {
-    "sidebar_w":       320,
-    "sidebar_min_w":   300,
-    "sidebar_max_w":   390,
-    "topbar_h":         58,
-    "status_h":         38,
-    "btn_pad_x":        14,
-    "btn_pad_y":        10,
-    "input_pad":         8,
-    "content_max_w":  1080,
-    "content_min_w":   760,
-}
-
-TOKENS = {
-    "colors": COLORS,
-    "fonts": FONTS,
-    "spacing": SPACING,
-    "sizes": SIZES,
-}
-
-_BASE_TOKENS = {
-    "colors": dict(COLORS),
-    "fonts": dict(FONTS),
-    "spacing": dict(SPACING),
-    "sizes": dict(SIZES),
-}
-
-
-def build_scaled_theme(root=None, scale: float | None = None) -> dict:
-    """Build scaled theme tokens from an explicit scale or a Tk root."""
-
-    if scale is None:
-        if root is None:
-            scale = 1.0
-        else:
-            scale = compute_ui_scale(root.winfo_screenheight(), get_screen_dpi(root))
-    theme = apply_scale(_BASE_TOKENS, scale)
-    theme["colors"] = dict(_BASE_TOKENS["colors"])
-    return theme
-
-
-def install_scaled_theme(root=None, scale: float | None = None) -> dict:
-    """Scale module-level token dictionaries in place and return the theme."""
-
-    theme = build_scaled_theme(root=root, scale=scale)
-    COLORS.clear()
-    COLORS.update(theme["colors"])
-    FONTS.clear()
-    FONTS.update(theme["fonts"])
-    SPACING.clear()
-    SPACING.update(theme["spacing"])
-    SIZES.clear()
-    SIZES.update(theme["sizes"])
-
-    # Propagate body size to all Tk dialogs (filedialog, messagebox).
-    # Named fonts alone are not enough on Linux — the option database must
-    # also be set so that Tk's Tcl-implemented dialogs (tk_chooseDirectory,
-    # tk_getOpenFile, tk_messageBox) pick up the correct font.
-    if root is not None:
-        body_size = theme["fonts"]["body"][1]
-        font_spec = f"Helvetica {body_size}"
-        root.option_add("*Font", font_spec, "userDefault")
-        for _name in (
-            "TkDefaultFont", "TkTextFont", "TkMenuFont",
-            "TkHeadingFont", "TkFixedFont", "TkIconFont",
-        ):
-            try:
-                _tkfont.nametofont(_name).configure(family="Helvetica", size=body_size)
-            except Exception:  # pylint: disable=broad-except
-                pass
-
-    return theme
+from app.ui.theme import (  # noqa: F401
+    COLORS,
+    FONTS,
+    SPACING,
+    SIZES,
+    TOKENS,
+    CLASS_COLORS,
+    build_scaled_theme,
+    install_scaled_theme,
+)

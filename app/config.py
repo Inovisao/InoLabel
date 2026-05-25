@@ -1,6 +1,7 @@
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+LOGO_PATH = BASE_DIR / "assets" / "inovisao.png"
 DATA_ROOT = Path("dataset")
 VIDEO_EXTENSIONS = (".mp4", ".avi", ".mov", ".mkv")
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
