@@ -1,19 +1,16 @@
 import sys
 
 from app.annotation.shared import *
+from app.ui.theme.palette import CLASS_COLORS
 
 
 class ClassServiceMixin:
-    CLASS_COLOR_PALETTE = [
-        "#22c55e", "#3b82f6", "#f97316", "#e11d48",
-        "#8b5cf6", "#14b8a6", "#eab308", "#ec4899",
-        "#06b6d4", "#84cc16", "#f43f5e", "#6366f1",
-    ]
+    CLASS_COLOR_PALETTE = CLASS_COLORS  # kept for external compatibility
 
     # ── cores & metadados ──────────────────────────────────────────
 
     def _category_color_for_index(self, index: int) -> str:
-        return self.CLASS_COLOR_PALETTE[index % len(self.CLASS_COLOR_PALETTE)]
+        return CLASS_COLORS[index % len(CLASS_COLORS)]
 
     def ensure_category_metadata(self):
         for idx, cat in enumerate(self.categories):

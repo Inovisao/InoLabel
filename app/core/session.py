@@ -63,8 +63,6 @@ class AnnotationSessionConfig:
             object.__setattr__(self, "annotations_path", Path(self.annotations_path).expanduser())
         object.__setattr__(self, "target_classes", normalize_class_names(self.target_classes))
         object.__setattr__(self, "category_metadata", tuple(dict(cat) for cat in self.category_metadata))
-        if self.mode is not AnnotationTaskMode.CLASSIFICATION and not self.weights_paths:
-            raise ValueError("Informe ao menos um arquivo de pesos.")
         if not self.target_classes:
             raise ValueError("Informe ao menos uma classe.")
         if self.confidence_threshold < 0 or self.confidence_threshold > 1:
