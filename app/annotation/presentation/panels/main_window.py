@@ -6,7 +6,7 @@ from app.ui.theme import COLORS, FONTS, SIZES, SPACING, install_scaled_theme
 class MainWindowMixin:
     def _build_ui(self):
         self.window = tk.Tk()
-        self.window.title(f"Validador — {self.task_mode.label}")
+        self.window.title(f"InoLabel — {self.task_mode.label}")
         self.window.protocol("WM_DELETE_WINDOW", self.on_quit)
         self.ui = install_scaled_theme(self.window)
         self.window.configure(bg=COLORS["bg"])
@@ -56,7 +56,7 @@ class MainWindowMixin:
             "highlightthickness": 0,
         }
 
-    def _apply_button_theme(self, button: tk.Button, *, bg: str, active_bg: str, fg: str = "#fffaf2"):
+    def _apply_button_theme(self, button: tk.Button, *, bg: str, active_bg: str, fg: str = "#FFFFFF"):
         button.configure(
             bg=bg, fg=fg,
             activebackground=active_bg, activeforeground=fg,

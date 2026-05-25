@@ -1,5 +1,6 @@
 from app.annotation.shared import *
-from app.ui.theme import COLORS, FONTS, SPACING, SIZES
+from app.ui.components import make_btn, make_entry
+from app.ui.theme.tokens import COLORS, FONTS, SIZES, SPACING
 
 
 class ClassPanelWidgetMixin:
@@ -47,7 +48,7 @@ class ClassPanelWidgetMixin:
 
         for idx, class_name in enumerate(self.target_classes):
             category_id = self.register_category(class_name)
-            cat_color = color_by_id.get(category_id, "#22c55e")
+            cat_color = color_by_id.get(category_id, COLORS["primary"])
             is_active = class_name == active_name
             count = frame_counts.get(category_id, 0)
             self._build_class_tag(panel, idx, class_name, cat_color, is_active, count)
@@ -61,17 +62,17 @@ class ClassPanelWidgetMixin:
             if not widgets:
                 continue
             category_id = self.class_to_category_id.get(class_name, 0)
-            color = color_by_id.get(category_id, "#22c55e")
+            color = color_by_id.get(category_id, COLORS["primary"])
             is_active = class_name == active_name
             count = frame_counts.get(category_id, 0)
-            tag_bg = color if is_active else self.theme["input_bg"]
-            tag_fg = COLORS["fg_light"] if is_active else self.theme["text"]
+            tag_bg = color if is_active else COLORS["input_bg"]
+            tag_fg = COLORS["fg_light"] if is_active else COLORS["text"]
             self._config_if_changed(widgets["tag"], bg=tag_bg)
             self._config_if_changed(widgets["name_btn"], text=f"{idx + 1}  {class_name}  ({count})", bg=tag_bg, fg=tag_fg)
 
     def _build_class_tag(self, panel, idx: int, class_name: str, color: str, is_active: bool, count: int):
-        tag_bg = color if is_active else self.theme["input_bg"]
-        tag_fg = COLORS["fg_light"] if is_active else self.theme["text"]
+        tag_bg = color if is_active else COLORS["input_bg"]
+        tag_fg = COLORS["fg_light"] if is_active else COLORS["text"]
 
         tag = tk.Frame(
             panel,
@@ -116,8 +117,8 @@ class ClassPanelWidgetMixin:
                 padx=SPACING["sm"], pady=SPACING["sm"],
                 bd=0, relief=tk.FLAT,
                 cursor="hand2" if idx > 0 else "arrow",
-                bg=self.theme["neutral"], fg=self.theme["text"],
-                activebackground=self.theme["neutral_active"], activeforeground=self.theme["text"],
+                bg=COLORS["neutral"], fg=COLORS["text"],
+                activebackground=COLORS["neutral_active"], activeforeground=COLORS["text"],
                 disabledforeground=COLORS["muted"],
                 highlightthickness=0,
                 state=(tk.NORMAL if idx > 0 else tk.DISABLED),
@@ -131,8 +132,8 @@ class ClassPanelWidgetMixin:
                 padx=SPACING["sm"], pady=SPACING["sm"],
                 bd=0, relief=tk.FLAT,
                 cursor="hand2" if idx < len(self.target_classes) - 1 else "arrow",
-                bg=self.theme["neutral"], fg=self.theme["text"],
-                activebackground=self.theme["neutral_active"], activeforeground=self.theme["text"],
+                bg=COLORS["neutral"], fg=COLORS["text"],
+                activebackground=COLORS["neutral_active"], activeforeground=COLORS["text"],
                 disabledforeground=COLORS["muted"],
                 highlightthickness=0,
                 state=(tk.NORMAL if idx < len(self.target_classes) - 1 else tk.DISABLED),
@@ -148,8 +149,8 @@ class ClassPanelWidgetMixin:
             padx=SPACING["sm"], pady=SPACING["sm"],
             bd=0, relief=tk.FLAT,
             cursor="hand2" if len(self.target_classes) > 1 else "arrow",
-            bg=self.theme["danger"], fg=COLORS["fg_light"],
-            activebackground=self.theme["danger"], activeforeground=COLORS["fg_light"],
+            bg=COLORS["danger"], fg=COLORS["fg_light"],
+            activebackground=COLORS["danger_active"], activeforeground=COLORS["fg_light"],
             disabledforeground=COLORS["disabled_fg"],
             highlightthickness=0,
             state=remove_state,
@@ -159,19 +160,11 @@ class ClassPanelWidgetMixin:
         self._class_tag_widgets[class_name] = {"tag": tag, "name_btn": name_btn}
 
     def _build_add_class_button(self, panel):
-        btn = tk.Button(
-            panel,
-            text="+ Nova classe",
-            font=FONTS["button"],
-            padx=SIZES["btn_pad_x"], pady=SIZES["btn_pad_y"],
-            bd=0, relief=tk.FLAT, cursor="hand2",
-            bg=self.theme["neutral"], fg=self.theme["text"],
-            activebackground=self.theme["neutral_active"], activeforeground=self.theme["text"],
-            highlightthickness=1, highlightbackground=self.theme["border"],
-            anchor="w",
-            command=lambda: self._show_add_class_entry(panel),
-        )
-        btn.pack(fill=tk.X, pady=(0, SPACING["sm"]))
+        make_btn(
+            panel, "+ Nova classe",
+            lambda: self._show_add_class_entry(panel),
+            variant="neutral", anchor="w",
+        ).pack(fill=tk.X, pady=(0, SPACING["sm"]))
 
     def _show_add_class_entry(self, panel):
         if getattr(self, "_class_panel_editing", False):
@@ -186,51 +179,24 @@ class ClassPanelWidgetMixin:
 
         wrap = tk.Frame(
             panel,
-            bg=self.theme["input_bg"],
-            highlightbackground=self.theme["accent"],
+            bg=COLORS["input_bg"],
+            highlightbackground=COLORS["accent"],
             highlightthickness=1, bd=0,
         )
         wrap.pack(fill=tk.X, pady=(0, SPACING["sm"]))
 
-        row = tk.Frame(wrap, bg=self.theme["input_bg"])
+        row = tk.Frame(wrap, bg=COLORS["input_bg"])
         row.pack(fill=tk.X, expand=True)
 
-        entry = tk.Entry(
-            row,
-            textvariable=entry_var,
-            font=FONTS["body"],
-            bg=self.theme["input_bg"], fg=self.theme["text"],
-            insertbackground=self.theme["text"],
-            relief=tk.FLAT, bd=SIZES["input_pad"],
-            highlightthickness=0,
-        )
+        entry = make_entry(row, entry_var)
         entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        add_btn = tk.Button(
-            row,
-            text="Adicionar",
-            font=FONTS["tag"],
-            padx=SPACING["sm"], pady=SPACING["sm"],
-            bd=0, relief=tk.FLAT, cursor="hand2",
-            bg=self.theme["primary"], fg=COLORS["fg_light"],
-            activebackground=self.theme["primary_active"], activeforeground=COLORS["fg_light"],
-            highlightthickness=0,
-            command=lambda: confirm(),
+        make_btn(row, "Adicionar", lambda: confirm(), variant="primary", size="sm").pack(
+            side=tk.LEFT, padx=(SPACING["xs"], 0)
         )
-        add_btn.pack(side=tk.LEFT, padx=(SPACING["xs"], 0))
-
-        cancel_btn = tk.Button(
-            row,
-            text="Cancelar",
-            font=FONTS["tag"],
-            padx=SPACING["sm"], pady=SPACING["sm"],
-            bd=0, relief=tk.FLAT, cursor="hand2",
-            bg=self.theme["neutral"], fg=self.theme["text"],
-            activebackground=self.theme["neutral_active"], activeforeground=self.theme["text"],
-            highlightthickness=0,
-            command=lambda: cancel(),
+        make_btn(row, "Cancelar", lambda: cancel(), variant="neutral", size="sm").pack(
+            side=tk.LEFT, padx=(SPACING["xs"], 0)
         )
-        cancel_btn.pack(side=tk.LEFT, padx=(SPACING["xs"], 0))
 
         entry.focus_set()
 

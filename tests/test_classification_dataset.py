@@ -9,8 +9,10 @@ from app.classification.dataset import (
     add_class_directory,
     class_directories_for,
     class_directory_has_files,
+    classify_image_source,
     copy_image_to_class,
     discover_images,
+    export_classification_dataset,
     load_state,
     latest_output_state_for_sources,
     list_output_states_for_sources,
@@ -136,6 +138,55 @@ class ClassificationDatasetTest(unittest.TestCase):
             self.assertFalse(source.exists())
             self.assertEqual(record.destination_path.read_bytes(), b"original")
             self.assertEqual(record.operation, "move")
+
+    def test_classify_image_source_only_records_state(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            source = root / "source" / "img.jpg"
+            source.parent.mkdir()
+            source.write_bytes(b"original")
+            output = root / "output"
+            directories = prepare_dataset(output, ["Ok"])
+
+            record = classify_image_source(
+                source,
+                class_name="Ok",
+                output_dir=output,
+                class_directories=directories,
+            )
+
+            self.assertTrue(source.exists())
+            self.assertFalse(record.destination_path.exists())
+            self.assertEqual(record.destination_path, output / "ok" / "img.jpg")
+            self.assertEqual(record.operation, "state")
+
+    def test_export_classification_dataset_copies_records_to_class_folders(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            source_a = root / "source" / "a.jpg"
+            source_b = root / "source" / "nested" / "a.jpg"
+            source_b.parent.mkdir(parents=True)
+            source_a.write_bytes(b"a")
+            source_b.write_bytes(b"b")
+            output = root / "output"
+            directories = prepare_dataset(output, ["Ok", "Falha"])
+            records = [
+                classify_image_source(source_a, class_name="Ok", output_dir=output, class_directories=directories),
+                classify_image_source(source_b, class_name="Ok", output_dir=output, class_directories=directories),
+            ]
+
+            report = export_classification_dataset(
+                records=records,
+                classes=["Ok", "Falha"],
+                class_directories=directories,
+                dataset_root=root / "exported",
+            )
+
+            self.assertEqual(report["copied"], 2)
+            self.assertEqual(report["skipped"], [])
+            self.assertEqual((root / "exported" / "ok" / "a.jpg").read_bytes(), b"a")
+            self.assertEqual((root / "exported" / "ok" / "a__001.jpg").read_bytes(), b"b")
+            self.assertTrue((root / "exported" / "falha").is_dir())
 
     def test_source_looks_used_matches_original_and_conflict_names(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

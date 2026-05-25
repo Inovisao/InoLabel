@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime
@@ -43,15 +44,19 @@ class OutputStateTest(unittest.TestCase):
         path.write_text(json.dumps(payload), encoding="utf-8")
         return path
 
-    def test_create_new_output_dir_uses_incrementing_index_and_timestamp(self):
+    def test_create_new_output_dir_uses_task_and_timestamp(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             outputs = Path(tmp_dir)
             first = create_new_output_dir(outputs, now=datetime(2026, 4, 27, 10, 0, 0))
             self._write_annotations(first)
-            second = create_new_output_dir(outputs, now=datetime(2026, 4, 27, 11, 0, 0))
+            second = create_new_output_dir(
+                outputs,
+                now=datetime(2026, 4, 27, 11, 0, 0),
+                task_mode=AnnotationTaskMode.TRACKING,
+            )
 
-            self.assertEqual(first.name, "output_dataset1_20260427_100000")
-            self.assertEqual(second.name, "output_dataset2_20260427_110000")
+            self.assertEqual(first.name, "detecção_27.04.10:00")
+            self.assertEqual(second.name, "tracking_27.04.11:00")
             self.assertTrue((second / "images").exists())
 
     def test_create_new_output_dir_can_skip_images_subfolder(self):
@@ -64,8 +69,18 @@ class OutputStateTest(unittest.TestCase):
                 create_images_dir=False,
             )
 
-            self.assertEqual(output.name, "output_dataset1_20260427_100000")
+            self.assertEqual(output.name, "detecção_27.04.10:00")
             self.assertFalse((output / "images").exists())
+
+    def test_create_new_output_dir_avoids_same_minute_conflicts(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            outputs = Path(tmp_dir)
+
+            first = create_new_output_dir(outputs, now=datetime(2026, 4, 27, 10, 0, 0))
+            second = create_new_output_dir(outputs, now=datetime(2026, 4, 27, 10, 0, 30))
+
+            self.assertEqual(first.name, "detecção_27.04.10:00")
+            self.assertEqual(second.name, "detecção_27.04.10:00_001")
 
     def test_lists_and_loads_output_states_from_annotations(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -85,6 +100,23 @@ class OutputStateTest(unittest.TestCase):
         self.assertEqual(loaded.class_names, ("plate",))
         self.assertEqual(loaded.image_count, 1)
         self.assertEqual(loaded.annotation_count, 1)
+
+    def test_latest_output_state_uses_annotation_file_mtime(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            outputs = Path(tmp_dir)
+            older_name = outputs / "output_dataset99_20260427_120000"
+            newer_name = outputs / "output_dataset1_20260427_100000"
+            older_path = self._write_annotations(older_name, categories=[{"id": 1, "name": "old"}])
+            newer_path = self._write_annotations(newer_name, categories=[{"id": 1, "name": "new"}])
+            os.utime(older_path, (1_779_980_400, 1_779_980_400))
+            os.utime(newer_path, (1_779_984_000, 1_779_984_000))
+
+            states = list_output_states(outputs)
+            latest = latest_output_state(outputs)
+
+        self.assertEqual([state.path.name for state in states], [older_name.name, newer_name.name])
+        self.assertEqual(latest.path.name, newer_name.name)
+        self.assertEqual(latest.class_names, ("new",))
 
     def test_supports_double_underscore_annotations_file(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

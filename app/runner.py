@@ -1,11 +1,14 @@
 import sys
 
-from app.annotation_tool import AnnotationTool
-from app.startup_dialog import ask_startup_config
-from app.core.session import AnnotationTaskMode
-
 
 def main() -> int:
+    from app.ui.startup.splash import show_splash
+    show_splash()
+
+    from app.startup_dialog import ask_startup_config
+    from app.annotation_tool import AnnotationTool
+    from app.core.session import AnnotationTaskMode
+
     session_config = ask_startup_config()
     if session_config.mode is AnnotationTaskMode.CLASSIFICATION:
         from app.classification.tool import ClassificationTool
