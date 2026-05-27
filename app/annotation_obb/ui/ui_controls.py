@@ -1,23 +1,15 @@
 from app.annotation_obb.shared import *
+from app.annotation.keybinds.keybind_mixin import KeybindMixin
 
 
-class OBBUIControlsMixin:
+class OBBUIControlsMixin(KeybindMixin):
     def _bind_shortcuts(self):
-        self.window.bind("<Return>", lambda event: self._run_shortcut(event, self.on_accept))
-        self.window.bind("<space>", lambda event: self._run_shortcut(event, self.on_reject))
+        # Atalhos fixos — não remapeáveis
         self.window.bind("<Escape>", lambda event: self._run_shortcut(event, self.on_quit))
-        self.window.bind("k", lambda event: self._run_shortcut(event, self.toggle_annotation_mode))
-        self.window.bind("K", lambda event: self._run_shortcut(event, self.toggle_annotation_mode))
-        self.window.bind("h", lambda event: self._run_shortcut(event, self.toggle_pan_mode))
-        self.window.bind("H", lambda event: self._run_shortcut(event, self.toggle_pan_mode))
-        self.window.bind("<Control-z>", lambda event: self._run_shortcut(event, self.undo_last_action))
-        self.window.bind("<Control-Z>", lambda event: self._run_shortcut(event, self.undo_last_action))
-        self.window.bind("r", lambda event: self._run_shortcut(event, self.reset_roi))
-        self.window.bind("R", lambda event: self._run_shortcut(event, self.reset_roi))
-        self.window.bind("<Control-0>", lambda event: self._run_shortcut(event, self.reset_zoom))
         for key in "123456789":
             self.window.bind(key, self.on_class_shortcut)
-        self.apply_key_mapping(getattr(self, "key_mapping_mode", "arrows"))
+        # Inicializa keybind service e aplica perfil salvo
+        self.init_keybind_service()
 
     @staticmethod
     def _shortcut_is_text_input(event) -> bool:
@@ -27,35 +19,6 @@ class OBBUIControlsMixin:
         if self._shortcut_is_text_input(event):
             return
         action()
-
-    def apply_key_mapping(self, mode: str):
-        mode = "wasd" if mode == "wasd" else "arrows"
-        for key in ("<Left>", "<Right>", "<Up>", "<Down>", "w", "W", "a", "A", "s", "S", "d", "D"):
-            self.window.unbind(key)
-        self.key_mapping_mode = mode
-        if mode == "wasd":
-            for key in ("w", "W", "a", "A"):
-                self.window.bind(key, lambda event: self._run_shortcut(event, self.on_prev_saved))
-            for key in ("s", "S", "d", "D"):
-                self.window.bind(key, lambda event: self._run_shortcut(event, self.on_next_saved))
-            self.window.bind("<Left>", lambda event: self._run_shortcut(event, self.on_prev_saved))
-            self.window.bind("<Up>", lambda event: self._run_shortcut(event, self.on_prev_saved))
-            self.window.bind("<Right>", lambda event: self._run_shortcut(event, self.on_next_saved))
-            self.window.bind("<Down>", lambda event: self._run_shortcut(event, self.on_next_saved))
-        else:
-            self.window.bind("<Left>", lambda event: self._run_shortcut(event, self.on_prev_saved))
-            self.window.bind("<Up>", lambda event: self._run_shortcut(event, self.on_prev_saved))
-            self.window.bind("<Right>", lambda event: self._run_shortcut(event, self.on_next_saved))
-            self.window.bind("<Down>", lambda event: self._run_shortcut(event, self.on_next_saved))
-            self.window.bind("s", lambda event: self._run_shortcut(event, self.toggle_selection_mode))
-            self.window.bind("S", lambda event: self._run_shortcut(event, self.toggle_selection_mode))
-        self.update_key_mapping_button()
-
-    def update_key_mapping_button(self):
-        if not hasattr(self, "key_mapping_button"):
-            return
-        label = "WASD" if getattr(self, "key_mapping_mode", "arrows") == "wasd" else "Setas"
-        self.key_mapping_button.config(text=f"Mapeamento: {label}")
 
     def _build_canvas(self):
         self.canvas = tk.Canvas(self.window, bg="black", highlightthickness=0)

@@ -902,7 +902,7 @@ class StartupWizard:
             self.classes = list(state.class_names)
             self.loaded_state_categories = state.categories
             self._sync_loaded_categories_to_classes()
-            if state.task_mode is not None and (state.task_mode is AnnotationTaskMode.OBB or current_mode is not AnnotationTaskMode.OBB):
+            if state.task_mode is not None:
                 self.mode_var.set(state.task_mode.value)
         self._refresh_classes_panel()
         return True
