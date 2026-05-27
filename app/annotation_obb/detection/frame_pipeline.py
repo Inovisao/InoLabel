@@ -10,6 +10,7 @@ class OBBFramePipelineMixin:
         self.zoom_scale = 1.0
         self.zoom_pan_x = 0
         self.zoom_pan_y = 0
+        self.frame_rotation = 0
 
         if advance_index:
             self.frame_index += 1

@@ -50,8 +50,6 @@ class ExportActionsMixin:
         self.show_export_screen()
 
     def load_export_payload_from_state(self) -> dict:
-        self.autosave_current_frame(reason="exportar dataset")
-        self.write_annotations()
         if not self.annotations_path.exists():
             raise FileNotFoundError(f"Estado de anotacoes nao encontrado: {self.annotations_path}")
         payload = load_json(self.annotations_path)
@@ -137,7 +135,9 @@ class ExportActionsMixin:
             if "coco" in config.formats:
                 coco_dir = export_root / "coco" if multi_format else export_root
                 coco_path = coco_dir / "annotations.coco.json"
-                converted = export_detection_coco_json(payload, coco_path)
+                converted = export_detection_coco_json(
+                    payload, coco_path, source_images_dir=self.output_images_dir
+                )
                 coco_summary = f"COCO: {len(converted['images'])} imagens"
                 exported_parts.append(f"COCO imgs={len(converted['images'])}")
 
@@ -145,13 +145,17 @@ class ExportActionsMixin:
             message = f"Dataset exportado com sucesso em: {export_root}"
             if summary_lines:
                 message += " | " + " | ".join(summary_lines)
-            self.info_var.set(message)
-            if hasattr(self, "set_export_status"):
-                self.set_export_status(export_root, exported_parts, config)
             print(f"[INFO] {message}")
+            def _on_success(msg=message, root=export_root, parts=exported_parts, cfg=config):
+                self.info_var.set(msg)
+                if hasattr(self, "set_export_status"):
+                    self.set_export_status(root, parts, cfg)
+            self.window.after(0, _on_success)
         except Exception as exc:  # pylint: disable=broad-except
             message = f"Falha ao exportar dataset: {exc}"
-            self.info_var.set(message)
-            if hasattr(self, "set_export_error"):
-                self.set_export_error(message)
             print(f"[ERRO] {message}")
+            def _on_error(msg=message):
+                self.info_var.set(msg)
+                if hasattr(self, "set_export_error"):
+                    self.set_export_error(msg)
+            self.window.after(0, _on_error)

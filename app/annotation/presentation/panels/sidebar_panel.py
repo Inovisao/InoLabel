@@ -83,6 +83,13 @@ class SidebarPanelMixin:
 
         hsep(s).pack(fill=tk.X, padx=SPACING["sm"], pady=SPACING["xs"])
 
+        rot = tk.Frame(s, bg=COLORS["panel"])
+        rot.pack(fill=tk.X, **p)
+        make_btn(rot, "↺ Girar", self.rotate_frame_ccw, variant="neutral").pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
+        make_btn(rot, "Girar ↻", self.rotate_frame_cw, variant="neutral").pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(3, 0))
+
+        hsep(s).pack(fill=tk.X, padx=SPACING["sm"], pady=SPACING["xs"])
+
         nav = tk.Frame(s, bg=COLORS["panel"])
         nav.pack(fill=tk.X, **p)
         self.prev_button = make_btn(nav, "← Anterior", self.on_prev_saved, variant="neutral")

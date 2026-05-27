@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Set
+from typing import Any, Dict, List, Optional, Sequence, Set
 
 
 def normalize_categories(categories: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -78,10 +79,28 @@ def convert_tracking_to_detection(
 
 
 def export_detection_coco_json(
-    payload: Dict[str, Any], output_path: Path, only_annotated_images: bool = False
+    payload: Dict[str, Any],
+    output_path: Path,
+    only_annotated_images: bool = False,
+    source_images_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
     converted = convert_tracking_to_detection(payload, only_annotated_images=only_annotated_images)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(converted, f, indent=2, ensure_ascii=False)
+
+    if source_images_dir is not None:
+        images_dest = output_path.parent / "images"
+        images_dest.mkdir(parents=True, exist_ok=True)
+        for img in converted.get("images", []):
+            file_name = str(img.get("file_name", "")).strip()
+            if not file_name:
+                continue
+            src = source_images_dir / file_name
+            if not src.exists():
+                continue
+            dst = images_dest / Path(file_name).name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+
     return converted

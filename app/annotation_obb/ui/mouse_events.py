@@ -1,4 +1,5 @@
 from app.annotation_obb.shared import *
+from app.annotation.ui.rotation_utils import rotated_dims, rotated_to_image
 
 
 class OBBMouseEventsMixin:
@@ -118,10 +119,15 @@ class OBBMouseEventsMixin:
             return coords
         if self.current_frame is None:
             return None
-        frame_h, frame_w = self.current_frame.shape[:2]
-        x = int(np.clip((event.x - self.offset_x) / max(self.display_scale, 1e-9), 0, frame_w - 1))
-        y = int(np.clip((event.y - self.offset_y) / max(self.display_scale, 1e-9), 0, frame_h - 1))
-        return x, y
+        orig_h, orig_w = self.current_frame.shape[:2]
+        rotation = getattr(self, "frame_rotation", 0)
+        rot_w, rot_h = rotated_dims(orig_w, orig_h, rotation)
+        rx = int(np.clip((event.x - self.offset_x) / max(self.display_scale, 1e-9), 0, rot_w - 1))
+        ry = int(np.clip((event.y - self.offset_y) / max(self.display_scale, 1e-9), 0, rot_h - 1))
+        if rotation:
+            ox, oy = rotated_to_image(rx, ry, orig_w, orig_h, rotation)
+            return int(np.clip(ox, 0, orig_w - 1)), int(np.clip(oy, 0, orig_h - 1))
+        return rx, ry
 
     def _hit_rotate_handle(self, x: int, y: int) -> Optional[Tuple[str, int]]:
         for source, dets in (("manual", self.manual_obb_detections), ("model", self.current_obb_detections)):

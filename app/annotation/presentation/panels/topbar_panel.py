@@ -53,7 +53,7 @@ class TopbarPanelMixin:
         self._attach_help_tooltip(self.help_button)
 
         self.key_mapping_button = make_btn(
-            inner, "Mapeamento: Setas", self.open_key_mapping_dialog, variant="ghost", size="sm"
+            inner, "Atalhos: arrows", self.open_keybind_editor, variant="ghost", size="sm"
         )
         self.key_mapping_button.pack(side=tk.LEFT, padx=(0, SPACING["xs"]))
 
@@ -71,8 +71,21 @@ class TopbarPanelMixin:
 
     def _attach_help_tooltip(self, widget):
         def build_help_text():
-            if getattr(self, "key_mapping_mode", "arrows") == "wasd":
-                nav = "W/A: voltar imagem salva\nS/D: avancar imagem salva\nSelecao: use o botao lateral"
+            service = getattr(self, "_keybind_service", None)
+            if service is not None:
+                profile = service.get_active_profile()
+                from app.annotation.keybinds.keybind_editor import _display_key
+                from app.annotation.keybinds.actions import ACTION_REGISTRY
+
+                def key_for(action_id: str) -> str:
+                    k = profile.get_key(action_id) or ""
+                    return _display_key(k)
+
+                nav = (
+                    f"{key_for('prev_frame')}: frame anterior    "
+                    f"{key_for('next_frame')}: próximo frame\n"
+                    f"{key_for('toggle_selection')}: selecionar anotação"
+                )
             else:
                 nav = "Setas: navegar imagens salvas\nS: selecionar anotacao"
             return (
@@ -127,112 +140,3 @@ class TopbarPanelMixin:
         except Exception:  # pylint: disable=broad-except
             pass
         self._help_tooltip = None
-
-    # ── diálogo de mapeamento de teclas ───────────────────────────
-
-    def open_key_mapping_dialog(self):
-        existing = getattr(self, "_key_mapping_dialog", None)
-        if existing is not None:
-            try:
-                existing.lift()
-                existing.focus_force()
-                return
-            except Exception:  # pylint: disable=broad-except
-                self._key_mapping_dialog = None
-
-        dialog = tk.Toplevel(self.window)
-        self._key_mapping_dialog = dialog
-        dialog.title("Mapeamento de teclas")
-        dialog.configure(bg=COLORS["panel"])
-        dialog.resizable(False, False)
-        dialog.transient(self.window)
-        dialog.protocol("WM_DELETE_WINDOW", lambda: self._close_key_mapping_dialog(dialog))
-
-        x = self.key_mapping_button.winfo_rootx()
-        y = self.key_mapping_button.winfo_rooty() + self.key_mapping_button.winfo_height() + 8
-        dialog.geometry(f"640x360+{x}+{y}")
-        dialog.minsize(640, 360)
-
-        panel = tk.Frame(dialog, bg=COLORS["panel"], padx=SPACING["md"], pady=SPACING["md"])
-        panel.pack(fill=tk.BOTH, expand=True)
-        panel.grid_columnconfigure(0, weight=1)
-
-        tk.Label(
-            panel,
-            text="Navegacao entre imagens",
-            font=FONTS["label"],
-            bg=COLORS["panel"],
-            fg=COLORS["text"],
-            anchor="w",
-            justify=tk.LEFT,
-        ).grid(row=0, column=0, sticky="ew")
-
-        tk.Label(
-            panel,
-            text="Escolha se a navegacao usa setas ou WASD, como em jogos.",
-            font=FONTS["caption"],
-            bg=COLORS["panel"],
-            fg=COLORS["muted"],
-            anchor="w",
-            justify=tk.LEFT,
-        ).grid(row=1, column=0, sticky="ew", pady=(2, SPACING["md"]))
-
-        self._mapping_option_button(
-            panel,
-            "Setas",
-            "Anterior: Left    Proximo: Right    Selecao: S",
-            lambda: self._select_key_mapping("arrows", dialog),
-        ).grid(row=2, column=0, sticky="ew", pady=(0, SPACING["xs"]))
-
-        self._mapping_option_button(
-            panel,
-            "WASD",
-            "Anterior: W ou A    Proximo: S ou D    Selecao: botao lateral",
-            lambda: self._select_key_mapping("wasd", dialog),
-        ).grid(row=3, column=0, sticky="ew")
-
-        actions = tk.Frame(panel, bg=COLORS["panel"])
-        actions.grid(row=4, column=0, sticky="ew", pady=(SPACING["sm"], 0))
-        actions.grid_columnconfigure(0, weight=1)
-        make_btn(
-            actions, "Fechar", lambda: self._close_key_mapping_dialog(dialog), variant="neutral", size="sm"
-        ).grid(row=0, column=1, sticky="e")
-
-        dialog.lift()
-        dialog.focus_force()
-
-    def _mapping_option_button(self, parent, title: str, body: str, command):
-        btn = tk.Button(
-            parent,
-            text=f"{title}    {body}",
-            command=command,
-            justify=tk.LEFT,
-            anchor="w",
-            font=FONTS["body"],
-            padx=SPACING["md"],
-            pady=SPACING["xs"],
-            bd=0,
-            relief=tk.FLAT,
-            cursor="hand2",
-            highlightthickness=1,
-            highlightbackground=COLORS["border"],
-            wraplength=560,
-            bg=COLORS["panel_alt"],
-            fg=COLORS["text"],
-            activebackground=COLORS["neutral_active"],
-            activeforeground=COLORS["text"],
-        )
-        return btn
-
-    def _select_key_mapping(self, mode: str, dialog):
-        self.apply_key_mapping(mode)
-        self.info_var.set("Mapeamento WASD ativo." if mode == "wasd" else "Mapeamento por setas ativo.")
-        self._close_key_mapping_dialog(dialog)
-
-    def _close_key_mapping_dialog(self, dialog):
-        if getattr(self, "_key_mapping_dialog", None) is dialog:
-            self._key_mapping_dialog = None
-        try:
-            dialog.destroy()
-        except Exception:  # pylint: disable=broad-except
-            pass
