@@ -97,6 +97,15 @@ ACTION_REGISTRY: List[ActionDescriptor] = [
         default_wasd="h",
     ),
     ActionDescriptor(
+        id="toggle_remove",
+        label="Remover anotação (on/off)",
+        group="Anotação",
+        handler="toggle_remove_mode",
+        obb=True,
+        default_arrows="",  # sem bind padrão — atribuir via editor
+        default_wasd="",
+    ),
+    ActionDescriptor(
         id="reset_roi",
         label="Redefinir ROI",
         group="Anotação",
@@ -123,6 +132,25 @@ ACTION_REGISTRY: List[ActionDescriptor] = [
         obb=True,
         default_arrows="Control-0",
         default_wasd="Control-0",
+    ),
+    # ── Imagem ───────────────────────────────────────────────────────────────
+    ActionDescriptor(
+        id="rotate_cw",
+        label="Rotacionar 90° horário",
+        group="Imagem",
+        handler="rotate_frame_cw",
+        obb=True,
+        default_arrows="",
+        default_wasd="",
+    ),
+    ActionDescriptor(
+        id="rotate_ccw",
+        label="Rotacionar 90° anti-horário",
+        group="Imagem",
+        handler="rotate_frame_ccw",
+        obb=True,
+        default_arrows="",
+        default_wasd="",
     ),
     # ── Tracking (apenas no modo tracking) ──────────────────────────────────
     ActionDescriptor(

@@ -1,4 +1,5 @@
 from app.annotation_obb.shared import *
+from app.annotation.ui.rotation_utils import apply_frame_rotation
 
 
 class OBBDisplayCanvasMixin:
@@ -12,6 +13,10 @@ class OBBDisplayCanvasMixin:
             annotated = self.draw_obb_detections(annotated, self.current_obb_detections, "model")
         if SHOW_MANUAL_DETECTIONS:
             annotated = self.draw_obb_detections(annotated, self.manual_obb_detections, "manual")
+
+        rotation = getattr(self, "frame_rotation", 0)
+        if rotation:
+            annotated = apply_frame_rotation(annotated, rotation)
 
         frame_h, frame_w = annotated.shape[:2]
         max_canvas_w, max_canvas_h, screen_w, screen_h = self._canvas_viewport_limits()

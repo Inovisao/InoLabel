@@ -1,8 +1,18 @@
 from app.annotation.shared import *
+from app.annotation.ui.rotation_utils import (
+    apply_frame_rotation,
+    image_to_rotated,
+    rotated_to_image,
+    rotated_dims,
+)
 
 
 class DisplayCanvasMixin:
     def image_to_canvas_coords(self, x: float, y: float) -> Tuple[int, int]:
+        rotation = getattr(self, "frame_rotation", 0)
+        if rotation and self.current_frame is not None:
+            orig_h, orig_w = self.current_frame.shape[:2]
+            x, y = image_to_rotated(x, y, orig_w, orig_h, rotation)
         cx = int(round(x * self.display_scale + self.offset_x))
         cy = int(round(y * self.display_scale + self.offset_y))
         return cx, cy
@@ -10,14 +20,20 @@ class DisplayCanvasMixin:
     def canvas_to_image_coords(self, canvas_x: int, canvas_y: int) -> Optional[Tuple[int, int]]:
         if self.current_frame is None:
             return None
-        frame_h, frame_w = self.current_frame.shape[:2]
+        orig_h, orig_w = self.current_frame.shape[:2]
+        rotation = getattr(self, "frame_rotation", 0)
+        rot_w, rot_h = rotated_dims(orig_w, orig_h, rotation)
+
         x = (canvas_x - self.offset_x) / max(self.display_scale, 1e-9)
         y = (canvas_y - self.offset_y) / max(self.display_scale, 1e-9)
-        if x < 0 or y < 0 or x >= frame_w or y >= frame_h:
+        if x < 0 or y < 0 or x >= rot_w or y >= rot_h:
             return None
-        x_i = int(np.clip(x, 0, frame_w - 1))
-        y_i = int(np.clip(y, 0, frame_h - 1))
-        return x_i, y_i
+        rx = int(np.clip(x, 0, rot_w - 1))
+        ry = int(np.clip(y, 0, rot_h - 1))
+        if rotation:
+            ox, oy = rotated_to_image(rx, ry, orig_w, orig_h, rotation)
+            return int(np.clip(ox, 0, orig_w - 1)), int(np.clip(oy, 0, orig_h - 1))
+        return rx, ry
 
     def _canvas_viewport_limits(self) -> Tuple[int, int, int, int]:
         screen_w = self.window.winfo_screenwidth()
@@ -63,6 +79,10 @@ class DisplayCanvasMixin:
             annotated = self.draw_detections(annotated, self.current_detections, "model")
         if SHOW_MANUAL_DETECTIONS:
             annotated = self.draw_detections(annotated, self.manual_detections, "manual")
+
+        rotation = getattr(self, "frame_rotation", 0)
+        if rotation:
+            annotated = apply_frame_rotation(annotated, rotation)
 
         frame_h, frame_w = annotated.shape[:2]
         max_canvas_w, max_canvas_h, screen_w, screen_h = self._canvas_viewport_limits()
