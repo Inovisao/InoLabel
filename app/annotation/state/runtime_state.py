@@ -66,6 +66,7 @@ class RuntimeStateMixin:
         self.pan_drag_start: Optional[Tuple[int, int]] = None
         self.pan_start_offset: Tuple[int, int] = (0, 0)
         self.key_mapping_mode = "arrows"
+        self.frame_rotation: int = 0  # 0 / 90 / 180 / 270 — visual only
 
         self.saved_records: List[dict] = []
         self.review_idx: Optional[int] = None

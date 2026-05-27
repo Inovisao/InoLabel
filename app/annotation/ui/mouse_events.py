@@ -1,4 +1,5 @@
 from app.annotation.shared import *
+from app.annotation.ui.rotation_utils import rotated_dims, rotated_to_image
 
 
 class MouseEventsMixin:
@@ -67,9 +68,17 @@ class MouseEventsMixin:
         start_x, start_y = self.drawing_start
         end_coords = self.canvas_to_image_coords(event.x, event.y)
         if end_coords is None:
-            frame_h, frame_w = self.current_frame.shape[:2]
-            end_x = int(np.clip((event.x - self.offset_x) / max(self.display_scale, 1e-9), 0, frame_w - 1))
-            end_y = int(np.clip((event.y - self.offset_y) / max(self.display_scale, 1e-9), 0, frame_h - 1))
+            orig_h, orig_w = self.current_frame.shape[:2]
+            rotation = getattr(self, "frame_rotation", 0)
+            rot_w, rot_h = rotated_dims(orig_w, orig_h, rotation)
+            rx = int(np.clip((event.x - self.offset_x) / max(self.display_scale, 1e-9), 0, rot_w - 1))
+            ry = int(np.clip((event.y - self.offset_y) / max(self.display_scale, 1e-9), 0, rot_h - 1))
+            if rotation:
+                ox, oy = rotated_to_image(rx, ry, orig_w, orig_h, rotation)
+                end_x = int(np.clip(ox, 0, orig_w - 1))
+                end_y = int(np.clip(oy, 0, orig_h - 1))
+            else:
+                end_x, end_y = rx, ry
         else:
             end_x, end_y = end_coords
 

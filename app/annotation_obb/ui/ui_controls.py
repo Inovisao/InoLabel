@@ -32,6 +32,7 @@ class OBBUIControlsMixin(KeybindMixin):
         self.canvas.bind("<ButtonPress-2>", self.on_pan_start)
         self.canvas.bind("<B2-Motion>", self.on_pan_drag)
         self.canvas.bind("<ButtonRelease-2>", self.on_pan_end)
+        # Scroll → zoom centrado no cursor (Ctrl+Scroll também suportado)
         self.canvas.bind("<MouseWheel>", self.on_zoom)
         self.canvas.bind("<Control-MouseWheel>", self.on_zoom)
         self.canvas.bind("<Command-MouseWheel>", self.on_zoom)

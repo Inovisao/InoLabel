@@ -41,6 +41,7 @@ class OBBRuntimeStateMixin:
         self.pan_start_offset: Tuple[int, int] = (0, 0)
         self.canvas_image_id = None
         self.key_mapping_mode = "arrows"
+        self.frame_rotation: int = 0  # 0 / 90 / 180 / 270 — visual only
 
         self.roi_points: List[Tuple[int, int]] = []
         self.roi_defined = False
