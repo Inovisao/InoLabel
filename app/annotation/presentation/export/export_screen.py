@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
@@ -81,9 +82,8 @@ class ExportScreenMixin:
             anchor="w",
         )
         self._export_status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=SPACING["md"], pady=SPACING["sm"])
-        self._export_button(actions, "Exportar", self._confirm_export_screen, primary=True).pack(
-            side=tk.RIGHT, padx=SPACING["md"], pady=SPACING["sm"]
-        )
+        self._export_confirm_btn = self._export_button(actions, "Exportar", self._confirm_export_screen, primary=True)
+        self._export_confirm_btn.pack(side=tk.RIGHT, padx=SPACING["md"], pady=SPACING["sm"])
         self._export_button(actions, "Cancelar", self.show_annotation_screen).pack(
             side=tk.RIGHT, pady=SPACING["sm"]
         )
@@ -263,7 +263,25 @@ class ExportScreenMixin:
             return
         self._export_status_var.set("Exportando...")
         self._export_status_label.config(fg=COLORS["muted"])
-        self.perform_dataset_export(config)
+        self._export_confirm_btn.config(state=tk.DISABLED)
+        # Flush current frame to disk on the main thread before backgrounding
+        self.autosave_current_frame(reason="exportar dataset")
+        self.write_annotations()
+        threading.Thread(
+            target=self._run_export_thread,
+            args=(config,),
+            daemon=True,
+        ).start()
+
+    def _run_export_thread(self, config):
+        try:
+            self.perform_dataset_export(config)
+        finally:
+            self.window.after(0, self._restore_export_button)
+
+    def _restore_export_button(self):
+        if hasattr(self, "_export_confirm_btn"):
+            self._export_confirm_btn.config(state=tk.NORMAL)
 
     def set_export_status(self, export_root: Path, exported_parts: List[str], config: ExportConfig):
         aug_text = "augmentation: desligado"

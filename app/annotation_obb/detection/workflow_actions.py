@@ -59,6 +59,16 @@ class OBBWorkflowActionsMixin:
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[ERRO] Falha ao deletar imagem OBB: {exc}")
 
+    def rotate_frame_cw(self):
+        """Rotaciona a exibição 90° no sentido horário (visual only — não afeta o save)."""
+        self.frame_rotation = (getattr(self, "frame_rotation", 0) + 90) % 360
+        self.update_display()
+
+    def rotate_frame_ccw(self):
+        """Rotaciona a exibição 90° no sentido anti-horário (visual only — não afeta o save)."""
+        self.frame_rotation = (getattr(self, "frame_rotation", 0) + 270) % 360
+        self.update_display()
+
     def update_manual_memory_after_accept(self, detections):
         _ = detections
         return None
