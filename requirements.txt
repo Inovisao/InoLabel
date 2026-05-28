@@ -5,3 +5,4 @@ numpy
 scipy
 lap
 cython-bbox
+flet==0.27.6

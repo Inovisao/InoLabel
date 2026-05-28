@@ -18,7 +18,7 @@ from app.core.session import AnnotationTaskMode, normalize_class_names
 
 ANNOTATION_FILE_NAMES = ("annotations.coco.json", "annotations_obb.coco.json", "__annotations.coco.json")
 STATE_PATTERN = re.compile(rf"^{re.escape(OUTPUT_DATASET_PREFIX)}(?P<index>\d+)_(?P<stamp>\d{{8}}_\d{{6}})$")
-NEW_STATE_PATTERN = re.compile(r"^.+_(?P<day>\d{2})\.(?P<month>\d{2})\.(?P<hour>\d{2}):(?P<minute>\d{2})(?:_\d{3})?$")
+NEW_STATE_PATTERN = re.compile(r"^.+_(?P<day>\d{2})\.(?P<month>\d{2})\.(?P<hour>\d{2})[:\-](?P<minute>\d{2})(?:_\d{3})?$")
 TASK_DIR_NAMES = {
     AnnotationTaskMode.DETECTION: "detecção",
     AnnotationTaskMode.TRACKING: "tracking",
@@ -151,7 +151,8 @@ def create_new_output_dir(
     outputs_dir = Path(outputs_dir).expanduser()
     outputs_dir.mkdir(parents=True, exist_ok=True)
     task_name = _task_dir_name(task_mode)
-    stamp = (now or datetime.now()).strftime("%d.%m.%H:%M")
+    # Windows nao permite ':' em nomes de arquivo/pasta.
+    stamp = (now or datetime.now()).strftime("%d.%m.%H-%M")
     candidate = outputs_dir / f"{task_name}_{stamp}"
     suffix = 1
     while candidate.exists():
