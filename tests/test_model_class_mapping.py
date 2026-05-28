@@ -1,12 +1,12 @@
-import unittest
+﻿import unittest
 
 
 class ModelClassMappingTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from app.annotation.core.services.class_service import ClassServiceMixin
-            from app.annotation.detection.frame_model_helpers import FrameModelHelpersMixin
+            from backend.annotation.core.services.class_service import ClassServiceMixin
+            from backend.annotation.detection.frame_model_helpers import FrameModelHelpersMixin
         except ModuleNotFoundError as exc:
             raise unittest.SkipTest(f"Dependencia opcional ausente para teste de modelo: {exc}") from exc
 

@@ -1,9 +1,9 @@
-import tempfile
+﻿import tempfile
 import unittest
 from pathlib import Path
 
-from app.core.session import AnnotationSessionConfig, AnnotationTaskMode, normalize_class_names
-from app.sources.discovery import SourceDiscoveryService
+from backend.core.session import AnnotationSessionConfig, AnnotationTaskMode, normalize_class_names
+from backend.sources.discovery import SourceDiscoveryService
 
 
 class SessionConfigTest(unittest.TestCase):

@@ -1,9 +1,9 @@
-import json
+﻿import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from app.annotation_obb.infrastructure.export.yolo_obb_exporter import export_yolo_obb_dataset
+from backend.annotation_obb.infrastructure.export.yolo_obb_exporter import export_yolo_obb_dataset
 
 
 class YOLOOBBExportTest(unittest.TestCase):

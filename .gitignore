@@ -1,13 +1,51 @@
-videos/*
-output_dataset
-__pycache__
-imagens/
-models/
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Dados do usuario (nunca commitar) ────────────────────────────────────────
+videos/
+images/
 dataset/
-docs
-.codex
-dataset_original
+dataset_original/
+data/
+models/
+outputs/
 .local/
-outputs
-data
-.claude
+
+# ── PyInstaller build output ─────────────────────────────────────────────────
+dist/
+build/
+*.spec.bak
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ── Cache de usuario (gerado em ~/.inolabel/) ─────────────────────────────────
+# (ja fora do repo pelo caminho home, mas por precaucao:)
+.inolabel/
+
+# ── IDEs e ferramentas ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Testes ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Claude Code ──────────────────────────────────────────────────────────────
+.claude/
+.codex/

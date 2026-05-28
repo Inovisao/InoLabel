@@ -1,4 +1,4 @@
-import tempfile
+﻿import tempfile
 import unittest
 import json
 from pathlib import Path
@@ -6,14 +6,14 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from app.annotation.core.augmentation.augmentation_types import AugEntry, AugmentationPreset
-from app.annotation.detection.persistence import PersistenceMixin
-from app.annotation.infrastructure.persistence.export_actions import ExportActionsMixin
-from app.annotation.ui.display_canvas import DisplayCanvasMixin
-from app.annotation.detection.workflow_actions import WorkflowActionsMixin
-from app.annotation.sources.source_helpers import SourceHelpersMixin
-from app.config import DATA_ROOT
-from app.dataset_export import export_yolo_dataset
+from backend.annotation.core.augmentation.augmentation_types import AugEntry, AugmentationPreset
+from backend.annotation.detection.persistence import PersistenceMixin
+from backend.annotation.infrastructure.persistence.export_actions import ExportActionsMixin
+from backend.annotation.ui.display_canvas import DisplayCanvasMixin  # clamp_zoom_pan puro
+from backend.annotation.detection.workflow_actions import WorkflowActionsMixin
+from backend.annotation.sources.source_helpers import SourceHelpersMixin
+from backend.config import DATA_ROOT
+from backend.dataset_export import export_yolo_dataset
 from utils.merge_yolo_splits import merge_yolo_splits
 
 

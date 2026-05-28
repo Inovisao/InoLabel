@@ -1,11 +1,10 @@
-import unittest
+﻿import unittest
 from collections import deque
-from unittest.mock import patch
 
 import numpy as np
 
-from app.annotation.state.class_config import ClassConfigMixin
-from app.models import Detection
+from backend.annotation.state.class_config import ClassConfigMixin
+from backend.models import Detection
 
 
 def make_detection(category_id: int) -> Detection:
@@ -70,7 +69,10 @@ class ClassRemovalTest(unittest.TestCase):
         def sync_export_metadata(self):
             self.sync_calls += 1
 
-        def update_display(self):
+        def update_class_panel(self, **_kwargs):
+            pass
+
+        def update_display(self, **_kwargs):
             self.display_calls += 1
 
         def update_status(self):
@@ -87,8 +89,8 @@ class ClassRemovalTest(unittest.TestCase):
         config = self.DummyClassConfig()
 
 
-        with patch("app.annotation.state.class_config.messagebox.askyesno", return_value=True):
-            config.remove_class("bus")
+        # No backend a confirmacao nao usa messagebox — chamada direta
+        config.remove_class("bus")
 
         self.assertEqual(config.target_classes, ["car"])
         self.assertEqual(config.class_to_category_id, {"car": 1})

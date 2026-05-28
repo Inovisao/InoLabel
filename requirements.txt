@@ -3,6 +3,9 @@ opencv-python
 Pillow
 numpy
 scipy
-lap
-cython-bbox
-flet==0.27.6
+lapx
+fastapi
+uvicorn[standard]
+websockets
+python-multipart
+pywebview

@@ -1,11 +1,11 @@
-import json
+﻿import json
 import os
 import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
 
-from app.core.output_state import (
+from backend.core.output_state import (
     create_new_output_dir,
     latest_output_state_for_sources,
     list_output_states_for_sources,
@@ -13,7 +13,7 @@ from app.core.output_state import (
     list_output_states,
     load_annotation_state,
 )
-from app.core.session import AnnotationTaskMode
+from backend.core.session import AnnotationTaskMode
 
 
 class OutputStateTest(unittest.TestCase):
@@ -55,8 +55,8 @@ class OutputStateTest(unittest.TestCase):
                 task_mode=AnnotationTaskMode.TRACKING,
             )
 
-            self.assertEqual(first.name, "detecção_27.04.10:00")
-            self.assertEqual(second.name, "tracking_27.04.11:00")
+            self.assertEqual(first.name, "detecção_27.04.10-00")
+            self.assertEqual(second.name, "tracking_27.04.11-00")
             self.assertTrue((second / "images").exists())
 
     def test_create_new_output_dir_can_skip_images_subfolder(self):
@@ -69,7 +69,7 @@ class OutputStateTest(unittest.TestCase):
                 create_images_dir=False,
             )
 
-            self.assertEqual(output.name, "detecção_27.04.10:00")
+            self.assertEqual(output.name, "detecção_27.04.10-00")
             self.assertFalse((output / "images").exists())
 
     def test_create_new_output_dir_avoids_same_minute_conflicts(self):
@@ -79,8 +79,8 @@ class OutputStateTest(unittest.TestCase):
             first = create_new_output_dir(outputs, now=datetime(2026, 4, 27, 10, 0, 0))
             second = create_new_output_dir(outputs, now=datetime(2026, 4, 27, 10, 0, 30))
 
-            self.assertEqual(first.name, "detecção_27.04.10:00")
-            self.assertEqual(second.name, "detecção_27.04.10:00_001")
+            self.assertEqual(first.name, "detecção_27.04.10-00")
+            self.assertEqual(second.name, "detecção_27.04.10-00_001")
 
     def test_lists_and_loads_output_states_from_annotations(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

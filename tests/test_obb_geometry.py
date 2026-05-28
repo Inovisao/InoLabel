@@ -1,8 +1,8 @@
-import unittest
+﻿import unittest
 
 import numpy as np
 
-from app.annotation_obb.geometry.obb_geometry import hbb_to_obb, obb_to_points, points_to_hbb, validate_obb
+from backend.annotation_obb.geometry.obb_geometry import hbb_to_obb, obb_to_points, points_to_hbb, validate_obb
 
 
 class OBBGeometryTest(unittest.TestCase):

@@ -1,1 +1,0 @@
-"""Infraestrutura do modo OBB."""

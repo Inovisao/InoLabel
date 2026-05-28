@@ -1,1 +1,0 @@
-"""Paineis do modo OBB."""
