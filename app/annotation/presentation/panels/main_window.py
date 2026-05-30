@@ -6,6 +6,7 @@ from app.ui.theme import COLORS, FONTS, SIZES, SPACING, install_scaled_theme
 class MainWindowMixin:
     def _build_ui(self):
         self.window = tk.Tk()
+        self.window.withdraw()  # hidden until the first frame is ready
         self.window.title(f"InoLabel — {self.task_mode.label}")
         self.window.protocol("WM_DELETE_WINDOW", self.on_quit)
         self.ui = install_scaled_theme(self.window)

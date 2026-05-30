@@ -1,4 +1,4 @@
-"""Fachada compatível para exportação de datasets."""
+"""Compatibility facade for dataset export."""
 
 from __future__ import annotations
 

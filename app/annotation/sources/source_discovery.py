@@ -15,7 +15,7 @@ class SourceDiscoveryMixin:
         return source.is_file() and source.suffix.lower() in IMAGE_LIST_EXTENSIONS
 
     def discover_sources(self, data_root: Path) -> List[Path]:
-        """Descobre fontes: videos, diretorio com imagens, imagem unica ou lista de imagens."""
+        """Discovers sources: videos, image directory, single image, or image list."""
         if data_root.is_file():
             if self.is_video_source(data_root) or self.is_image_source(data_root) or self.is_image_list_source(data_root):
                 return [data_root]
@@ -31,7 +31,7 @@ class SourceDiscoveryMixin:
             [p for p in data_root.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS]
         )
         if image_paths:
-            # diretorio inteiro vira uma unica sequencia de frames
+            # the entire directory becomes a single frame sequence
             return [data_root]
 
         image_list_paths = sorted(
@@ -40,7 +40,7 @@ class SourceDiscoveryMixin:
         return image_list_paths
 
     def load_image_list(self, list_file: Path) -> List[Path]:
-        """Carrega caminhos de imagens a partir de um arquivo .txt/.lst."""
+        """Loads image paths from a .txt/.lst file."""
         image_paths: List[Path] = []
         try:
             lines = list_file.read_text(encoding="utf-8").splitlines()
@@ -58,7 +58,7 @@ class SourceDiscoveryMixin:
         return image_paths
 
     def build_image_sequence(self, source: Path) -> List[Path]:
-        """Constroi sequencia de imagens para uma fonte."""
+        """Builds an image sequence for a given source."""
         if source.is_dir():
             return sorted([p for p in source.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS])
         if self.is_image_source(source):
@@ -68,7 +68,7 @@ class SourceDiscoveryMixin:
         return []
 
     def read_next_image_frame(self) -> Optional[np.ndarray]:
-        """Le a proxima imagem da sequencia atual."""
+        """Reads the next image from the current sequence."""
         while self.current_image_cursor < len(self.current_image_paths):
             image_path = self.current_image_paths[self.current_image_cursor]
             self.current_image_cursor += 1
@@ -82,7 +82,7 @@ class SourceDiscoveryMixin:
         return None
 
     def remove_current_image_from_sequence(self, image_path: Path):
-        """Remove uma imagem da sequencia atual e ajusta o cursor."""
+        """Removes an image from the current sequence and adjusts the cursor."""
         resolved = image_path.resolve()
         for idx, candidate in enumerate(list(self.current_image_paths)):
             try:
@@ -96,4 +96,4 @@ class SourceDiscoveryMixin:
                 self.current_image_cursor = max(0, self.current_image_cursor - 1)
             return
 
-    # ===================== CONTROLE DE VIDEOS =====================
+    # ===================== VIDEO CONTROL =====================

@@ -1,4 +1,4 @@
-"""Editor visual de keybinds estilo Valorant para o InoLabel."""
+"""Visual keybind editor in the style of Valorant, for InoLabel."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from app.annotation.keybinds.keybind_service import KeybindService, MODIFIER_KEY
 from app.ui.components import make_btn
 from app.ui.theme.tokens import COLORS, FONTS, SPACING
 
-# ── conversão de tecla para texto legível ─────────────────────────────────────
+# ── key-to-readable-text conversion ─────────────────────────────────────────
 
 _KEY_DISPLAY: Dict[str, str] = {
     "Right": "→",
@@ -30,14 +30,14 @@ _KEY_DISPLAY: Dict[str, str] = {
     "Control-0": "Ctrl+0",
     "Control-c": "Ctrl+C",
     "Control-v": "Ctrl+V",
-    "": "(sem bind)",
+    "": "(no binding)",
 }
 
 
 def _display_key(key: str) -> str:
     if key in _KEY_DISPLAY:
         return _KEY_DISPLAY[key]
-    # modifier combos genericos: Control-x → Ctrl+X
+    # generic modifier combos: Control-x → Ctrl+X
     if "-" in key and not key.startswith("<"):
         mod, rest = key.split("-", 1)
         mod_map = {"Control": "Ctrl", "Shift": "Shift", "Alt": "Alt"}
@@ -47,10 +47,10 @@ def _display_key(key: str) -> str:
 
 
 def _parse_event_key(event) -> Optional[str]:
-    """Converte um evento KeyPress para string interna (ex: 'Right', 'd', 'Control-z')."""
+    """Converts a KeyPress event to an internal string (e.g. 'Right', 'd', 'Control-z')."""
     keysym = event.keysym
     if keysym in MODIFIER_KEYSYMS or keysym == "Escape":
-        return None  # ignorar; Escape cancela captura
+        return None  # ignore; Escape cancels capture
 
     state = event.state
     ctrl = bool(state & 0x4)
@@ -59,7 +59,7 @@ def _parse_event_key(event) -> Optional[str]:
         char = keysym.lower()
         return f"Control-{char}"
 
-    # Teclas especiais
+    # Special keys
     if keysym in {
         "Right", "Left", "Up", "Down",
         "Return", "space", "BackSpace", "Delete", "Tab",
@@ -68,7 +68,7 @@ def _parse_event_key(event) -> Optional[str]:
     }:
         return keysym
 
-    # Caracter imprimível
+    # Printable character
     char = event.char
     if char and char.isprintable():
         return char.lower()
@@ -76,7 +76,7 @@ def _parse_event_key(event) -> Optional[str]:
     return keysym.lower() if keysym else None
 
 
-# ── janela do editor ──────────────────────────────────────────────────────────
+# ── editor window ────────────────────────────────────────────────────────────
 
 class KeybindEditorWindow:
     def __init__(self, parent: tk.Misc, service: KeybindService, tool):
@@ -232,9 +232,9 @@ class KeybindEditorWindow:
             footer, "Aplicar", self._on_apply, variant="primary", size="sm"
         ).grid(row=0, column=1, sticky="e", padx=(0, SPACING["xs"]))
 
-        # captura de tecla na janela
+        # capture key press in the window
         self._win.bind("<KeyPress>", self._on_key_press)
-        # cancelar captura ao clicar fora
+        # cancel capture when clicking outside
         self._win.bind("<ButtonPress-1>", self._on_click_outside)
 
     # ── action rows ───────────────────────────────────────────────────────────
@@ -325,7 +325,7 @@ class KeybindEditorWindow:
         btn.config(command=lambda a=action_id, b=btn: self._start_listening(a, b))
         self._row_widgets[action_id] = btn
 
-    # ── listening (captura de tecla) ─────────────────────────────────────────
+    # ── listening (key capture) ──────────────────────────────────────────────
 
     def _start_listening(self, action_id: str, btn: tk.Button) -> None:
         self._cancel_listening()

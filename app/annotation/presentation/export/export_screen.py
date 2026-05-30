@@ -1,11 +1,11 @@
-"""Tela interna de exportacao de dataset."""
+"""Internal dataset export screen."""
 
 from __future__ import annotations
 
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, ttk
 from typing import Any, Dict, List
 
 from app.annotation.core.augmentation.augmentation_types import (
@@ -72,8 +72,31 @@ class ExportScreenMixin:
 
         actions = tk.Frame(root, bg=COLORS["panel"], highlightbackground=COLORS["border"], highlightthickness=1)
         actions.pack(fill=tk.X, side=tk.BOTTOM)
+
+        # Progress bar row (hidden until export starts)
+        self._export_progress_frame = tk.Frame(actions, bg=COLORS["panel"])
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure(
+            "Export.Horizontal.TProgressbar",
+            troughcolor=COLORS["border"],
+            background=COLORS["primary"],
+            thickness=6,
+        )
+        self._export_progressbar = ttk.Progressbar(
+            self._export_progress_frame,
+            style="Export.Horizontal.TProgressbar",
+            orient=tk.HORIZONTAL,
+            mode="determinate",
+            maximum=100,
+        )
+        self._export_progressbar.pack(fill=tk.X, padx=SPACING["md"], pady=(SPACING["xs"], 0))
+
+        # Status + buttons row
+        bottom_row = tk.Frame(actions, bg=COLORS["panel"])
+        bottom_row.pack(fill=tk.X)
         self._export_status_label = tk.Label(
-            actions,
+            bottom_row,
             textvariable=self._export_status_var,
             font=FONTS["caption"],
             bg=COLORS["panel"],
@@ -82,9 +105,9 @@ class ExportScreenMixin:
             anchor="w",
         )
         self._export_status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=SPACING["md"], pady=SPACING["sm"])
-        self._export_confirm_btn = self._export_button(actions, "Exportar", self._confirm_export_screen, primary=True)
+        self._export_confirm_btn = self._export_button(bottom_row, "Exportar", self._confirm_export_screen, primary=True)
         self._export_confirm_btn.pack(side=tk.RIGHT, padx=SPACING["md"], pady=SPACING["sm"])
-        self._export_button(actions, "Cancelar", self.show_annotation_screen).pack(
+        self._export_button(bottom_row, "Cancelar", self._cancel_or_close_export).pack(
             side=tk.RIGHT, pady=SPACING["sm"]
         )
 
@@ -264,24 +287,60 @@ class ExportScreenMixin:
         self._export_status_var.set("Exportando...")
         self._export_status_label.config(fg=COLORS["muted"])
         self._export_confirm_btn.config(state=tk.DISABLED)
-        # Flush current frame to disk on the main thread before backgrounding
-        self.autosave_current_frame(reason="exportar dataset")
-        self.write_annotations()
+        self._start_export_progress()
         threading.Thread(
             target=self._run_export_thread,
             args=(config,),
             daemon=True,
         ).start()
 
-    def _run_export_thread(self, config):
-        try:
-            self.perform_dataset_export(config)
-        finally:
-            self.window.after(0, self._restore_export_button)
+    def _cancel_or_close_export(self):
+        cancel_event = getattr(self, "_export_cancel_event", None)
+        if cancel_event is not None and not cancel_event.is_set():
+            cancel_event.set()
+            self._export_status_var.set("Cancelando...")
+        else:
+            self.show_annotation_screen()
 
-    def _restore_export_button(self):
-        if hasattr(self, "_export_confirm_btn"):
-            self._export_confirm_btn.config(state=tk.NORMAL)
+    def _run_export_thread(self, config):
+        cancel_event = getattr(self, "_export_cancel_event", None)
+        try:
+            self.perform_dataset_export(config, cancel_event=cancel_event)
+        finally:
+            self.window.after(0, self._on_export_thread_done)
+
+    def _start_export_progress(self):
+        self._export_progressbar["value"] = 0
+        self._export_progress_frame.pack(fill=tk.X, side=tk.TOP)
+
+    def update_export_progress(self, percent: int):
+        try:
+            if hasattr(self, "_export_progressbar"):
+                self._export_progressbar["value"] = percent
+        except Exception:  # pylint: disable=broad-except
+            pass  # widget destroyed before export finished (e.g. user navigated away)
+
+    def _on_export_thread_done(self):
+        cancelled = getattr(self, "_export_cancel_event", None) and self._export_cancel_event.is_set()
+        self._export_cancel_event = None
+        if cancelled:
+            self.show_annotation_screen()
+            return
+        try:
+            if hasattr(self, "_export_progressbar"):
+                self._export_progressbar["value"] = 100
+            if hasattr(self, "_export_confirm_btn"):
+                self._export_confirm_btn.config(state=tk.NORMAL)
+            self.window.after(800, self._hide_export_progress)
+        except Exception:  # pylint: disable=broad-except
+            pass
+
+    def _hide_export_progress(self):
+        try:
+            if hasattr(self, "_export_progress_frame"):
+                self._export_progress_frame.pack_forget()
+        except Exception:  # pylint: disable=broad-except
+            pass
 
     def set_export_status(self, export_root: Path, exported_parts: List[str], config: ExportConfig):
         aug_text = "augmentation: desligado"

@@ -1,1 +1,1 @@
-"""Pacote principal da ferramenta de anotacao."""
+"""Main package for the annotation tool."""

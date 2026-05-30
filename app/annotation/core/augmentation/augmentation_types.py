@@ -1,4 +1,4 @@
-"""Tipos e catalogo canonico de data augmentation."""
+"""Types and canonical catalogue of data augmentation operations."""
 
 from __future__ import annotations
 

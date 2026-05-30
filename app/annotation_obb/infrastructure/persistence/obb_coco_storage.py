@@ -42,7 +42,7 @@ class OBBCocoStorageMixin:
         self.ensure_category_metadata()
         return {
             "info": {
-                "description": "Anotacao orientada OBB com bbox HBB de compatibilidade",
+                "description": "OBB oriented annotation with HBB compatibility bbox",
                 "version": "1.0",
                 "task_mode": self.task_mode.value,
                 "data_root": str(self.data_root),

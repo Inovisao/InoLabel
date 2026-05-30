@@ -40,7 +40,7 @@ class FrameModelHelpersMixin:
         category_ids: List[int],
         iou_threshold: float = 0.5,
     ) -> Tuple[List[np.ndarray], List[float], List[int]]:
-        """NMS por categoria para remover duplicatas do ensemble de modelos."""
+        """Per-category NMS to remove duplicates from the model ensemble."""
         if not dets:
             return dets, scores, category_ids
 

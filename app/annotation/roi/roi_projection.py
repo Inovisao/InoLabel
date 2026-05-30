@@ -3,7 +3,7 @@ from app.annotation.shared import *
 
 class ROIProjectionMixin:
     def warp_frame(self, frame: np.ndarray) -> np.ndarray:
-        """Aplica warpPerspective ao frame atual usando a homografia."""
+        """Applies warpPerspective to the current frame using the homography."""
         if self.homography_matrix is None or self.warp_size is None:
             return frame
         try:
@@ -21,7 +21,7 @@ class ROIProjectionMixin:
     def project_bbox(
         self, bbox: np.ndarray, matrix: Optional[np.ndarray], width: int, height: int
     ) -> np.ndarray:
-        """Projeta bbox xyxy usando a matriz de homografia fornecida."""
+        """Projects a xyxy bbox using the supplied homography matrix."""
         if matrix is None:
             return bbox.astype(np.float32)
         pts = np.array(
@@ -39,7 +39,7 @@ class ROIProjectionMixin:
         return clip_bbox(xs.min(), ys.min(), xs.max(), ys.max(), width, height)
 
     def is_inside_roi(self, bbox: np.ndarray) -> bool:
-        """Verifica se a bbox está majoritariamente dentro do ROI."""
+        """Checks whether the bbox lies mostly inside the ROI."""
         if self.roi_polygon is None:
             return True
         if len(self.roi_polygon) < 3:

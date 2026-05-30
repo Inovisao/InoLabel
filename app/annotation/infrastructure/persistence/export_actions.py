@@ -1,4 +1,4 @@
-"""Ações de exportação disparadas pela UI (COCO, YOLO, dataset completo)."""
+"""Export actions triggered by the UI (COCO, YOLO, full dataset)."""
 
 from datetime import datetime
 
@@ -50,12 +50,14 @@ class ExportActionsMixin:
         self.show_export_screen()
 
     def load_export_payload_from_state(self) -> dict:
+        self.autosave_current_frame(reason="exportar dataset")
+        self.write_annotations()
         if not self.annotations_path.exists():
-            raise FileNotFoundError(f"Estado de anotacoes nao encontrado: {self.annotations_path}")
+            raise FileNotFoundError(f"Annotation state not found: {self.annotations_path}")
         payload = load_json(self.annotations_path)
         payload = self.reconcile_export_payload_with_state_files(payload)
         if not payload.get("images"):
-            raise RuntimeError("Nenhuma imagem salva no estado atual para exportar.")
+            raise RuntimeError("No images saved in the current state to export.")
         return payload
 
     def reconcile_export_payload_with_state_files(self, payload: dict) -> dict:
@@ -96,7 +98,7 @@ class ExportActionsMixin:
         payload["images"] = images
         return payload
 
-    def perform_dataset_export(self, config):
+    def perform_dataset_export(self, config, cancel_event=None):
         multi_format = len(config.formats) > 1
         export_root = self.resolve_user_export_root(config.destination_parent, config.folder_name)
         try:
@@ -104,6 +106,22 @@ class ExportActionsMixin:
             exported_parts: list = []
             yolo_summary = ""
             coco_summary = ""
+
+            n_images = len(payload.get("images", []))
+            n_formats = len(config.formats)
+            total_steps = n_images * n_formats
+            steps_done = [0]
+
+            def _progress(done_in_format: int, offset: int = 0):
+                if cancel_event and cancel_event.is_set():
+                    raise InterruptedError("Export cancelled by user.")
+                steps_done[0] = offset + done_in_format
+                if hasattr(self, "update_export_progress"):
+                    pct = int(steps_done[0] * 100 / max(total_steps, 1))
+                    self.window.after(0, lambda p=pct: self.update_export_progress(p))
+
+            yolo_offset = 0
+            coco_offset = n_images if "yolo" in config.formats else 0
 
             if "yolo" in config.formats:
                 yolo_root = export_root / "yolo" if multi_format else export_root
@@ -114,6 +132,7 @@ class ExportActionsMixin:
                         dataset_root=yolo_root,
                         split_ratios=config.split_ratios,
                         augmentation_preset=config.augmentation,
+                        on_progress=lambda d, _t: _progress(d, yolo_offset),
                     )
                     total_images = sum(report["images_per_split"].values())
                     total_labels = sum(report["labels_per_split"].values())
@@ -128,6 +147,7 @@ class ExportActionsMixin:
                         source_images_dir=self.output_images_dir,
                         dataset_root=yolo_root,
                         augmentation_preset=config.augmentation,
+                        on_progress=lambda d, _t: _progress(d, yolo_offset),
                     )
                     yolo_summary = f"YOLO: {report['total_images']} imagens, {report['total_labels']} labels"
                     exported_parts.append(f"YOLO all={report['total_images']} imgs")
@@ -136,7 +156,10 @@ class ExportActionsMixin:
                 coco_dir = export_root / "coco" if multi_format else export_root
                 coco_path = coco_dir / "annotations.coco.json"
                 converted = export_detection_coco_json(
-                    payload, coco_path, source_images_dir=self.output_images_dir
+                    payload,
+                    coco_path,
+                    source_images_dir=self.output_images_dir,
+                    on_progress=lambda d, _t: _progress(d, coco_offset),
                 )
                 coco_summary = f"COCO: {len(converted['images'])} imagens"
                 exported_parts.append(f"COCO imgs={len(converted['images'])}")
@@ -151,6 +174,8 @@ class ExportActionsMixin:
                 if hasattr(self, "set_export_status"):
                     self.set_export_status(root, parts, cfg)
             self.window.after(0, _on_success)
+        except InterruptedError:
+            print("[INFO] Export cancelled by user.")
         except Exception as exc:  # pylint: disable=broad-except
             message = f"Falha ao exportar dataset: {exc}"
             print(f"[ERRO] {message}")

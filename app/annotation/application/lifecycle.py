@@ -1,4 +1,4 @@
-"""Ciclo de vida da sessão de anotação: autosave, encerramento e loop principal."""
+"""Annotation session lifecycle: autosave, shutdown and main loop."""
 
 from app.annotation.shared import *
 
@@ -39,7 +39,7 @@ class LifecycleMixin:
         if self.closed:
             self._destroy_window()
             return
-        self.autosave_current_frame(reason="encerramento")
+        self.autosave_current_frame(reason="shutdown")
         self.closed = True
         key_mapping_dialog = getattr(self, "_key_mapping_dialog", None)
         if key_mapping_dialog is not None:

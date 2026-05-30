@@ -1,22 +1,22 @@
-"""Composição da ferramenta principal de anotação."""
+"""Composition of the main annotation tool."""
 
-# ── Estado ──────────────────────────────────────────────────────────────────
+# ── State ────────────────────────────────────────────────────────────────────
 from app.annotation.state.core_init import CoreInitMixin
 from app.annotation.state.runtime_state import RuntimeStateMixin
 
-# ── Domínio: categorias ──────────────────────────────────────────────────────
+# ── Domain: categories ───────────────────────────────────────────────────────
 from app.annotation.core.services.class_service import ClassServiceMixin
 
-# ── Fontes de mídia ──────────────────────────────────────────────────────────
+# ── Media sources ────────────────────────────────────────────────────────────
 from app.annotation.sources.source_discovery import SourceDiscoveryMixin
 from app.annotation.sources.source_loading import SourceLoadingMixin
 from app.annotation.sources.source_helpers import SourceHelpersMixin
 
-# ── ROI e homografia ─────────────────────────────────────────────────────────
+# ── ROI and homography ───────────────────────────────────────────────────────
 from app.annotation.roi.roi_state import ROIStateMixin
 from app.annotation.roi.roi_projection import ROIProjectionMixin
 
-# ── Detecção e rastreamento ──────────────────────────────────────────────────
+# ── Detection and tracking ───────────────────────────────────────────────────
 from app.annotation.detection.frame_pipeline import FramePipelineMixin
 from app.annotation.detection.frame_model_helpers import FrameModelHelpersMixin
 from app.annotation.detection.tracking_ids import TrackingIdsMixin
@@ -24,14 +24,14 @@ from app.annotation.detection.workflow_actions import WorkflowActionsMixin
 from app.annotation.detection.review_nav import ReviewNavMixin
 from app.annotation.detection.selection_edit import SelectionEditMixin
 
-# ── Infraestrutura: persistência ─────────────────────────────────────────────
+# ── Infrastructure: persistence ──────────────────────────────────────────────
 from app.annotation.infrastructure.persistence.coco_storage import CocoStorageMixin
 from app.annotation.infrastructure.persistence.export_actions import ExportActionsMixin
 
-# ── Aplicação: ciclo de vida ─────────────────────────────────────────────────
+# ── Application: lifecycle ───────────────────────────────────────────────────
 from app.annotation.application.lifecycle import LifecycleMixin
 
-# ── Apresentação: janela e painéis ───────────────────────────────────────────
+# ── Presentation: window and panels ──────────────────────────────────────────
 from app.annotation.presentation.panels.main_window import MainWindowMixin
 from app.annotation.presentation.panels.topbar_panel import TopbarPanelMixin
 from app.annotation.presentation.panels.statusbar_panel import StatusbarPanelMixin
@@ -39,10 +39,10 @@ from app.annotation.presentation.panels.sidebar_panel import SidebarPanelMixin
 from app.annotation.presentation.panels.canvas_panel import CanvasPanelMixin
 from app.annotation.presentation.export.export_screen import ExportScreenMixin
 
-# ── Apresentação: widgets ────────────────────────────────────────────────────
+# ── Presentation: widgets ─────────────────────────────────────────────────────
 from app.annotation.presentation.widgets.class_panel_widget import ClassPanelWidgetMixin
 
-# ── Apresentação: controles e renderização ───────────────────────────────────
+# ── Presentation: controls and rendering ─────────────────────────────────────
 from app.annotation.ui.ui_controls import UIControlsMixin
 from app.annotation.ui.display_canvas import DisplayCanvasMixin
 from app.annotation.ui.display_overlays import DisplayOverlaysMixin
@@ -52,31 +52,31 @@ from app.annotation.ui.mode_toggles import ModeTogglesMixin
 
 
 class AnnotationTool(
-    # Estado base
+    # Base state
     CoreInitMixin,
     RuntimeStateMixin,
-    # Domínio
+    # Domain
     ClassServiceMixin,
-    # Fontes
+    # Sources
     SourceDiscoveryMixin,
     SourceLoadingMixin,
     SourceHelpersMixin,
     # ROI
     ROIStateMixin,
     ROIProjectionMixin,
-    # Detecção
+    # Detection
     FramePipelineMixin,
     FrameModelHelpersMixin,
     TrackingIdsMixin,
     WorkflowActionsMixin,
     ReviewNavMixin,
     SelectionEditMixin,
-    # Infraestrutura
+    # Infrastructure
     CocoStorageMixin,
     ExportActionsMixin,
-    # Ciclo de vida
+    # Lifecycle
     LifecycleMixin,
-    # UI — janela e painéis
+    # UI — window and panels
     MainWindowMixin,
     TopbarPanelMixin,
     StatusbarPanelMixin,
@@ -85,7 +85,7 @@ class AnnotationTool(
     ExportScreenMixin,
     # UI — widgets
     ClassPanelWidgetMixin,
-    # UI — controles e renderização
+    # UI — controls and rendering
     UIControlsMixin,
     DisplayCanvasMixin,
     DisplayOverlaysMixin,
@@ -94,10 +94,10 @@ class AnnotationTool(
     ModeTogglesMixin,
 ):
     """
-    Classe principal de anotação.
+    Main annotation class.
 
-    Composição por camadas:
-      estado → domínio → fontes → roi → detecção
-      → infraestrutura → aplicação → apresentação
+    Layered composition:
+      state → domain → sources → roi → detection
+      → infrastructure → application → presentation
     """
     pass
