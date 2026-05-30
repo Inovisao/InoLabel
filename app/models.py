@@ -17,7 +17,7 @@ class Detection:
 
 @dataclass
 class ByteTrackerArgs:
-    """Argumentos para inicializar o BYTETracker (compatibilidade YOLOX)."""
+    """Arguments to initialise BYTETracker (YOLOX compatibility)."""
 
     track_thresh: float = 0.3
     track_buffer: int = 30

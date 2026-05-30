@@ -1,4 +1,4 @@
-"""Re-exporta UILayoutMixin composto a partir dos painéis de apresentação."""
+"""Re-exports UILayoutMixin composed from the presentation panels."""
 
 from app.annotation.presentation.panels.main_window import MainWindowMixin
 from app.annotation.presentation.panels.topbar_panel import TopbarPanelMixin
@@ -14,5 +14,5 @@ class UILayoutMixin(
     SidebarPanelMixin,
     CanvasPanelMixin,
 ):
-    """Composição de todos os painéis da interface principal."""
+    """Composition of all panels of the main interface."""
     pass

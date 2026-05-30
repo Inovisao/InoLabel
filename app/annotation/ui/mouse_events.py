@@ -199,7 +199,7 @@ class MouseEventsMixin:
         self.update_status()
 
     def on_zoom(self, event):
-        """Ctrl+Scroll: zoom centrado na posição do cursor."""
+        """Ctrl+Scroll: zoom centred on the cursor position."""
         if self.current_frame is None:
             return
 
@@ -218,7 +218,7 @@ class MouseEventsMixin:
         if new_zoom == self.zoom_scale:
             return
 
-        # Ponto da imagem sob o cursor antes do zoom
+        # Image point under the cursor before the zoom
         old_img_x = (event.x - self.offset_x) / max(self.display_scale, 1e-9)
         old_img_y = (event.y - self.offset_y) / max(self.display_scale, 1e-9)
 
@@ -234,7 +234,7 @@ class MouseEventsMixin:
         base_x = (new_canvas_w - new_disp_w) // 2
         base_y = (new_canvas_h - new_disp_h) // 2
 
-        # Após o zoom o mesmo ponto da imagem deve estar sob o cursor:
+        # After the zoom the same image point must remain under the cursor:
         # event.x = old_img_x * new_display_scale + new_offset_x
         new_offset_x = event.x - old_img_x * new_display_scale
         new_offset_y = event.y - old_img_y * new_display_scale
@@ -246,7 +246,7 @@ class MouseEventsMixin:
         self.update_display()
 
     def reset_zoom(self):
-        """Reseta o zoom para o ajuste automático (Ctrl+0)."""
+        """Resets the zoom to auto-fit (Ctrl+0)."""
         self.zoom_scale = 1.0
         self.zoom_pan_x = 0
         self.zoom_pan_y = 0

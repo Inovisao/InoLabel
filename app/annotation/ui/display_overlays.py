@@ -66,6 +66,6 @@ class DisplayOverlaysMixin:
             else:
                 label += " manual"
             if self.selected_detection == (source_tag, idx):
-                label = f"[selecionada] {label}"
+                label = f"[selected] {label}"
             cv2.putText(frame, label, (x1, max(y1 - 8, 0)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         return frame

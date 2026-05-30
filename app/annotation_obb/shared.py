@@ -1,4 +1,4 @@
-"""Dependencias compartilhadas para o modo OBB."""
+"""Shared dependencies for OBB mode."""
 
 import math
 

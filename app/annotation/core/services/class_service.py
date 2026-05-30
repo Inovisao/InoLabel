@@ -7,7 +7,7 @@ from app.ui.theme.palette import CLASS_COLORS
 class ClassServiceMixin:
     CLASS_COLOR_PALETTE = CLASS_COLORS  # kept for external compatibility
 
-    # ── cores & metadados ──────────────────────────────────────────
+    # ── colors & metadata ──────────────────────────────────────────
 
     def _category_color_for_index(self, index: int) -> str:
         return CLASS_COLORS[index % len(CLASS_COLORS)]
@@ -26,7 +26,7 @@ class ClassServiceMixin:
         self.ensure_category_metadata()
         return {int(cat.get("id", 0)): str(cat.get("color", "#22c55e")) for cat in self.categories}
 
-    # ── classe ativa ───────────────────────────────────────────────
+    # ── active class ───────────────────────────────────────────────
 
     def active_class_name(self) -> str:
         manual_var = getattr(self, "manual_class_var", None)
@@ -43,7 +43,7 @@ class ClassServiceMixin:
     def active_category_id(self) -> int:
         return self.register_category(self.active_class_name())
 
-    # ── registro de categorias ─────────────────────────────────────
+    # ── category registration ──────────────────────────────────────
 
     def register_category(self, class_name: str) -> int:
         clean_name = class_name.strip()
@@ -62,7 +62,7 @@ class ClassServiceMixin:
         return next_id
 
     def normalize_category_ids(self) -> Dict[int, int]:
-        """Mantém categories/annotations/caches com IDs 1..N seguindo target_classes."""
+        """Keeps categories/annotations/caches with IDs 1..N following target_classes order."""
         cleaned_classes = []
         seen = set()
         for class_name in self.target_classes:
@@ -121,7 +121,7 @@ class ClassServiceMixin:
         self._remap_detection_caches_by_category(remap, set(self.class_to_category_id.values()))
         return remap
 
-    # ── remapeamento interno ───────────────────────────────────────
+    # ── internal remapping ────────────────────────────────────────
 
     def _remap_annotations_by_category(self, remap: Dict[int, int]):
         next_annotations = []
@@ -213,7 +213,7 @@ class ClassServiceMixin:
             if tracker is not None:
                 tracker.reset()
 
-    # ── ordenação e parsing ────────────────────────────────────────
+    # ── ordering and parsing ──────────────────────────────────────
 
     def sync_category_order(self):
         if not self.categories:
@@ -237,7 +237,7 @@ class ClassServiceMixin:
             parsed.append(item)
         return parsed
 
-    # ── aplicar classes ────────────────────────────────────────────
+    # ── apply classes ─────────────────────────────────────────────
 
     def apply_target_classes(self, classes: List[str]):
         previous_snapshot = (
@@ -298,7 +298,7 @@ class ClassServiceMixin:
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[AVISO] Falha ao salvar labels/classes automaticamente: {exc}")
 
-    # ── seleção e atalhos ──────────────────────────────────────────
+    # ── selection and shortcuts ───────────────────────────────────
 
     def set_active_class(self, class_name: str, *, apply_to_selection: bool = True):
         clean_name = class_name.strip()
@@ -337,7 +337,7 @@ class ClassServiceMixin:
             return
         self.select_class_by_index(int(key) - 1)
 
-    # ── gestão de classes ──────────────────────────────────────────
+    # ── class management ──────────────────────────────────────────
 
     def remove_class(self, name: str):
         if name not in self.target_classes:

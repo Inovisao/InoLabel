@@ -42,7 +42,7 @@ class SidebarPanelMixin:
         s = scroll.content
         p = {"padx": SPACING["sm"], "pady": SPACING["xs"]}
 
-        # ── Seção: Anotação ────────────────────────────────────────
+        # ── Section: Annotation ───────────────────────────────────
         section_label(s, "Anotação").pack(fill=tk.X, **p)
         hsep(s).pack(fill=tk.X, padx=SPACING["sm"], pady=(0, SPACING["sm"]))
 
@@ -97,7 +97,7 @@ class SidebarPanelMixin:
         self.next_button = make_btn(nav, "Próximo →", self.on_next_saved, variant="neutral")
         self.next_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(3, 0))
 
-        # ── Seção: ID Manual ───────────────────────────────────────
+        # ── Section: Manual ID ────────────────────────────────────
         section_label(s, "ID Manual").pack(fill=tk.X, padx=SPACING["sm"], pady=(SPACING["lg"], SPACING["xs"]))
         hsep(s).pack(fill=tk.X, padx=SPACING["sm"], pady=(0, SPACING["sm"]))
 
@@ -119,7 +119,7 @@ class SidebarPanelMixin:
             self.apply_id_button.config(state=tk.DISABLED)
             self.edit_id_button.config(state=tk.DISABLED)
 
-        # ── Seção: Classes ─────────────────────────────────────────
+        # ── Section: Classes ──────────────────────────────────────
         section_label(s, "Classes").pack(fill=tk.X, padx=SPACING["sm"], pady=(SPACING["lg"], SPACING["xs"]))
         hsep(s).pack(fill=tk.X, padx=SPACING["sm"], pady=(0, SPACING["sm"]))
 
@@ -127,7 +127,7 @@ class SidebarPanelMixin:
         self.classes_panel.pack(fill=tk.X, padx=SPACING["sm"], pady=SPACING["xs"])
         self.update_class_panel()
 
-        # ── Seção: Exportar ────────────────────────────────────────
+        # ── Section: Export ───────────────────────────────────────
         section_label(s, "Exportar").pack(fill=tk.X, padx=SPACING["sm"], pady=(SPACING["lg"], SPACING["xs"]))
         hsep(s).pack(fill=tk.X, padx=SPACING["sm"], pady=(0, SPACING["sm"]))
 

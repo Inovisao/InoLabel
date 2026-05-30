@@ -17,7 +17,7 @@ class KeybindMap:
         self.bindings[action] = key
 
     def conflicts_with(self, key: str, exclude_action: str) -> Optional[str]:
-        """Retorna o id da ação que já usa `key`, ou None se livre."""
+        """Returns the id of the action already using `key`, or None if free."""
         if not key:
             return None
         for action, bound_key in self.bindings.items():

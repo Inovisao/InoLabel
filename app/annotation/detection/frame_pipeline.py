@@ -39,7 +39,7 @@ class FramePipelineMixin:
     def load_next_frame(self):
         if self.review_idx is not None:
             return
-        self.autosave_current_frame(reason="antes de trocar frame")
+        self.autosave_current_frame(reason="before switching frame")
 
         if self.current_source_type == "video":
             if self.cap is None:

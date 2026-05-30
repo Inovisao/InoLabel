@@ -1,4 +1,4 @@
-"""Dependencias compartilhadas para os mixins de anotacao."""
+"""Shared dependencies for the annotation mixins."""
 
 import json
 import os

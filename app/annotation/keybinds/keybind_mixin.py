@@ -1,7 +1,7 @@
-"""Mixin de integração do sistema de keybinds nos mixins de UI.
+"""Integration mixin for the keybind system into the UI mixins.
 
-Drop-in para UIControlsMixin e OBBUIControlsMixin: substitui apply_key_mapping
-e expõe open_keybind_editor / update_key_mapping_button.
+Drop-in for UIControlsMixin and OBBUIControlsMixin: replaces apply_key_mapping
+and exposes open_keybind_editor / update_key_mapping_button.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from app.annotation.keybinds.keybind_service import KeybindService
 
 class KeybindMixin:
     def init_keybind_service(self) -> None:
-        """Cria o serviço e aplica o perfil salvo. Chamar no fim de _bind_shortcuts."""
+        """Creates the service and applies the saved profile. Call at the end of _bind_shortcuts."""
         repo = KeybindRepository()
         self._keybind_service = KeybindService(self, repo)
         self._keybind_service.bind_all()
@@ -21,7 +21,7 @@ class KeybindMixin:
     # ── backward compatibility ────────────────────────────────────────────────
 
     def apply_key_mapping(self, mode: str) -> None:
-        """Mantém compatibilidade com chamadas legadas — delega ao service."""
+        """Maintains compatibility with legacy calls — delegates to the service."""
         if hasattr(self, "_keybind_service"):
             self._keybind_service.apply_profile(mode)
             self.update_key_mapping_button()
@@ -29,7 +29,7 @@ class KeybindMixin:
     # ── editor ────────────────────────────────────────────────────────────────
 
     def open_keybind_editor(self) -> None:
-        """Abre (ou levanta) a janela visual de remapeamento."""
+        """Opens (or raises) the visual remapping window."""
         existing = getattr(self, "_keybind_editor_window", None)
         if existing is not None:
             try:

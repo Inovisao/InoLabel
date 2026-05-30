@@ -1,4 +1,4 @@
-"""Operações de leitura/escrita do payload COCO em memória e disco."""
+"""Read/write operations for the COCO payload in memory and on disk."""
 
 from app.annotation.shared import *
 

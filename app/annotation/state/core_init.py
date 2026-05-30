@@ -50,6 +50,7 @@ class CoreInitMixin:
             self.current_video_index = self._initial_source_index_from_annotation_state()
         self.register_signal_handlers()
         self.start_video(self.current_video_index)
+        self.window.deiconify()  # show only after the first frame is rendered
 
     def _validate_required_paths(self):
         if not self.data_root.exists():
@@ -68,7 +69,7 @@ class CoreInitMixin:
     def _initialize_model_state(self):
         # models[i] is None until first inference triggers lazy loading
         self.models: List = [None] * len(self.weights_paths)
-        self.model = None  # aponta para models[0] após carregamento (compat. legada)
+        self.model = None  # points to models[0] after loading (legacy compat.)
         self.target_classes = [str(name).strip() for name in self._initial_classes if str(name).strip()]
         self.class_to_category_id: Dict[str, int] = {}
         self.categories: List[dict] = []
@@ -87,12 +88,12 @@ class CoreInitMixin:
         self.apply_target_classes(self.target_classes)
 
     def ensure_models_loaded(self) -> List:
-        """Carrega todos os modelos lazily e retorna a lista."""
+        """Lazily loads all models and returns the list."""
         for i, weights_path in enumerate(self.weights_paths):
             if self.models[i] is not None:
                 continue
             if not weights_path.exists():
-                raise FileNotFoundError(f"Pesos nao encontrados: {weights_path}")
+                raise FileNotFoundError(f"Weights not found: {weights_path}")
             self.models[i] = YOLO(str(weights_path))
         if self.model is None and self.models:
             self.model = self.models[0]
@@ -100,5 +101,5 @@ class CoreInitMixin:
         return [m for m in self.models if m is not None]
 
     def ensure_model_loaded(self):
-        """Carrega e retorna o primeiro modelo (compatibilidade com código legado)."""
+        """Loads and returns the first model (compatibility with legacy code)."""
         return self.ensure_models_loaded()[0]

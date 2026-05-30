@@ -4,11 +4,11 @@ from app.annotation.keybinds.keybind_mixin import KeybindMixin
 
 class UIControlsMixin(KeybindMixin):
     def _bind_shortcuts(self):
-        # Atalhos fixos — não remapeáveis
+        # Fixed shortcuts — not remappable
         self.window.bind("<Escape>", lambda event: self._run_shortcut(event, self.on_quit))
         for key in "123456789":
             self.window.bind(key, self.on_class_shortcut)
-        # Inicializa keybind service e aplica perfil salvo (carrega tudo do ACTION_REGISTRY)
+        # Initialise the keybind service and apply the saved profile (loads everything from ACTION_REGISTRY)
         self.init_keybind_service()
 
     @staticmethod
@@ -32,7 +32,7 @@ class UIControlsMixin(KeybindMixin):
         self.canvas.bind("<ButtonPress-2>", self.on_pan_start)
         self.canvas.bind("<B2-Motion>", self.on_pan_drag)
         self.canvas.bind("<ButtonRelease-2>", self.on_pan_end)
-        # Scroll → zoom centrado no cursor (Ctrl+Scroll também suportado)
+        # Scroll → zoom centred on cursor (Ctrl+Scroll also supported)
         self.canvas.bind("<MouseWheel>", self.on_zoom)
         self.canvas.bind("<Control-MouseWheel>", self.on_zoom)
         self.canvas.bind("<Command-MouseWheel>", self.on_zoom)
@@ -42,7 +42,7 @@ class UIControlsMixin(KeybindMixin):
         self.canvas.bind("<Control-Button-5>", self.on_zoom)
 
     def enable_controls_after_roi(self):
-        """Habilita botoes apos definir ROI."""
+        """Enables buttons after defining the ROI."""
         self.accept_button.config(state=tk.NORMAL)
         self.reject_button.config(state=tk.NORMAL)
         self.annotation_button.config(state=tk.NORMAL)
@@ -65,7 +65,7 @@ class UIControlsMixin(KeybindMixin):
         self.update_class_panel()
 
     def disable_controls_for_roi(self):
-        """Desabilita botoes enquanto ROI nao for definido."""
+        """Disables buttons while the ROI has not yet been defined."""
         self.accept_button.config(state=tk.DISABLED)
         self.reject_button.config(state=tk.DISABLED)
         self.annotation_button.config(state=tk.DISABLED)
@@ -76,25 +76,25 @@ class UIControlsMixin(KeybindMixin):
         self.export_dataset_button.config(state=tk.DISABLED)
 
     def update_annotation_button(self):
-        """Atualiza o texto do botao de modo de anotacao."""
+        """Updates the text of the annotation mode button."""
         if hasattr(self, "annotation_button"):
             estado = "ON" if self.annotation_mode else "OFF"
             self._config_if_changed(self.annotation_button, text=f"Modo anotacao {estado} (K)")
 
     def update_remove_button(self):
-        """Atualiza o texto do botao de remocao."""
+        """Updates the text of the remove button."""
         if hasattr(self, "remove_button"):
             estado = "ON" if self.remove_mode else "OFF"
             self._config_if_changed(self.remove_button, text=f"Remover anotacao {estado}")
 
     def update_selection_button(self):
-        """Atualiza o texto do botao de selecao."""
+        """Updates the text of the selection button."""
         if hasattr(self, "selection_button"):
             estado = "ON" if self.selection_mode else "OFF"
             self._config_if_changed(self.selection_button, text=f"Selecionar anotacao {estado} (S)")
 
     def update_edit_id_button(self):
-        """Atualiza o texto do botao de edicao de ID."""
+        """Updates the text of the ID edit button."""
         if hasattr(self, "edit_id_button"):
             if not self.tracking_enabled:
                 self._config_if_changed(self.edit_id_button, text="Editar ID indisponivel")
@@ -102,4 +102,4 @@ class UIControlsMixin(KeybindMixin):
             estado = "ON" if self.edit_id_mode else "OFF"
             self._config_if_changed(self.edit_id_button, text=f"Editar ID {estado} (E)")
 
-    # ===================== EVENTOS DE MOUSE =====================
+    # ===================== MOUSE EVENTS =====================
