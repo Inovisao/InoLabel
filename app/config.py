@@ -1,20 +1,24 @@
+import sys
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# When frozen by PyInstaller, assets live in sys._MEIPASS.
+# In development, they live two levels above this file (project root).
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys._MEIPASS)
+    # Executable-relative root — model.pt and dataset/ must sit next to the .exe
+    _EXE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    _EXE_DIR = BASE_DIR
+
 LOGO_PATH = BASE_DIR / "assets" / "inovisao.png"
-DATA_ROOT = Path("dataset")
+DATA_ROOT = _EXE_DIR / "dataset"
 VIDEO_EXTENSIONS = (".mp4", ".avi", ".mov", ".mkv")
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
 IMAGE_LIST_EXTENSIONS = (".txt", ".lst")
-WEIGHTS_PATH = Path("model.pt")
-OUTPUTS_DIR = BASE_DIR / "outputs"
-OUTPUT_DATASET_PREFIX = "output_dataset"
-OUTPUT_DIR = OUTPUTS_DIR / "output_dataset0_legacy"
-OUTPUT_IMAGES_DIR = OUTPUT_DIR / "images"
-ANNOTATIONS_PATH = OUTPUT_DIR / "annotations.coco.json"
-COCO_DETECTION_EXPORT_PATH = OUTPUT_DIR / "annotations_detection.coco.json"
-YOLO_DATASET_DIR = OUTPUT_DIR / "yolo_dataset"
-HOMOGRAPHY_PATH = OUTPUT_DIR / "homography.json"
+WEIGHTS_PATH = _EXE_DIR / "model.pt"
+OUTPUT_DATASET_PREFIX = "output_dataset"  # kept for parsing legacy state dir names
+SAVED_STATES_SUBDIR = "saved_data_states"
 CONF_THRESHOLD = 0.40
 TARGET_CLASSES = []
 SAVE_RECTIFIED_FRAMES = False

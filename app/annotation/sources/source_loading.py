@@ -4,7 +4,9 @@ from app.annotation.shared import *
 class SourceLoadingMixin:
     def load_existing_annotations(self):
         """Loads existing annotations to resume from where it left off."""
-        annotations_path = getattr(self, "annotations_path", ANNOTATIONS_PATH)
+        annotations_path = getattr(self, "annotations_path", None)
+        if annotations_path is None:
+            return
         if not annotations_path.exists():
             return
         try:
@@ -51,7 +53,10 @@ class SourceLoadingMixin:
             print(f"[INFO] Encerrando por sinal {signum}.")
             self.finish_processing("Processo encerrado pelo sistema.")
 
-        for sig in (signal.SIGINT, signal.SIGTERM):
+        signals = [signal.SIGINT]
+        if hasattr(signal, "SIGTERM"):  # not available on Windows
+            signals.append(signal.SIGTERM)
+        for sig in signals:
             try:
                 signal.signal(sig, handler)
             except Exception:  # pylint: disable=broad-except

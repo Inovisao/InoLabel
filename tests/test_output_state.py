@@ -2,16 +2,17 @@ import json
 import os
 import tempfile
 import unittest
-from datetime import datetime
 from pathlib import Path
 
 from app.core.output_state import (
     create_new_output_dir,
+    find_annotations_path,
     latest_output_state_for_sources,
     list_output_states_for_sources,
     latest_output_state,
     list_output_states,
     load_annotation_state,
+    output_dir_from_annotations_path,
 )
 from app.core.session import AnnotationTaskMode
 
@@ -27,6 +28,7 @@ class OutputStateTest(unittest.TestCase):
         annotations=None,
         sources=None,
         data_root=None,
+        use_saved_states_subdir=False,
     ):
         info = {"task_mode": mode}
         if sources is not None:
@@ -39,48 +41,87 @@ class OutputStateTest(unittest.TestCase):
             "images": images or [{"id": 1, "file_name": "img.jpg"}],
             "annotations": annotations or [{"id": 1, "image_id": 1, "category_id": 2}],
         }
-        root.mkdir(parents=True, exist_ok=True)
-        path = root / "annotations.coco.json"
+        if use_saved_states_subdir:
+            ann_dir = root / "saved_data_states"
+        else:
+            ann_dir = root
+        ann_dir.mkdir(parents=True, exist_ok=True)
+        path = ann_dir / "annotations.coco.json"
         path.write_text(json.dumps(payload), encoding="utf-8")
         return path
 
-    def test_create_new_output_dir_uses_task_and_timestamp(self):
+    def test_create_new_output_dir_creates_session_and_subdirs(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             outputs = Path(tmp_dir)
-            first = create_new_output_dir(outputs, now=datetime(2026, 4, 27, 10, 0, 0))
-            self._write_annotations(first)
-            second = create_new_output_dir(
-                outputs,
-                now=datetime(2026, 4, 27, 11, 0, 0),
-                task_mode=AnnotationTaskMode.TRACKING,
-            )
+            result = create_new_output_dir(outputs, "my_project")
 
-            self.assertEqual(first.name, "detecção_27.04.10:00")
-            self.assertEqual(second.name, "tracking_27.04.11:00")
-            self.assertTrue((second / "images").exists())
+            self.assertEqual(result.name, "my_project")
+            self.assertTrue((result / "images").exists())
+            self.assertTrue((result / "saved_data_states").exists())
 
     def test_create_new_output_dir_can_skip_images_subfolder(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             outputs = Path(tmp_dir)
+            result = create_new_output_dir(outputs, "my_project", create_images_dir=False)
 
-            output = create_new_output_dir(
-                outputs,
-                now=datetime(2026, 4, 27, 10, 0, 0),
-                create_images_dir=False,
-            )
+            self.assertEqual(result.name, "my_project")
+            self.assertFalse((result / "images").exists())
+            self.assertTrue((result / "saved_data_states").exists())
 
-            self.assertEqual(output.name, "detecção_27.04.10:00")
-            self.assertFalse((output / "images").exists())
-
-    def test_create_new_output_dir_avoids_same_minute_conflicts(self):
+    def test_create_new_output_dir_avoids_name_conflicts(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             outputs = Path(tmp_dir)
+            first = create_new_output_dir(outputs, "campo")
+            second = create_new_output_dir(outputs, "campo")
 
-            first = create_new_output_dir(outputs, now=datetime(2026, 4, 27, 10, 0, 0))
-            second = create_new_output_dir(outputs, now=datetime(2026, 4, 27, 10, 0, 30))
+            self.assertEqual(first.name, "campo")
+            self.assertEqual(second.name, "campo_001")
 
-            self.assertEqual(first.name, "detecção_27.04.10:00")
-            self.assertEqual(second.name, "detecção_27.04.10:00_001")
+    def test_create_new_output_dir_raises_on_empty_name(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with self.assertRaises(ValueError):
+                create_new_output_dir(Path(tmp_dir), "")
+
+    def test_find_annotations_path_prefers_saved_data_states(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            # Write both legacy and new-style paths
+            root.mkdir()
+            (root / "annotations.coco.json").write_text("{}", encoding="utf-8")
+            (root / "saved_data_states").mkdir()
+            new_path = root / "saved_data_states" / "annotations.coco.json"
+            new_path.write_text("{}", encoding="utf-8")
+
+            found = find_annotations_path(root)
+            self.assertEqual(found, new_path)
+
+    def test_find_annotations_path_falls_back_to_root_for_legacy(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            root.mkdir()
+            legacy = root / "annotations.coco.json"
+            legacy.write_text("{}", encoding="utf-8")
+
+            found = find_annotations_path(root)
+            self.assertEqual(found, legacy)
+
+    def test_output_dir_from_annotations_path_new_layout(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project = Path(tmp_dir) / "project"
+            (project / "saved_data_states").mkdir(parents=True)
+            ann = project / "saved_data_states" / "annotations.coco.json"
+            ann.write_text("{}", encoding="utf-8")
+
+            self.assertEqual(output_dir_from_annotations_path(ann), project)
+
+    def test_output_dir_from_annotations_path_legacy_layout(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project = Path(tmp_dir) / "project"
+            project.mkdir()
+            ann = project / "annotations.coco.json"
+            ann.write_text("{}", encoding="utf-8")
+
+            self.assertEqual(output_dir_from_annotations_path(ann), project)
 
     def test_lists_and_loads_output_states_from_annotations(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -100,6 +141,18 @@ class OutputStateTest(unittest.TestCase):
         self.assertEqual(loaded.class_names, ("plate",))
         self.assertEqual(loaded.image_count, 1)
         self.assertEqual(loaded.annotation_count, 1)
+
+    def test_lists_output_states_new_layout(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            outputs = Path(tmp_dir)
+            project = outputs / "my_project"
+            project.mkdir()
+            self._write_annotations(project, categories=[{"id": 1, "name": "cat"}], use_saved_states_subdir=True)
+
+            states = list_output_states(outputs)
+            self.assertEqual(len(states), 1)
+            self.assertEqual(states[0].path.name, "my_project")
+            self.assertEqual(states[0].class_names, ("cat",))
 
     def test_latest_output_state_uses_annotation_file_mtime(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
