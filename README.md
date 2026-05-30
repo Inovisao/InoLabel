@@ -54,7 +54,7 @@ O modelo YOLO é **opcional** em todos os modos — é possível anotar inteiram
 
 ## Atalhos principais
 
-Os atalhos são **totalmente remapeáveis** pelo editor visual (botão **Atalhos** na barra superior). Os valores abaixo são os padrões do perfil `arrows`.
+A maioria dos atalhos é **remapeável** pelo editor visual (botão **Atalhos** na barra superior). Os valores abaixo são os padrões do perfil `arrows`. As teclas `1–9` e `Esc` são fixas e não aparecem no editor.
 
 | Tecla | Ação |
 |-------|------|
@@ -120,7 +120,7 @@ A exportação roda em **background** — a interface permanece responsiva. Uma 
 ## Saídas geradas
 
 ```
-outputs/<tarefa>_<data>/
+outputs/<tarefa>_<DD.MM.HH:MM>/
 ├── images/                         # frames salvos (originais ou retificados)
 ├── annotations.coco.json           # COCO com track_id (tracking) ou bbox simples
 ├── annotations_obb.coco.json       # COCO OBB (modo OBB)
