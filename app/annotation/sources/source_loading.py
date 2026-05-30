@@ -17,6 +17,7 @@ class SourceLoadingMixin:
             return
         self.images = data.get("images", [])
         self.annotations = data.get("annotations", [])
+        self._invalidate_storage_cache()
         state = data.get("annotation_state", {})
         self.annotation_state = state if isinstance(state, dict) else {}
         cats = data.get("categories")

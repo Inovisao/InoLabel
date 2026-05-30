@@ -1,3 +1,5 @@
+import threading
+
 from app.annotation.shared import *
 
 
@@ -17,7 +19,7 @@ class FramePipelineMixin:
             self.frame_index += 1
         self.current_frame = frame
         self.current_rectified_frame = self.warp_frame(frame)
-        self.current_detections = self.run_model(frame)
+        self.current_detections = []
         self.manual_detections = []
         self.selected_detection = None
         self.undo_stack = deque(maxlen=self.max_undo_states)
@@ -35,6 +37,25 @@ class FramePipelineMixin:
         self.update_selection_button()
         if render:
             self.update_display(refresh_status=True)
+
+        # Run model inference in background — UI stays responsive
+        inference_frame = self.current_rectified_frame if self.current_rectified_frame is not None else frame
+        frame_index_snapshot = self.frame_index
+
+        def _infer():
+            try:
+                detections = self.run_model(frame)
+            except Exception as exc:  # pylint: disable=broad-except
+                print(f"[ERRO] Inferencia falhou: {exc}")
+                return
+            # Only apply if still on the same frame (user hasn't advanced)
+            def _apply():
+                if self.frame_index == frame_index_snapshot and self.review_idx is None:
+                    self.current_detections = detections
+                    self.update_display(refresh_status=True)
+            self.window.after(0, _apply)
+
+        threading.Thread(target=_infer, daemon=True).start()
 
     def load_next_frame(self):
         if self.review_idx is not None:

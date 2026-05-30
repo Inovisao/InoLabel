@@ -4,6 +4,30 @@ from app.annotation.shared import *
 
 
 class CocoStorageMixin:
+    # ── Index caches — invalidated whenever self.images or self.annotations changes ──
+    _image_index: Optional[Dict[str, dict]] = None          # file_name → image record
+    _annotation_index: Optional[Dict[int, List[dict]]] = None  # image_id → annotations
+
+    def _invalidate_storage_cache(self):
+        self._image_index = None
+        self._annotation_index = None
+
+    def _build_image_index(self) -> Dict[str, dict]:
+        idx: Dict[str, dict] = {}
+        for image in self.images:
+            fn = str(image.get("file_name", ""))
+            if fn and fn not in idx:
+                idx[fn] = image
+        return idx
+
+    def _build_annotation_index(self) -> Dict[int, List[dict]]:
+        idx: Dict[int, List[dict]] = {}
+        for ann in self.annotations:
+            iid = ann.get("image_id")
+            if iid is not None:
+                idx.setdefault(int(iid), []).append(ann)
+        return idx
+
     def detections_to_save(self) -> List[Detection]:
         return list(self.current_detections) + list(self.manual_detections)
 
@@ -16,10 +40,9 @@ class CocoStorageMixin:
             return None
 
     def find_image_record_by_file_name(self, file_name: str) -> Optional[dict]:
-        for image in self.images:
-            if str(image.get("file_name", "")) == file_name:
-                return image
-        return None
+        if self._image_index is None:
+            self._image_index = self._build_image_index()
+        return self._image_index.get(file_name)
 
     def _source_image_output_name(self, source_path: Path) -> str:
         try:
@@ -101,6 +124,7 @@ class CocoStorageMixin:
             "height": height,
             "video": str(self.video_path) if self.video_path else self.video_name,
         })
+        self._invalidate_storage_cache()
 
         self.annotations = [ann for ann in self.annotations if ann.get("image_id") != image_id]
         for det in detections:
@@ -153,6 +177,7 @@ class CocoStorageMixin:
         removed = sum(1 for ann in self.annotations if ann.get("image_id") == image_id)
         self.annotations = [ann for ann in self.annotations if ann.get("image_id") != image_id]
         self.images = [img for img in self.images if img.get("id") != image_id]
+        self._invalidate_storage_cache()
         return removed
 
     def remove_image_file(self, file_name: str) -> bool:
