@@ -73,7 +73,11 @@ class ExportScreenMixin:
         actions = tk.Frame(root, bg=COLORS["panel"], highlightbackground=COLORS["border"], highlightthickness=1)
         actions.pack(fill=tk.X, side=tk.BOTTOM)
 
-        # Progress bar row (hidden until export starts)
+        # Status + buttons row (always visible)
+        bottom_row = tk.Frame(actions, bg=COLORS["panel"])
+        bottom_row.pack(fill=tk.X, side=tk.BOTTOM)
+
+        # Progress bar row — packed above bottom_row, hidden until export starts
         self._export_progress_frame = tk.Frame(actions, bg=COLORS["panel"])
         style = ttk.Style()
         style.theme_use("default")
@@ -90,11 +94,7 @@ class ExportScreenMixin:
             mode="determinate",
             maximum=100,
         )
-        self._export_progressbar.pack(fill=tk.X, padx=SPACING["md"], pady=(SPACING["xs"], 0))
-
-        # Status + buttons row
-        bottom_row = tk.Frame(actions, bg=COLORS["panel"])
-        bottom_row.pack(fill=tk.X)
+        self._export_progressbar.pack(fill=tk.X, padx=SPACING["md"], pady=(SPACING["xs"], SPACING["xs"]))
         self._export_status_label = tk.Label(
             bottom_row,
             textvariable=self._export_status_var,
@@ -306,12 +306,23 @@ class ExportScreenMixin:
         cancel_event = getattr(self, "_export_cancel_event", None)
         try:
             self.perform_dataset_export(config, cancel_event=cancel_event)
+        except Exception as exc:  # pylint: disable=broad-except
+            msg = f"Falha ao exportar: {exc}"
+            print(f"[ERRO] {msg}")
+            self.window.after(0, lambda m=msg: self._show_export_thread_error(m))
         finally:
             self.window.after(0, self._on_export_thread_done)
 
+    def _show_export_thread_error(self, message: str):
+        try:
+            self._export_status_var.set(message)
+            self._export_status_label.config(fg=COLORS["danger"])
+        except Exception:  # pylint: disable=broad-except
+            pass
+
     def _start_export_progress(self):
         self._export_progressbar["value"] = 0
-        self._export_progress_frame.pack(fill=tk.X, side=tk.TOP)
+        self._export_progress_frame.pack(fill=tk.X, side=tk.TOP, padx=0, pady=0)
 
     def update_export_progress(self, percent: int):
         try:
