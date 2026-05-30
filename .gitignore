@@ -11,3 +11,7 @@ dataset_original
 outputs
 data
 .claude
+*/__init__.py
+.agents
+.pytest_cache
+.vscode
