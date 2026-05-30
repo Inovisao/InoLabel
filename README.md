@@ -5,29 +5,147 @@ Suporta quatro modos de trabalho: tracking, detecção padrão, detecção orien
 
 ---
 
-## Requisitos de ambiente
+## Instalação — Linux (Ubuntu/Debian)
 
-- Python 3.9+ via `conda`
-- Tkinter (`sudo apt-get install python3-tk` no Ubuntu/Debian)
-- Toolchain nativo (`build-essential`, `python3-dev`, `cmake`) — necessário para `lap`/`cython_bbox`
-- (Opcional) CUDA para acelerar inferência YOLO na GPU
-
----
-
-## Instalação
+### 1. Dependências do sistema
 
 ```bash
-conda create -n anotador python=3.9
-conda activate anotador
-conda install -c conda-forge --file requirements.txt
+sudo apt-get update
+sudo apt-get install -y \
+    python3 python3-pip python3-tk \
+    build-essential python3-dev cmake \
+    git
+```
+
+> `python3-tk` é obrigatório para a interface gráfica.
+> `build-essential`, `python3-dev` e `cmake` são necessários para compilar `lap` e `cython-bbox`.
+
+### 2. Instalar Miniconda (recomendado)
+
+```bash
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+# Feche e reabra o terminal após a instalação
+```
+
+### 3. Criar ambiente Python
+
+```bash
+conda create -n inolabel python=3.9 -y
+conda activate inolabel
+```
+
+### 4. Instalar dependências do projeto
+
+```bash
+git clone <url-do-repositorio>
+cd tracking-anotator
+pip install -r requirements.txt
+```
+
+### 5. Rodar
+
+```bash
+python main.py
 ```
 
 ---
 
-## Como rodar
+## Instalação — Windows 11
+
+### 1. Instalar Python 3.9
+
+1. Acesse [python.org/downloads](https://www.python.org/downloads/) e baixe o Python **3.9.x** (64-bit)
+2. No instalador, marque **"Add Python to PATH"** antes de clicar em Install
+3. Após instalar, abra o **Prompt de Comando** e confirme:
+   ```cmd
+   python --version
+   ```
+
+### 2. Instalar Visual C++ Build Tools
+
+Necessário para compilar `lap` e `cython-bbox`.
+
+1. Acesse [visualstudio.microsoft.com/visual-cpp-build-tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+2. Baixe e execute o instalador
+3. Selecione **"Desenvolvimento para desktop com C++"** e clique em Instalar
+4. Aguarde (pode demorar alguns minutos)
+
+### 3. Instalar CMake
+
+1. Acesse [cmake.org/download](https://cmake.org/download/) e baixe o instalador `.msi`
+2. Durante a instalação, selecione **"Add CMake to the system PATH"**
+
+### 4. Instalar Git (opcional, para clonar o repositório)
+
+1. Acesse [git-scm.com](https://git-scm.com/) e instale com as opções padrão
+
+### 5. Clonar e instalar o projeto
+
+Abra o **Prompt de Comando** ou **PowerShell**:
+
+```cmd
+git clone <url-do-repositorio>
+cd tracking-anotator
+pip install -r requirements.txt
+```
+
+### 6. Rodar
+
+```cmd
+python main.py
+```
+
+> **Problema com Tkinter no WSL?** Configure um X server (VcXsrv ou X410) e a variável `DISPLAY`. Em ambiente Windows nativo (sem WSL) o Tkinter funciona sem configuração adicional.
+
+---
+
+## Gerar executável (build)
+
+O script `build.sh` detecta o sistema operacional automaticamente e gera uma pasta autocontida com o executável.
+
+### Linux
 
 ```bash
-python main.py
+bash build.sh
+```
+
+### Windows (Git Bash ou WSL)
+
+```bash
+bash build.sh
+```
+
+### Windows (Prompt de Comando / PowerShell)
+
+```cmd
+pip install pyinstaller
+python -m PyInstaller --noconfirm --onedir --windowed --name InoLabel ^
+    --add-data "assets;assets" ^
+    --hidden-import PIL._tkinter_finder ^
+    --hidden-import cv2 ^
+    --hidden-import ultralytics ^
+    --collect-all ultralytics ^
+    main.py
+```
+
+O executável gerado fica em:
+
+```
+dist/InoLabel-linux/InoLabel/InoLabel        # Linux
+dist/InoLabel-windows/InoLabel/InoLabel.exe  # Windows
+```
+
+> **Importante:** coloque o arquivo `model.pt` e a pasta `dataset/` ao lado do executável antes de rodar. O executável não inclui o modelo nem os dados — apenas o código da aplicação.
+
+> **Tamanho esperado:** entre 1.5 GB e 3 GB (Ultralytics/PyTorch são pesados).
+
+---
+
+## Como usar
+
+```bash
+python main.py   # ou execute o binário gerado pelo build
 ```
 
 O wizard de configuração abrirá pedindo:
@@ -120,7 +238,7 @@ A exportação roda em **background** — a interface permanece responsiva. Uma 
 ## Saídas geradas
 
 ```
-outputs/<tarefa>_<DD.MM.HH:MM>/
+outputs/<tarefa>_<DD.MM.HH-MM>/   (ex: detecção_25.05.14-30)
 ├── images/                         # frames salvos (originais ou retificados)
 ├── annotations.coco.json           # COCO com track_id (tracking) ou bbox simples
 ├── annotations_obb.coco.json       # COCO OBB (modo OBB)
@@ -186,7 +304,8 @@ Os caminhos de dataset, modelo e saída são configurados no wizard — os valor
 |----------|---------|
 | Tkinter não abre no WSL | Configure um X server e a variável `DISPLAY`, ou rode em ambiente gráfico nativo |
 | Tkinter ausente no Linux | `sudo apt-get install python3-tk` |
-| `lap`/`cython_bbox` falhando | Instale `build-essential python3-dev cmake` e tente novamente |
+| `lap`/`cython_bbox` falhando no Linux | Instale `build-essential python3-dev cmake` e tente novamente |
+| `lap`/`cython_bbox` falhando no Windows | Instale o Visual C++ Build Tools e CMake conforme descrito acima |
 | Logo não aparece na tela inicial | Verifique se `assets/inovisao.png` existe e se `Pillow` está instalado |
 | Atalhos não respondem após remapear | Verifique conflitos no editor de atalhos (aviso laranja) |
 

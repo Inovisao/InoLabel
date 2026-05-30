@@ -13,12 +13,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
 
-from app.config import OUTPUT_DATASET_PREFIX, OUTPUTS_DIR
+from app.config import OUTPUT_DATASET_PREFIX, SAVED_STATES_SUBDIR
 from app.core.session import AnnotationTaskMode, normalize_class_names
 
 ANNOTATION_FILE_NAMES = ("annotations.coco.json", "annotations_obb.coco.json", "__annotations.coco.json")
 STATE_PATTERN = re.compile(rf"^{re.escape(OUTPUT_DATASET_PREFIX)}(?P<index>\d+)_(?P<stamp>\d{{8}}_\d{{6}})$")
-NEW_STATE_PATTERN = re.compile(r"^.+_(?P<day>\d{2})\.(?P<month>\d{2})\.(?P<hour>\d{2}):(?P<minute>\d{2})(?:_\d{3})?$")
+NEW_STATE_PATTERN = re.compile(r"^.+_(?P<day>\d{2})\.(?P<month>\d{2})\.(?P<hour>\d{2})-(?P<minute>\d{2})(?:_\d{3})?$")
 TASK_DIR_NAMES = {
     AnnotationTaskMode.DETECTION: "detecção",
     AnnotationTaskMode.TRACKING: "tracking",
@@ -69,17 +69,35 @@ class LoadedAnnotationState:
 
 def annotations_path_for(output_dir: Path) -> Path:
     """Canonical annotations path for new output states."""
+    return Path(output_dir) / SAVED_STATES_SUBDIR / ANNOTATION_FILE_NAMES[0]
 
-    return Path(output_dir) / ANNOTATION_FILE_NAMES[0]
+
+def output_dir_from_annotations_path(annotations_path: Path) -> Path:
+    """Return the project root given an annotations file path.
+
+    Handles both new-style (inside saved_data_states/) and legacy (root) layouts.
+    """
+    p = Path(annotations_path)
+    if p.parent.name == SAVED_STATES_SUBDIR:
+        return p.parent.parent
+    return p.parent
 
 
 def find_annotations_path(path: Path) -> Optional[Path]:
-    """Return a supported annotations file from a file or output directory."""
+    """Return a supported annotations file from a file or output directory.
 
+    Searches saved_data_states/ first (new layout), then the root (legacy compat).
+    """
     path = Path(path).expanduser()
     if path.is_file() and path.name in ANNOTATION_FILE_NAMES:
         return path
     if path.is_dir():
+        # new layout: saved_data_states/ subfolder
+        for name in ANNOTATION_FILE_NAMES:
+            candidate = path / SAVED_STATES_SUBDIR / name
+            if candidate.exists():
+                return candidate
+        # legacy layout: annotations at root
         for name in ANNOTATION_FILE_NAMES:
             candidate = path / name
             if candidate.exists():
@@ -87,8 +105,8 @@ def find_annotations_path(path: Path) -> Optional[Path]:
     return None
 
 
-def list_output_states(outputs_dir: Path = OUTPUTS_DIR) -> list[OutputState]:
-    """List valid output states ordered from oldest to newest."""
+def list_output_states(outputs_dir: Path) -> list[OutputState]:
+    """List valid output states inside outputs_dir, ordered from oldest to newest."""
 
     outputs_dir = Path(outputs_dir).expanduser()
     if not outputs_dir.exists():
@@ -103,63 +121,63 @@ def list_output_states(outputs_dir: Path = OUTPUTS_DIR) -> list[OutputState]:
         state = _build_state(child, annotations_path)
         if state is not None:
             states.append(state)
-    return sorted(states, key=lambda state: (state.modified_at or state.created_at or datetime.min, state.path.name))
+    return sorted(states, key=lambda s: (s.modified_at or s.created_at or datetime.min, s.path.name))
 
 
-def latest_output_state(outputs_dir: Path = OUTPUTS_DIR) -> Optional[OutputState]:
-    """Return the newest available output state."""
+def latest_output_state(outputs_dir: Path) -> Optional[OutputState]:
+    """Return the newest available output state inside outputs_dir."""
 
     states = list_output_states(outputs_dir)
-    if not states:
-        return None
-    return states[-1]
+    return states[-1] if states else None
 
 
 def list_output_states_for_sources(
     sources: Iterable[Path],
-    outputs_dir: Path = OUTPUTS_DIR,
+    outputs_dir: Path,
 ) -> list[OutputState]:
-    """List output states associated with the selected dataset/source paths."""
+    """List output states in outputs_dir associated with the given source paths."""
 
     project_sources = _normalize_source_paths(sources)
     if not project_sources:
         return []
-    return [state for state in list_output_states(outputs_dir) if _state_matches_sources(state, project_sources)]
+    return [s for s in list_output_states(outputs_dir) if _state_matches_sources(s, project_sources)]
 
 
 def latest_output_state_for_sources(
     sources: Iterable[Path],
-    outputs_dir: Path = OUTPUTS_DIR,
+    outputs_dir: Path,
 ) -> Optional[OutputState]:
-    """Return the newest output state for the selected dataset/source paths."""
+    """Return the newest output state in outputs_dir for the given source paths."""
 
     states = list_output_states_for_sources(sources, outputs_dir)
-    if not states:
-        return None
-    return states[-1]
+    return states[-1] if states else None
 
 
 def create_new_output_dir(
-    outputs_dir: Path = OUTPUTS_DIR,
+    parent_dir: Path,
+    session_name: str,
     *,
-    now: Optional[datetime] = None,
-    task_mode: AnnotationTaskMode | str = AnnotationTaskMode.DETECTION,
     create_images_dir: bool = True,
 ) -> Path:
-    """Create a unique output state directory using task and timestamp."""
+    """Create a uniquely named project directory under parent_dir.
 
-    outputs_dir = Path(outputs_dir).expanduser()
-    outputs_dir.mkdir(parents=True, exist_ok=True)
-    task_name = _task_dir_name(task_mode)
-    stamp = (now or datetime.now()).strftime("%d.%m.%H:%M")
-    candidate = outputs_dir / f"{task_name}_{stamp}"
+    Creates saved_data_states/ (and optionally images/) inside it.
+    Raises ValueError if session_name is empty.
+    """
+    session_name = str(session_name).strip()
+    if not session_name:
+        raise ValueError("Session name cannot be empty.")
+    parent_dir = Path(parent_dir).expanduser()
+    parent_dir.mkdir(parents=True, exist_ok=True)
+    candidate = parent_dir / session_name
     suffix = 1
     while candidate.exists():
-        candidate = outputs_dir / f"{task_name}_{stamp}_{suffix:03d}"
+        candidate = parent_dir / f"{session_name}_{suffix:03d}"
         suffix += 1
     candidate.mkdir(parents=True, exist_ok=False)
+    (candidate / SAVED_STATES_SUBDIR).mkdir()
     if create_images_dir:
-        (candidate / "images").mkdir(parents=True, exist_ok=True)
+        (candidate / "images").mkdir()
     return candidate
 
 
@@ -181,7 +199,7 @@ def load_annotation_state(path: Path) -> LoadedAnnotationState:
     source_paths = _extract_source_paths(info, payload.get("annotation_state", {}))
     return LoadedAnnotationState(
         annotations_path=annotations_path,
-        output_dir=annotations_path.parent,
+        output_dir=output_dir_from_annotations_path(annotations_path),
         task_mode=mode,
         class_names=class_names,
         categories=categories,

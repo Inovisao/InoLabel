@@ -1,17 +1,41 @@
-videos/*
-output_dataset
-__pycache__
-imagens/
-models/
+# ── Dados e modelos (nunca versionar) ────────────────────────────────────────
+outputs/
 dataset/
-docs
-.codex
-dataset_original
+data/
+models/
+videos/
+imagens/
+dataset_original/
+
+# ── Build e distribuição ──────────────────────────────────────────────────────
+dist/
+build/
+*.spec
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.pyd
+
+# ── Testes e cache ────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Configurações locais do usuário ──────────────────────────────────────────
 .local/
-outputs
-data
-.claude
-*/__init__.py
-.agents
-.pytest_cache
-.vscode
+.vscode/
+.idea/
+
+# ── Ferramentas de IA ─────────────────────────────────────────────────────────
+.claude/
+.agents/
+.codex/
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+
+# ── Documentação gerada ───────────────────────────────────────────────────────
+docs/

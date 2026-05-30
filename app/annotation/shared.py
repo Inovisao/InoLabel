@@ -21,19 +21,14 @@ from tracker.byte_tracker import BYTETracker
 from app.core.session import AnnotationSessionConfig, AnnotationTaskMode
 from app.tracking import MultiClassByteTracker
 from app.config import (
-    ANNOTATIONS_PATH,
     CANVAS_PADDING_PX,
-    COCO_DETECTION_EXPORT_PATH,
     CONF_THRESHOLD,
     DATA_ROOT,
     FALLBACK_TO_ORIGINAL_IF_EMPTY,
-    HOMOGRAPHY_PATH,
     IMAGE_EXTENSIONS,
     IMAGE_LIST_EXTENSIONS,
     MANUAL_IOU_THRESHOLD,
     MAX_SAVED_FRAME_CACHE,
-    OUTPUT_DIR,
-    OUTPUT_IMAGES_DIR,
     SAVE_RECTIFIED_FRAMES,
     SHOW_MANUAL_DETECTIONS,
     SHOW_MODEL_DETECTIONS,
@@ -43,7 +38,6 @@ from app.config import (
     WEIGHTS_PATH,
     WINDOW_MARGIN_PX,
     WINDOW_TOP_RESERVED_PX,
-    YOLO_DATASET_DIR,
 )
 from app.geometry import (
     bbox_center,
