@@ -1,4 +1,4 @@
-"""Aplica um perfil KeybindMap à janela Tkinter da ferramenta."""
+"""Applies a KeybindMap profile to the tool's Tkinter window."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from app.annotation.keybinds.keybind_repository import KeybindRepository
 if TYPE_CHECKING:
     import tkinter as tk
 
-# Teclas especiais que precisam de <angle-bracket> no Tkinter
+# Special keys that require <angle-bracket> notation in Tkinter
 _SPECIAL_KEYS = {
     "Right", "Left", "Up", "Down",
     "Return", "space", "BackSpace", "Delete", "Tab",
@@ -19,7 +19,7 @@ _SPECIAL_KEYS = {
     "Home", "End", "Prior", "Next", "Insert",
 }
 
-# Teclas modificadoras puras — ignoradas na captura
+# Pure modifier keys — ignored during capture
 MODIFIER_KEYSYMS = {
     "Control_L", "Control_R",
     "Shift_L", "Shift_R",
@@ -30,21 +30,21 @@ MODIFIER_KEYSYMS = {
 
 
 def _tk_sequence(key: str) -> str:
-    """Converte string interna ('Right', 'd', 'Control-z') para sequência Tkinter."""
+    """Converts an internal string ('Right', 'd', 'Control-z') to a Tkinter sequence."""
     if not key:
         return ""
-    # Já tem modifier prefix (ex: "Control-z", "Control-0")
+    # Already has a modifier prefix (e.g. "Control-z", "Control-0")
     if "-" in key and not key.startswith("<"):
         return f"<{key}>"
-    # Tecla especial sem modifier
+    # Special key without a modifier
     if key in _SPECIAL_KEYS:
         return f"<{key}>"
-    # Letra/símbolo simples — bind direto
+    # Plain letter/symbol — bind directly
     return key
 
 
 def _uppercase_sequence(seq: str) -> Optional[str]:
-    """Retorna a variante maiúscula de uma sequência de tecla simples, ou None."""
+    """Returns the uppercase variant of a simple key sequence, or None."""
     if not seq or seq.startswith("<"):
         return None
     if len(seq) == 1 and seq.isalpha():
@@ -53,7 +53,7 @@ def _uppercase_sequence(seq: str) -> Optional[str]:
 
 
 class KeybindService:
-    # Ações hardcoded que nunca aparecem no editor (quit fica em _bind_shortcuts)
+    # Hardcoded actions that never appear in the editor (quit is handled in _bind_shortcuts)
     ALWAYS_UNMANAGED: frozenset = frozenset({"quit"})
 
     def __init__(self, tool, repository: KeybindRepository):
@@ -66,11 +66,11 @@ class KeybindService:
     # ── public API ────────────────────────────────────────────────────────────
 
     def bind_all(self) -> None:
-        """Aplica o perfil ativo (chamado no startup após criar a janela)."""
+        """Applies the active profile (called at startup after the window is created)."""
         self._apply(self._active_name)
 
     def apply_profile(self, name: str) -> None:
-        """Troca para o perfil `name` e rebinda todas as teclas."""
+        """Switches to profile `name` and rebinds all keys."""
         if name not in self._profiles:
             name = "arrows"
         self._active_name = name
@@ -87,7 +87,7 @@ class KeybindService:
         return self._profiles
 
     def add_profile(self, name: str, base_name: Optional[str] = None) -> KeybindMap:
-        """Cria novo perfil copiando `base_name` (ou ativo se None)."""
+        """Creates a new profile by copying `base_name` (or the active profile if None)."""
         source = self._profiles.get(base_name or self._active_name, self._profiles["arrows"])
         new_profile = source.copy()
         new_profile.name = name
@@ -96,7 +96,7 @@ class KeybindService:
         return new_profile
 
     def delete_profile(self, name: str) -> None:
-        """Remove perfil personalizado. Perfis builtin não podem ser deletados."""
+        """Removes a custom profile. Built-in profiles cannot be deleted."""
         if KeybindRepository.is_builtin(name):
             return
         self._profiles.pop(name, None)
@@ -106,7 +106,7 @@ class KeybindService:
         self._repo.save(self._active_name, self._profiles)
 
     def reset_profile_to_defaults(self, name: str) -> KeybindMap:
-        """Restaura perfil para os defaults do ACTION_REGISTRY."""
+        """Resets a profile to the ACTION_REGISTRY defaults."""
         defaults = self._repo.get_defaults()
         base = defaults.get(name, defaults["arrows"])
         restored = base.copy()
@@ -118,7 +118,7 @@ class KeybindService:
         return restored
 
     def save_profile(self, profile: KeybindMap) -> None:
-        """Persiste alterações feitas diretamente em um perfil."""
+        """Persists changes made directly to a profile."""
         self._profiles[profile.name] = profile
         self._repo.save(self._active_name, self._profiles)
 
@@ -153,7 +153,7 @@ class KeybindService:
         if not key:
             return
 
-        # toggle_edit_id só existe em tracking
+        # toggle_edit_id only exists in tracking mode
         if action.tracking_only and not getattr(self._tool, "tracking_enabled", False):
             return
 
@@ -169,7 +169,7 @@ class KeybindService:
             )
 
     def _all_sequences(self, key: str):
-        """Retorna todas as sequências Tkinter para uma key (lower + upper)."""
+        """Returns all Tkinter sequences for a key (lowercase + uppercase)."""
         if not key:
             return []
         seq = _tk_sequence(key)

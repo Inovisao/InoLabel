@@ -1,4 +1,4 @@
-"""Tipos compartilhados pelo fluxo de exportacao."""
+"""Types shared across the export flow."""
 
 from __future__ import annotations
 

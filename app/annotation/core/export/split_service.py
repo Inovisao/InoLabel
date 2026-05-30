@@ -1,4 +1,4 @@
-"""Logica pura de split para exportacao YOLO."""
+"""Pure split logic for YOLO export."""
 
 from __future__ import annotations
 

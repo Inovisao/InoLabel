@@ -1,4 +1,4 @@
-"""Logica pura de labels YOLO e conversao de bboxes."""
+"""Pure YOLO label logic and bbox conversion utilities."""
 
 from __future__ import annotations
 
@@ -57,13 +57,13 @@ def annotations_to_yolo_bboxes(
         original_class_id = int(ann.get("category_id", -1))
         if original_class_id not in class_mapping:
             malformed_labels.append(
-                f"{label_name}: category_id invalido {original_class_id} na anotacao {ann.get('id')}"
+                f"{label_name}: invalid category_id {original_class_id} in annotation {ann.get('id')}"
             )
             continue
         normalized = normalize_yolo_bbox(ann.get("bbox", []), image_width, image_height)
         if normalized is None:
             malformed_labels.append(
-                f"{label_name}: bbox invalido na anotacao {ann.get('id')} -> {ann.get('bbox')}"
+                f"{label_name}: invalid bbox in annotation {ann.get('id')} -> {ann.get('bbox')}"
             )
             continue
         class_id = class_mapping[original_class_id]

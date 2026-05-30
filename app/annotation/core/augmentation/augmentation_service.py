@@ -1,4 +1,4 @@
-"""Transformacoes puras de data augmentation para imagens BGR e labels YOLO."""
+"""Pure data augmentation transforms for BGR images and YOLO labels."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def apply_preset(
     bboxes_yolo: List[List],
     preset: AugmentationPreset,
 ) -> List[Tuple[np.ndarray, List[List]]]:
-    """Aplica operacoes habilitadas e retorna copias aumentadas em memoria."""
+    """Applies enabled operations and returns augmented copies in memory."""
     if image is None or image.size == 0 or preset is None or not preset.enabled:
         return []
 

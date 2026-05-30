@@ -1,4 +1,4 @@
-"""Modo de anotacao orientada (OBB)."""
+"""Oriented bounding box (OBB) annotation mode."""
 
 __all__ = ["OBBAnnotationTool"]
 

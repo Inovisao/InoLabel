@@ -3,7 +3,7 @@ from app.annotation.shared import *
 
 class SelectionEditMixin:
     def push_undo_state(self, reason: str = ""):
-        """Salva estado leve do frame atual para Ctrl+Z."""
+        """Saves a lightweight snapshot of the current frame for Ctrl+Z."""
         if self.current_frame is None:
             return
         snapshot = {
@@ -31,7 +31,7 @@ class SelectionEditMixin:
         self.undo_stack.append(snapshot)
 
     def undo_last_action(self):
-        """Restaura o ultimo estado de anotacoes do frame atual."""
+        """Restores the last annotation state for the current frame."""
         if not self.undo_stack:
             print("[INFO] Nada para desfazer.")
             return
@@ -48,7 +48,7 @@ class SelectionEditMixin:
         self.update_display(refresh_status=True)
 
     def remove_detection_from_runtime_state(self, det: Detection):
-        """Remove referencias da deteccao apagada do estado temporario do frame."""
+        """Removes references to a deleted detection from the frame's temporary state."""
         if det.track_id is None:
             return
         if det.source == "manual":
@@ -82,12 +82,12 @@ class SelectionEditMixin:
         self.recent_tracks = deque(filtered_recent_tracks, maxlen=self.history_window)
 
     def validate_selected_detection(self):
-        """Limpa selecao se o indice estiver invalido."""
+        """Clears the selection if the index is invalid."""
         if self.get_selected_detection() is None:
             self.selected_detection = None
 
     def get_selected_detection(self) -> Optional[Detection]:
-        """Retorna a detection selecionada (se existir)."""
+        """Returns the currently selected detection (if any)."""
         if self.selected_detection is None:
             return None
         source, idx = self.selected_detection
@@ -98,14 +98,14 @@ class SelectionEditMixin:
 
     @staticmethod
     def bbox_close(stored_bbox, bbox: np.ndarray, tol: float = 1.0) -> bool:
-        """Compara bboxes com tolerancia."""
+        """Compares bboxes with a tolerance."""
         if stored_bbox is None:
             return False
         arr = np.array(stored_bbox, dtype=np.float32)
         return np.allclose(arr, bbox, atol=tol)
 
     def find_detection_at(self, x: int, y: int) -> Optional[Tuple[str, int]]:
-        """Retorna (source, idx) da bbox que contem o ponto."""
+        """Returns (source, idx) of the bbox containing the given point."""
         candidates: List[Tuple[float, str, int]] = []
         for idx, det in enumerate(self.manual_detections):
             x1, y1, x2, y2 = det.original_bbox
@@ -124,7 +124,7 @@ class SelectionEditMixin:
         return (source, idx)
 
     def select_detection_at(self, x: int, y: int):
-        """Seleciona a bbox clicada para editar o ID."""
+        """Selects the clicked bbox for ID editing."""
         hit = self.find_detection_at(x, y)
         if hit is None:
             self.selected_detection = None
@@ -142,7 +142,7 @@ class SelectionEditMixin:
         self.update_display(refresh_status=True)
 
     def apply_manual_id_to_selection(self):
-        """Aplica o ID digitado a bbox selecionada."""
+        """Applies the typed ID to the selected bbox."""
         if self.selected_detection is None:
             print("[AVISO] Nenhuma caixa selecionada para editar.")
             return
@@ -172,7 +172,7 @@ class SelectionEditMixin:
         self.update_display(refresh_status=True)
 
     def update_track_history_for_edit(self, old_id: int, new_id: int, bbox: np.ndarray):
-        """Atualiza track_history ao trocar track_id."""
+        """Updates track_history when changing a track_id."""
         old_entries = self.track_history.get(old_id, [])
         if old_entries:
             filtered = [
@@ -192,7 +192,7 @@ class SelectionEditMixin:
             entries.append({"frame": self.frame_index, "bbox": bbox.tolist()})
 
     def update_recent_tracks_for_edit(self, old_id: int, new_id: int, bbox: np.ndarray):
-        """Atualiza recent_tracks no frame atual."""
+        """Updates recent_tracks for the current frame."""
         for frame_data in self.recent_tracks:
             if frame_data.get("frame") != self.frame_index:
                 continue

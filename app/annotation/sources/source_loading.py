@@ -3,7 +3,7 @@ from app.annotation.shared import *
 
 class SourceLoadingMixin:
     def load_existing_annotations(self):
-        """Carrega anotacoes existentes para continuar de onde parou."""
+        """Loads existing annotations to resume from where it left off."""
         annotations_path = getattr(self, "annotations_path", ANNOTATIONS_PATH)
         if not annotations_path.exists():
             return
@@ -45,7 +45,7 @@ class SourceLoadingMixin:
         )
 
     def register_signal_handlers(self):
-        """Garante que a janela feche se o processo receber SIGINT/SIGTERM."""
+        """Ensures the window closes if the process receives SIGINT/SIGTERM."""
         def handler(signum, frame):
             _ = frame  # unused
             print(f"[INFO] Encerrando por sinal {signum}.")
@@ -58,9 +58,9 @@ class SourceLoadingMixin:
                 pass
 
     def start_video(self, index: int):
-        """Abre o video indicado e prepara para anotacao."""
+        """Opens the indicated video and prepares for annotation."""
         if index < 0 or index >= len(self.video_files):
-            self.finish_processing("Todas as fontes foram processadas.")
+            self._enter_review_after_all_sources()
             return
 
         self._reset_open_source()
@@ -78,8 +78,33 @@ class SourceLoadingMixin:
         self.restore_saved_annotations_for_current_frame()
         self.update_display(refresh_status=True)
 
+    def _enter_review_after_all_sources(self):
+        """All sources done — keep the app open for review and export."""
+        self._all_sources_done = True
+        self.autosave_current_frame(reason="end of sources")
+        self.write_annotations()
+        msg = "Todas as fontes foram processadas. Use ← → para revisar ou exporte o dataset."
+        print(f"[INFO] {msg}")
+        try:
+            self.info_var.set(msg)
+        except Exception:  # pylint: disable=broad-except
+            pass
+        # saved_records is an in-memory cache — empty on resume; rebuild from persisted state.
+        if not self.saved_records:
+            self._populate_saved_records_from_state()
+        if self.saved_records:
+            # Controls may never have been enabled if the source folder was missing.
+            self.enable_controls_after_roi()
+            self.go_to_saved_frame(len(self.saved_records) - 1)
+        else:
+            self.current_frame = None
+            try:
+                self.update_display(refresh_status=True)
+            except Exception:  # pylint: disable=broad-except
+                pass
+
     def finish_current_video(self):
-        """Fecha o video atual e segue para o proximo se existir."""
+        """Closes the current video and moves to the next one if it exists."""
         if self.cap is not None:
             self.cap.release()
             self.cap = None
@@ -88,6 +113,6 @@ class SourceLoadingMixin:
             print(f"[INFO] Fonte concluida: {self.video_name}. Iniciando proxima.")
             self.start_video(next_index)
         else:
-            self.finish_processing("Todas as fontes foram processadas.")
+            self._enter_review_after_all_sources()
 
-    # ===================== ROI & HOMOGRAFIA =====================
+    # ===================== ROI & HOMOGRAPHY =====================
