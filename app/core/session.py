@@ -7,7 +7,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
-from app.config import CONF_THRESHOLD, OUTPUT_DIR
+from app.config import CONF_THRESHOLD
 
 
 class AnnotationTaskMode(str, Enum):
@@ -38,7 +38,7 @@ class AnnotationSessionConfig:
     weights_paths: Tuple[Path, ...] = ()
     target_classes: Tuple[str, ...] = ()
     weights_path: Optional[Path] = None
-    output_dir: Path = OUTPUT_DIR
+    output_dir: Path = Path("output")
     annotations_path: Optional[Path] = None
     resume_existing_annotations: bool = False
     category_metadata: Tuple[dict, ...] = ()

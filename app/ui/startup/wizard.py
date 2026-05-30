@@ -26,6 +26,7 @@ from app.core.output_state import (
     latest_output_state_for_sources,
     list_output_states_for_sources,
     load_annotation_state,
+    output_dir_from_annotations_path,
 )
 from app.core.session import AnnotationSessionConfig, AnnotationTaskMode, normalize_class_names
 from app.core.startup_cache import load_startup_cache, save_startup_cache
@@ -83,6 +84,11 @@ class StartupWizard:
         self.class_panel: Optional[tk.Frame] = None
         self.summary: Optional[SourceSummary] = None
         self.output_states: list[OutputState] = []
+        # Project location: parent dir + session name chosen by user
+        cached_parent = self.cache.parent_dir
+        default_parent = str(cached_parent) if cached_parent and cached_parent.exists() else str(Path.home())
+        self.parent_dir_var = tk.StringVar(value=default_parent)
+        self.session_name_var = tk.StringVar(value="")
 
         self.page = tk.Frame(self.root, bg=self.colors["bg"])
         self.page.pack(fill=tk.BOTH, expand=True)
@@ -649,13 +655,18 @@ class StartupWizard:
                 command=_remove,
             ).grid(row=0, column=1, padx=(0, self.spacing["xs"]))
 
+    def _current_parent_dir(self) -> Path:
+        raw = self.parent_dir_var.get().strip()
+        return Path(raw).expanduser() if raw else Path.home()
+
     def show_state_screen(self):
         is_classification = AnnotationTaskMode(self.mode_var.get()) is AnnotationTaskMode.CLASSIFICATION
         project_sources = self._current_project_sources()
+        parent_dir = self._current_parent_dir()
         if is_classification:
-            self.output_states = list_classification_states_for_sources(project_sources) if project_sources else []
+            self.output_states = list_classification_states_for_sources(project_sources, parent_dir) if project_sources else []
         else:
-            self.output_states = list_output_states_for_sources(project_sources) if project_sources else []
+            self.output_states = list_output_states_for_sources(project_sources, parent_dir) if project_sources else []
         latest = self.output_states[-1] if self.output_states else None
         if latest is not None and self.output_state_mode_var.get() == "new" and self.selected_state_path is None:
             self.output_state_mode_var.set("resume_latest")
@@ -678,8 +689,34 @@ class StartupWizard:
             ),
             step=3,
         )
+
+        # ── Project location ──────────────────────────────────────────────────
+        loc_card = self._build_card(body)
+        loc_card.grid(row=2, column=0, sticky="ew", pady=(0, self.spacing["sm"]))
+        loc_card.columnconfigure(1, weight=1)
+
+        tk.Label(
+            loc_card, text="Pasta pai:",
+            font=self.fonts["label"], bg=self.colors["panel"], fg=self.colors["text"], anchor="w",
+        ).grid(row=0, column=0, sticky="w", padx=(0, self.spacing["sm"]), pady=(0, self.spacing["xs"]))
+        parent_entry = tk.Entry(loc_card, textvariable=self.parent_dir_var, font=self.fonts["body"], **self._entry_opts())
+        parent_entry.grid(row=0, column=1, sticky="ew")
+        self._button(loc_card, "...", self._browse_parent_dir).grid(row=0, column=2, padx=(self.spacing["xs"], 0))
+
+        tk.Label(
+            loc_card, text="Nome do projeto:",
+            font=self.fonts["label"], bg=self.colors["panel"], fg=self.colors["text"], anchor="w",
+        ).grid(row=1, column=0, sticky="w", padx=(0, self.spacing["sm"]), pady=(self.spacing["xs"], 0))
+        tk.Entry(loc_card, textvariable=self.session_name_var, font=self.fonts["body"], **self._entry_opts()).grid(
+            row=1, column=1, sticky="ew", columnspan=2, pady=(self.spacing["xs"], 0)
+        )
+        tk.Label(
+            loc_card, text="Obrigatorio ao criar sessao nova ou usar como modelo.",
+            font=self.fonts["caption"], bg=self.colors["panel"], fg=self.colors["muted"], anchor="w",
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(2, 0))
+
         form = self._build_card(body)
-        form.grid(row=2, column=0, sticky="ew")
+        form.grid(row=3, column=0, sticky="ew")
         form.columnconfigure(0, weight=1)
 
         latest_text = latest.label if latest else "Nenhum estado anterior encontrado."
@@ -715,8 +752,8 @@ class StartupWizard:
             form,
             row=3,
             value="new",
-            title="Criar estado novo",
-            description="Cria uma pasta em outputs/ com tarefa e data/hora, sem misturar anotacoes antigas.",
+            title="Criar sessao nova",
+            description="Cria uma pasta nova com o nome informado acima, sem misturar anotacoes antigas.",
             enabled=True,
         )
 
@@ -734,7 +771,38 @@ class StartupWizard:
         ).grid(row=0, column=0, sticky="ew", padx=(0, self.spacing["sm"]))
         self._button(manual_row, "Selecionar arquivo", self.browse_annotation_state).grid(row=0, column=1)
 
-        self._footer(body, self.show_dataset_screen, self.show_model_screen)
+        # Inline validation hint for session name
+        name_hint_var = tk.StringVar(value="")
+        tk.Label(
+            loc_card,
+            textvariable=name_hint_var,
+            font=self.fonts["caption"],
+            bg=self.colors["panel"],
+            fg=self.colors["accent"],
+            anchor="w",
+        ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(2, 0))
+
+        def _needs_session_name() -> bool:
+            return self.output_state_mode_var.get() in ("new", "template_latest") or (
+                self.output_state_mode_var.get() == "manual"
+                and self.selected_state_path is not None
+                # For manual, the answer (resume=False) is only known at finish() time,
+                # so we allow advancing and validate there
+                and False
+            )
+
+        def _go_to_model_screen():
+            if _needs_session_name() and not self.session_name_var.get().strip():
+                name_hint_var.set("⚠ Informe o nome do projeto para continuar.")
+                return
+            name_hint_var.set("")
+            self.show_model_screen()
+
+        # Clear hint whenever mode or name changes
+        self.output_state_mode_var.trace_add("write", lambda *_: name_hint_var.set(""))
+        self.session_name_var.trace_add("write", lambda *_: name_hint_var.set(""))
+
+        self._footer(body, self.show_dataset_screen, _go_to_model_screen)
 
     def _state_option(self, parent, *, row: int, value: str, title: str, description: str, enabled: bool):
         option = tk.Frame(parent, bg=self.colors["panel"])
@@ -790,6 +858,30 @@ class StartupWizard:
             self.classes = []
             self.output_state_status_var.set("Novo estado sera criado ao iniciar.")
             self._refresh_classes_panel()
+
+    def _entry_opts(self) -> dict:
+        return {
+            "bg": self.colors["input_bg"],
+            "fg": self.colors["text"],
+            "insertbackground": self.colors["text"],
+            "relief": tk.FLAT,
+            "highlightthickness": 1,
+            "highlightbackground": self.colors["border"],
+            "highlightcolor": self.colors["primary"],
+        }
+
+    def _browse_parent_dir(self):
+        current = self.parent_dir_var.get().strip()
+        initial = current if current and Path(current).exists() else str(Path.home())
+        path = filedialog.askdirectory(
+            title="Escolha a pasta onde o projeto sera criado",
+            initialdir=initial,
+            mustexist=True,
+            parent=self.root,
+        )
+        if path:
+            self.parent_dir_var.set(path)
+            self.show_state_screen()
 
     def browse_annotation_state(self):
         is_classification = AnnotationTaskMode(self.mode_var.get()) is AnnotationTaskMode.CLASSIFICATION
@@ -1203,13 +1295,24 @@ class StartupWizard:
         if mode is not AnnotationTaskMode.CLASSIFICATION and self.weights_paths and not self.validate_models(import_classes=False, refresh_screen=False):
             return
         state_mode = self.output_state_mode_var.get()
+        parent_dir = self._current_parent_dir()
+        session_name = self.session_name_var.get().strip()
         output_dir = None
         annotations_path = None
         resume_existing = False
         category_metadata: tuple[dict, ...] = ()
 
+        # Modes that create a new directory require a session name
+        needs_new_dir = state_mode in ("new", "template_latest") or (
+            state_mode == "manual" and self.selected_state_path is not None
+        )
+        if needs_new_dir and state_mode != "resume_latest" and state_mode != "manual":
+            if not session_name:
+                messagebox.showerror("Nome obrigatorio", "Informe um nome para o projeto antes de iniciar.")
+                return
+
         if mode is AnnotationTaskMode.CLASSIFICATION and state_mode == "resume_latest":
-            latest = latest_classification_state_for_sources(self._current_project_sources())
+            latest = latest_classification_state_for_sources(self._current_project_sources(), parent_dir)
             if latest is None:
                 messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
@@ -1218,12 +1321,15 @@ class StartupWizard:
             annotations_path = latest.state_path
             resume_existing = True
         elif mode is AnnotationTaskMode.CLASSIFICATION and state_mode == "template_latest":
-            latest = latest_classification_state_for_sources(self._current_project_sources())
+            latest = latest_classification_state_for_sources(self._current_project_sources(), parent_dir)
             if latest is None:
                 messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
             self.selected_state_path = latest.state_path
-            output_dir = create_new_output_dir(task_mode=mode, create_images_dir=False)
+            if not session_name:
+                messagebox.showerror("Nome obrigatorio", "Informe um nome para o projeto antes de iniciar.")
+                return
+            output_dir = create_new_output_dir(parent_dir, session_name, create_images_dir=False)
         elif mode is AnnotationTaskMode.CLASSIFICATION and state_mode == "manual":
             if self.selected_state_path is None:
                 messagebox.showerror("Estado invalido", f"Selecione um {CLASSIFICATION_STATE_FILE_NAME} antes de iniciar.")
@@ -1241,16 +1347,21 @@ class StartupWizard:
             if answer is None:
                 return
             resume_existing = bool(answer)
-            output_dir = (
-                self.selected_state_path.parent
-                if resume_existing
-                else create_new_output_dir(task_mode=mode, create_images_dir=False)
-            )
+            if resume_existing:
+                output_dir = output_dir_from_annotations_path(self.selected_state_path)
+            else:
+                if not session_name:
+                    messagebox.showerror("Nome obrigatorio", "Informe um nome para o projeto antes de iniciar.")
+                    return
+                output_dir = create_new_output_dir(parent_dir, session_name, create_images_dir=False)
             annotations_path = self.selected_state_path if resume_existing else None
         elif mode is AnnotationTaskMode.CLASSIFICATION:
-            output_dir = create_new_output_dir(task_mode=mode, create_images_dir=False)
+            if not session_name:
+                messagebox.showerror("Nome obrigatorio", "Informe um nome para o projeto antes de iniciar.")
+                return
+            output_dir = create_new_output_dir(parent_dir, session_name, create_images_dir=False)
         elif state_mode == "resume_latest":
-            latest = latest_output_state_for_sources(self._current_project_sources())
+            latest = latest_output_state_for_sources(self._current_project_sources(), parent_dir)
             if latest is None:
                 messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
@@ -1259,12 +1370,15 @@ class StartupWizard:
             annotations_path = latest.annotations_path
             resume_existing = True
         elif state_mode == "template_latest":
-            latest = latest_output_state_for_sources(self._current_project_sources())
+            latest = latest_output_state_for_sources(self._current_project_sources(), parent_dir)
             if latest is None:
                 messagebox.showerror("Estado invalido", "Nenhum estado anterior foi encontrado para este projeto.")
                 return
             self.selected_state_path = latest.annotations_path
-            output_dir = create_new_output_dir(task_mode=mode)
+            if not session_name:
+                messagebox.showerror("Nome obrigatorio", "Informe um nome para o projeto antes de iniciar.")
+                return
+            output_dir = create_new_output_dir(parent_dir, session_name)
         elif state_mode == "manual":
             if self.selected_state_path is None:
                 messagebox.showerror("Estado invalido", "Selecione um annotations.coco.json antes de iniciar.")
@@ -1282,17 +1396,26 @@ class StartupWizard:
             if answer is None:
                 return
             resume_existing = bool(answer)
-            output_dir = self.selected_state_path.parent if resume_existing else create_new_output_dir(task_mode=mode)
+            if resume_existing:
+                output_dir = output_dir_from_annotations_path(self.selected_state_path)
+            else:
+                if not session_name:
+                    messagebox.showerror("Nome obrigatorio", "Informe um nome para o projeto antes de iniciar.")
+                    return
+                output_dir = create_new_output_dir(parent_dir, session_name)
             annotations_path = self.selected_state_path if resume_existing else None
         else:
-            output_dir = create_new_output_dir(task_mode=mode)
+            if not session_name:
+                messagebox.showerror("Nome obrigatorio", "Informe um nome para o projeto antes de iniciar.")
+                return
+            output_dir = create_new_output_dir(parent_dir, session_name)
 
         self._sync_loaded_categories_to_classes()
         category_metadata = self.loaded_state_categories
 
         try:
             if mode is AnnotationTaskMode.OBB and annotations_path is None:
-                annotations_path = output_dir / "annotations_obb.coco.json"
+                annotations_path = output_dir / "saved_data_states" / "annotations_obb.coco.json"
             self.result = AnnotationSessionConfig(
                 mode=mode,
                 data_root=data_root,
@@ -1307,5 +1430,5 @@ class StartupWizard:
         except ValueError as exc:
             messagebox.showerror("Configuracao invalida", str(exc))
             return
-        save_startup_cache(data_root=data_root, weights_paths=weights_paths, mode=mode)
+        save_startup_cache(data_root=data_root, weights_paths=weights_paths, mode=mode, parent_dir=parent_dir)
         self.root.destroy()

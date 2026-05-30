@@ -26,10 +26,13 @@ class CoreInitMixin:
         self.weights_paths = list(session_config.weights_paths)
         self.output_dir = session_config.output_dir
         self.output_images_dir = self.output_dir / "images"
-        self.annotations_path = session_config.annotations_path or (self.output_dir / "annotations.coco.json")
+        self.saved_states_dir = self.output_dir / "saved_data_states"
+        self.annotations_path = session_config.annotations_path or (
+            self.saved_states_dir / "annotations.coco.json"
+        )
         self.coco_detection_export_path = self.output_dir / "annotations_detection.coco.json"
         self.yolo_dataset_dir = self.output_dir / "yolo_dataset"
-        self.homography_path = self.output_dir / "homography.json"
+        self.homography_path = self.saved_states_dir / "homography.json"
         self.conf_threshold = session_config.confidence_threshold
         self._initial_classes = list(session_config.target_classes)
         self._initial_categories = [dict(cat) for cat in session_config.category_metadata]
@@ -41,6 +44,7 @@ class CoreInitMixin:
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.output_images_dir.mkdir(parents=True, exist_ok=True)
+        self.saved_states_dir.mkdir(parents=True, exist_ok=True)
 
         self._initialize_model_state()
         self._initialize_runtime_state()

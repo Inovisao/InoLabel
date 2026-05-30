@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
 
-from app.config import IMAGE_EXTENSIONS, OUTPUT_DATASET_PREFIX, OUTPUTS_DIR
+from app.config import IMAGE_EXTENSIONS, OUTPUT_DATASET_PREFIX
 from app.core.session import normalize_class_names
 
 STATE_FILE_NAME = "classification_state.json"
@@ -230,7 +230,7 @@ def load_required_state(path: Path) -> ClassificationState:
     return state
 
 
-def list_output_states(outputs_dir: Path = OUTPUTS_DIR) -> list[ClassificationOutputState]:
+def list_output_states(outputs_dir: Path) -> list[ClassificationOutputState]:
     """List classification output states ordered from oldest to newest."""
 
     outputs_dir = Path(outputs_dir).expanduser()
@@ -267,7 +267,7 @@ def list_output_states(outputs_dir: Path = OUTPUTS_DIR) -> list[ClassificationOu
 
 def list_output_states_for_sources(
     sources: Iterable[Path],
-    outputs_dir: Path = OUTPUTS_DIR,
+    outputs_dir: Path,
 ) -> list[ClassificationOutputState]:
     """List classification states associated with selected source paths."""
 
@@ -282,7 +282,7 @@ def list_output_states_for_sources(
 
 def latest_output_state_for_sources(
     sources: Iterable[Path],
-    outputs_dir: Path = OUTPUTS_DIR,
+    outputs_dir: Path,
 ) -> ClassificationOutputState | None:
     states = list_output_states_for_sources(sources, outputs_dir)
     if not states:

@@ -4,10 +4,11 @@ from app.annotation.shared import *
 class ReviewAnnotationsMixin:
     def rebuild_detections_from_annotations(self, image_id: int, width: int, height: int) -> List[Detection]:
         """Rebuilds Detection objects from saved COCO annotations for a given image."""
+        if self._annotation_index is None:
+            self._annotation_index = self._build_annotation_index()
+        anns = self._annotation_index.get(int(image_id), [])
         dets: List[Detection] = []
-        for ann in self.annotations:
-            if ann.get("image_id") != image_id:
-                continue
+        for ann in anns:
             x1, y1, w, h = ann.get("bbox", [0, 0, 0, 0])
             clipped = clip_bbox(x1, y1, x1 + w, y1 + h, width, height)
             dets.append(Detection(
