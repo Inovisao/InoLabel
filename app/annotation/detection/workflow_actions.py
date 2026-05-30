@@ -48,7 +48,7 @@ class WorkflowActionsMixin:
         self.load_next_frame()
 
     def on_delete_image(self):
-        """Exclui a imagem salva em revisao ou a imagem atual da sequencia."""
+        """Deletes the image currently in review, or the current image from the sequence."""
         record = self.current_review_record()
         delete_target = self.current_deletable_image_path()
         if record is None and delete_target is None:
@@ -79,7 +79,7 @@ class WorkflowActionsMixin:
             print(f"[ERRO] Falha ao deletar {target_name}: {exc}")
 
     def on_accept(self):
-        """Persistir anotacoes quando o usuario aprova o frame."""
+        """Persists annotations when the user approves the frame."""
         if self.current_frame is None:
             return
         detections_to_save = list(self.current_detections) + list(self.manual_detections)
@@ -101,30 +101,30 @@ class WorkflowActionsMixin:
         self.load_next_frame()
 
     def on_reject(self):
-        """Ignora o frame atual e avanca para o proximo."""
+        """Discards the current frame and advances to the next."""
         if self.review_idx is not None:
             self.exit_review_mode()
             return
         self.load_next_frame()
 
     def on_quit(self):
-        """Encerra o processo de anotacao."""
+        """Terminates the annotation process."""
         self.finish_processing("Processo encerrado pelo usuario.")
 
     def rotate_frame_cw(self):
-        """Rotaciona a exibição 90° no sentido horário (visual only — não afeta o save)."""
+        """Rotates the display 90° clockwise (visual only — does not affect saved data)."""
         self.frame_rotation = (getattr(self, "frame_rotation", 0) + 90) % 360
         self.update_display()
 
     def rotate_frame_ccw(self):
-        """Rotaciona a exibição 90° no sentido anti-horário (visual only — não afeta o save)."""
+        """Rotates the display 90° counter-clockwise (visual only — does not affect saved data)."""
         self.frame_rotation = (getattr(self, "frame_rotation", 0) + 270) % 360
         self.update_display()
 
-    # ===================== ANOTACOES =====================
+    # ===================== ANNOTATIONS =====================
 
     def update_manual_memory_after_accept(self, detections: List[Detection]):
-        """Atualiza memoria de tracks manuais para reaproveitar ids."""
+        """Updates the manual track memory so IDs can be reused."""
         if not self.tracking_enabled:
             return
         for det in detections:
@@ -134,7 +134,7 @@ class WorkflowActionsMixin:
 
     @staticmethod
     def clone_detection(det: Detection) -> Detection:
-        """Cria uma copia profunda de Detection."""
+        """Creates a deep copy of a Detection."""
         return Detection(
             original_bbox=det.original_bbox.copy(),
             warp_bbox=det.warp_bbox.copy() if det.warp_bbox is not None else None,

@@ -33,7 +33,7 @@ class KeybindRepository:
     # ── load / save ───────────────────────────────────────────────────────────
 
     def load(self) -> Tuple[str, Dict[str, KeybindMap]]:
-        """Retorna (profile_ativo, {nome: KeybindMap})."""
+        """Returns (active_profile, {name: KeybindMap})."""
         defaults = self.get_defaults()
         if not self._path.exists():
             return "arrows", defaults

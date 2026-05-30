@@ -1,10 +1,10 @@
-"""Registro de todas as ações remapeáveis do InoLabel.
+"""Registry of all remappable actions in InoLabel.
 
-Para adicionar uma nova ação a partir de qualquer mixin:
+To add a new action from any mixin:
 
     from app.annotation.keybinds.actions import ACTION_REGISTRY, ActionDescriptor
     ACTION_REGISTRY.append(ActionDescriptor(
-        id="my_action", label="Minha ação", group="Meu Grupo",
+        id="my_action", label="My action", group="My Group",
         handler="my_method", obb=True,
         default_arrows="m", default_wasd="m",
     ))
@@ -29,7 +29,7 @@ class ActionDescriptor:
 
 
 ACTION_REGISTRY: List[ActionDescriptor] = [
-    # ── Navegação ────────────────────────────────────────────────────────────
+    # ── Navigation ───────────────────────────────────────────────────────────
     ActionDescriptor(
         id="next_frame",
         label="Próximo frame",
@@ -48,7 +48,7 @@ ACTION_REGISTRY: List[ActionDescriptor] = [
         default_arrows="Left",
         default_wasd="a",
     ),
-    # ── Seleção ──────────────────────────────────────────────────────────────
+    # ── Selection ────────────────────────────────────────────────────────────
     ActionDescriptor(
         id="toggle_selection",
         label="Modo de seleção",
@@ -56,9 +56,9 @@ ACTION_REGISTRY: List[ActionDescriptor] = [
         handler="toggle_selection_mode",
         obb=True,
         default_arrows="s",
-        default_wasd="",  # conflito com next_frame no wasd → sem bind por padrão
+        default_wasd="",  # conflicts with next_frame in wasd → no default binding
     ),
-    # ── Fluxo ────────────────────────────────────────────────────────────────
+    # ── Flow ─────────────────────────────────────────────────────────────────
     ActionDescriptor(
         id="accept",
         label="Validar imagem",
@@ -77,7 +77,7 @@ ACTION_REGISTRY: List[ActionDescriptor] = [
         default_arrows="space",
         default_wasd="space",
     ),
-    # ── Anotação ─────────────────────────────────────────────────────────────
+    # ── Annotation ───────────────────────────────────────────────────────────
     ActionDescriptor(
         id="toggle_draw",
         label="Modo de anotação (on/off)",
@@ -102,7 +102,7 @@ ACTION_REGISTRY: List[ActionDescriptor] = [
         group="Anotação",
         handler="toggle_remove_mode",
         obb=True,
-        default_arrows="",  # sem bind padrão — atribuir via editor
+        default_arrows="",  # no default binding — assign via editor
         default_wasd="",
     ),
     ActionDescriptor(
@@ -114,7 +114,7 @@ ACTION_REGISTRY: List[ActionDescriptor] = [
         default_arrows="r",
         default_wasd="r",
     ),
-    # ── Geral ────────────────────────────────────────────────────────────────
+    # ── General ──────────────────────────────────────────────────────────────
     ActionDescriptor(
         id="undo",
         label="Desfazer",
@@ -133,7 +133,7 @@ ACTION_REGISTRY: List[ActionDescriptor] = [
         default_arrows="Control-0",
         default_wasd="Control-0",
     ),
-    # ── Imagem ───────────────────────────────────────────────────────────────
+    # ── Image ────────────────────────────────────────────────────────────────
     ActionDescriptor(
         id="rotate_cw",
         label="Rotacionar 90° horário",
@@ -152,7 +152,7 @@ ACTION_REGISTRY: List[ActionDescriptor] = [
         default_arrows="",
         default_wasd="",
     ),
-    # ── Tracking (apenas no modo tracking) ──────────────────────────────────
+    # ── Tracking (tracking mode only) ───────────────────────────────────────
     ActionDescriptor(
         id="toggle_edit_id",
         label="Editar ID de tracking",

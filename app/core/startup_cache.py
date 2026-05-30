@@ -25,7 +25,7 @@ class StartupCache:
 
     @property
     def weights_path(self) -> Optional[Path]:
-        """Primeiro modelo — mantido para compatibilidade."""
+        """First model — kept for compatibility."""
         return self.weights_paths[0] if self.weights_paths else None
 
 
@@ -47,7 +47,7 @@ def load_startup_cache(path: Path = CACHE_PATH) -> StartupCache:
         except ValueError:
             mode = None
 
-    # Suporta formato antigo (weights_path string) e novo (weights_paths lista)
+    # Supports both old format (weights_path string) and new format (weights_paths list)
     raw_paths = data.get("weights_paths") or []
     if not raw_paths and data.get("weights_path"):
         raw_paths = [data["weights_path"]]

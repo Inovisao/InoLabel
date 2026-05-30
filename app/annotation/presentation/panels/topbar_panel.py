@@ -67,7 +67,7 @@ class TopbarPanelMixin:
         )
         self.delete_image_button.pack(side=tk.LEFT)
 
-    # ── tooltip de ajuda ───────────────────────────────────────────
+    # ── help tooltip ──────────────────────────────────────────────
 
     def _attach_help_tooltip(self, widget):
         def build_help_text():

@@ -54,20 +54,41 @@ O modelo YOLO é **opcional** em todos os modos — é possível anotar inteiram
 
 ## Atalhos principais
 
+A maioria dos atalhos é **remapeável** pelo editor visual (botão **Atalhos** na barra superior). Os valores abaixo são os padrões do perfil `arrows`. As teclas `1–9` e `Esc` são fixas e não aparecem no editor.
+
 | Tecla | Ação |
 |-------|------|
 | `Enter` | Validar / salvar frame atual |
 | `Espaço` | Rejeitar / avançar frame |
+| `→` / `←` | Navegar entre frames salvos (perfil `arrows`) |
+| `D` / `A` | Navegar entre frames salvos (perfil `wasd`) |
 | `K` | Liga/desliga anotação manual |
-| `S` | Selecionar anotação existente |
-| `E` | Editar ID da anotação selecionada |
-| `H` | Liga/desliga modo mover imagem |
+| `S` | Modo de seleção de anotação |
+| `H` | Liga/desliga modo mover imagem (pan) |
 | `R` | Redefinir ROI |
+| `E` | Editar ID de tracking (apenas modo tracking) |
 | `Ctrl+Z` | Desfazer última ação |
-| `1–9` | Trocar classe ativa |
-| `Scroll` | Zoom no cursor |
 | `Ctrl+0` | Ajustar imagem na tela |
+| `1–9` | Trocar classe ativa |
+| `Scroll` | Zoom centrado no cursor |
 | `Esc` | Sair |
+
+### Editor de atalhos
+
+Clique no botão **Atalhos: arrows** (topbar) para abrir o editor visual. Nele é possível:
+
+- Remapear qualquer ação clicando no botão da tecla e pressionando a nova tecla
+- Criar perfis personalizados ou alternar entre `arrows` e `wasd`
+- Restaurar os padrões de fábrica por perfil
+- Detectar conflitos em tempo real (aviso laranja, não bloqueante)
+
+O perfil ativo é salvo em `.local/keybinds.json` e restaurado automaticamente na próxima sessão.
+
+---
+
+## Rotação visual da imagem
+
+Os botões **↺ Girar** e **Girar ↻** na barra lateral rotacionam a exibição em 90° sem alterar a imagem salva nem as coordenadas das bounding boxes. A rotação é desfeita automaticamente ao avançar para o próximo frame. Atalhos de teclado podem ser atribuídos via editor de atalhos (grupo **Imagem**).
 
 ---
 
@@ -80,10 +101,26 @@ O modelo YOLO é **opcional** em todos os modos — é possível anotar inteiram
 
 ---
 
+## Exportação de dataset
+
+Clique em **Exportar dataset** na barra lateral para abrir a tela de exportação. As opções disponíveis são:
+
+| Opção | Descrição |
+|-------|-----------|
+| **Destino / Nome da pasta** | Caminho e nome da pasta de saída |
+| **YOLO** | Exporta imagens + labels `.txt` e `data.yaml` |
+| **COCO (.json)** | Exporta `annotations.coco.json` + pasta `images/` com as imagens |
+| **Split train/val/test** | Divide as imagens em proporções configuráveis |
+| **Data augmentation** | Gera cópias aumentadas por imagem (flip, brilho, ruído, etc.) |
+
+A exportação roda em **background** — a interface permanece responsiva. Uma barra de progresso exibe o avanço imagem por imagem; ao concluir, ela some automaticamente.
+
+---
+
 ## Saídas geradas
 
 ```
-outputs/<tarefa>_<data>/
+outputs/<tarefa>_<DD.MM.HH:MM>/
 ├── images/                         # frames salvos (originais ou retificados)
 ├── annotations.coco.json           # COCO com track_id (tracking) ou bbox simples
 ├── annotations_obb.coco.json       # COCO OBB (modo OBB)
@@ -92,6 +129,15 @@ outputs/<tarefa>_<data>/
 │   ├── data.yaml
 │   └── images/ labels/ {train,val,test}/
 └── homography.json                 # homografias por fonte (tracking/detecção)
+```
+
+Exportação manual via botão cria uma pasta separada (nunca sobrescreve `outputs/`):
+
+```
+<destino>/<nome>/
+├── annotations.coco.json    # formato COCO
+├── images/                  # imagens (cópia)
+└── (ou estrutura YOLO acima)
 ```
 
 ---
@@ -142,6 +188,7 @@ Os caminhos de dataset, modelo e saída são configurados no wizard — os valor
 | Tkinter ausente no Linux | `sudo apt-get install python3-tk` |
 | `lap`/`cython_bbox` falhando | Instale `build-essential python3-dev cmake` e tente novamente |
 | Logo não aparece na tela inicial | Verifique se `assets/inovisao.png` existe e se `Pillow` está instalado |
+| Atalhos não respondem após remapear | Verifique conflitos no editor de atalhos (aviso laranja) |
 
 ---
 

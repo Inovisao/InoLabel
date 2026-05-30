@@ -1,4 +1,4 @@
-"""Re-exporta ClassConfigMixin composto a partir de serviço + widget."""
+"""Re-exports ClassConfigMixin composed from service + widget."""
 
 from tkinter import messagebox
 
@@ -7,5 +7,5 @@ from app.annotation.presentation.widgets.class_panel_widget import ClassPanelWid
 
 
 class ClassConfigMixin(ClassServiceMixin, ClassPanelWidgetMixin):
-    """Composição de lógica de categorias e widget de painel de classes."""
+    """Composition of category logic and the class panel widget."""
     pass

@@ -3,7 +3,7 @@ from app.annotation.shared import *
 
 class ROIStateMixin:
     def reset_roi(self):
-        """Ativa/desativa captura de ROI e redefine a homografia atual."""
+        """Activates/deactivates ROI capture and resets the current homography."""
         if self.frames_saved_in_current_video > 0:
             print(
                 "[AVISO] ROI redefinido mesmo com frames salvos; anotacoes ja salvas nao serao alteradas."
@@ -40,7 +40,7 @@ class ROIStateMixin:
         self.update_display(refresh_status=True)
 
     def add_roi_point(self, x: int, y: int):
-        """Registra ponto clicado para ROI."""
+        """Registers a clicked point for the ROI."""
         if len(self.roi_points) >= 4:
             return
         if self.current_frame is not None:
@@ -57,7 +57,7 @@ class ROIStateMixin:
         self.update_display(refresh_status=True)
 
     def compute_homography(self):
-        """Calcula homografia a partir dos 4 pontos clicados."""
+        """Computes the homography from the 4 clicked points."""
         if len(self.roi_points) != 4:
             return
         src = order_points(np.array(self.roi_points, dtype=np.float32))
@@ -107,7 +107,7 @@ class ROIStateMixin:
             self.process_current_frame(self.current_frame, advance_index=False)
 
     def save_homography_file(self):
-        """Persiste homografia em disco (lista para multiplos videos)."""
+        """Persists the homography to disk (list to support multiple videos)."""
         if self.homography_matrix is None or self.inverse_homography is None or self.dest_points is None:
             return
         if self.video_path is None:

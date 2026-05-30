@@ -1,4 +1,4 @@
-"""Preview modal de uma operacao de data augmentation."""
+"""Modal preview for a data augmentation operation."""
 
 from __future__ import annotations
 
@@ -114,10 +114,16 @@ def open_augmentation_preview_dialog(
             present,
             Path(file_name).with_suffix(".txt").name,
         )
+        # Force prob=1.0 so the preview always shows the effect regardless of the
+        # configured probability. blur needs a minimum kernel to be visible.
+        preview_params = dict(params)
+        preview_params["prob"] = 1.0
+        if aug_key == "blur":
+            preview_params["max_kernel"] = max(int(preview_params.get("max_kernel", 3)), 5)
         preset = AugmentationPreset(
             enabled=True,
             copies_per_image=1,
-            entries=[AugEntry(key=aug_key, enabled=True, params=dict(params))],
+            entries=[AugEntry(key=aug_key, enabled=True, params=preview_params)],
         )
         augmented = apply_preset(frame, boxes, preset)
         aug_frame, aug_boxes = augmented[0] if augmented else (frame.copy(), boxes)

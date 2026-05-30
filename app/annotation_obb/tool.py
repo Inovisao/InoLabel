@@ -1,4 +1,4 @@
-"""Composicao da ferramenta de anotacao OBB."""
+"""Composition of the OBB annotation tool."""
 
 from app.annotation.state.core_init import CoreInitMixin
 from app.annotation.core.services.class_service import ClassServiceMixin
@@ -63,5 +63,5 @@ class OBBAnnotationTool(
     OBBMouseEventsMixin,
     OBBModeTogglesMixin,
 ):
-    """Ferramenta OBB isolada do fluxo HBB/tracking."""
+    """OBB tool isolated from the HBB/tracking flow."""
     pass

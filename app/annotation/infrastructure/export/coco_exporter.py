@@ -1,4 +1,4 @@
-"""Exportador COCO de deteccao."""
+"""COCO detection exporter."""
 
 from __future__ import annotations
 
@@ -6,7 +6,16 @@ import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set
+
+
+def _flat_name(file_name: str) -> str:
+    """Flattens a relative path to a single filename by replacing separators with '_'."""
+    parts = Path(file_name).parts
+    if len(parts) == 1:
+        return parts[0]
+    stem = "_".join(parts[:-1]) + "_" + Path(parts[-1]).stem
+    return stem + Path(parts[-1]).suffix
 
 
 def normalize_categories(categories: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -83,6 +92,7 @@ def export_detection_coco_json(
     output_path: Path,
     only_annotated_images: bool = False,
     source_images_dir: Optional[Path] = None,
+    on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> Dict[str, Any]:
     converted = convert_tracking_to_detection(payload, only_annotated_images=only_annotated_images)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -90,17 +100,19 @@ def export_detection_coco_json(
         json.dump(converted, f, indent=2, ensure_ascii=False)
 
     if source_images_dir is not None:
+        imgs = converted.get("images", [])
+        total = len(imgs)
         images_dest = output_path.parent / "images"
         images_dest.mkdir(parents=True, exist_ok=True)
-        for img in converted.get("images", []):
+        for done, img in enumerate(imgs, 1):
             file_name = str(img.get("file_name", "")).strip()
             if not file_name:
                 continue
             src = source_images_dir / file_name
             if not src.exists():
                 continue
-            dst = images_dest / Path(file_name).name
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
+            shutil.copy2(src, images_dest / _flat_name(file_name))
+            if on_progress:
+                on_progress(done, total)
 
     return converted
