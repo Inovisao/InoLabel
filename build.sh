@@ -219,21 +219,41 @@ _install_miniconda() {
 
 # Localizar conda (pode estar em paths nao-padrao)
 CONDA_CMD=""
-for candidate in \
-    "$(command -v conda 2>/dev/null)" \
-    "$HOME/miniconda3/bin/conda" \
-    "$HOME/anaconda3/bin/conda" \
-    "/opt/conda/bin/conda"; do
-    if [[ -x "$candidate" ]]; then
-        CONDA_CMD="$candidate"
-        break
-    fi
-done
 
-if [[ -z "$CONDA_CMD" ]]; then
+_find_conda_command() {
+    local candidate
+    for candidate in \
+        "${CONDA_EXE:-}" \
+        "$(command -v conda 2>/dev/null || true)" \
+        "$(command -v conda.exe 2>/dev/null || true)" \
+        "$HOME/miniconda3/bin/conda" \
+        "$HOME/miniconda3/Scripts/conda.exe" \
+        "$HOME/miniconda3/condabin/conda.bat" \
+        "$HOME/Miniconda3/bin/conda" \
+        "$HOME/Miniconda3/Scripts/conda.exe" \
+        "$HOME/Miniconda3/condabin/conda.bat" \
+        "$HOME/anaconda3/bin/conda" \
+        "$HOME/anaconda3/Scripts/conda.exe" \
+        "$HOME/anaconda3/condabin/conda.bat" \
+        "$HOME/Anaconda3/bin/conda" \
+        "$HOME/Anaconda3/Scripts/conda.exe" \
+        "$HOME/Anaconda3/condabin/conda.bat" \
+        "/opt/conda/bin/conda"; do
+        [[ -n "$candidate" ]] || continue
+        if [[ -x "$candidate" ]]; then
+            CONDA_CMD="$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if ! _find_conda_command; then
     warn "Conda nao encontrado. Instalando Miniconda automaticamente..."
     _install_miniconda
-    CONDA_CMD="$HOME/miniconda3/bin/conda"
+    if ! _find_conda_command; then
+        fail "Miniconda foi instalado, mas o comando 'conda' ainda nao foi localizado. Verifique a instalacao em $HOME/miniconda3 ou use CONDA_EXE para informar o caminho."
+    fi
 fi
 
 # Garantir que conda esta disponivel no PATH desta sessao
@@ -242,14 +262,43 @@ CONDA_BASE=$("$CONDA_CMD" info --base 2>/dev/null)
 source "$CONDA_BASE/etc/profile.d/conda.sh" 2>/dev/null || true
 ok "Conda: $("$CONDA_CMD" --version)"
 
+_accept_conda_tos() {
+    local channel
+    local channels=(
+        "https://repo.anaconda.com/pkgs/main"
+        "https://repo.anaconda.com/pkgs/r"
+        "https://repo.anaconda.com/pkgs/msys2"
+    )
+
+    "$CONDA_CMD" tos --help >/dev/null 2>&1 || return 0
+
+    for channel in "${channels[@]}"; do
+        "$CONDA_CMD" tos accept --override-channels --channel "$channel" >/dev/null 2>&1 || \
+            warn "Nao foi possivel aceitar os termos do canal: $channel"
+    done
+}
+
+_accept_conda_tos
+
 # ── Ambiente conda: criar se ausente ─────────────────────────────────────────
 if "$CONDA_CMD" env list | grep -qE "^${CONDA_ENV_NAME}\s"; then
     ok "Ambiente conda '$CONDA_ENV_NAME' encontrado."
 else
     info "Ambiente conda '$CONDA_ENV_NAME' nao encontrado. Criando com Python 3.9..."
-    "$CONDA_CMD" create -n "$CONDA_ENV_NAME" python=3.9 -y 2>&1 | \
-        grep -E "^(Collecting|Downloading|Installing|Successfully|Preparing|Executing)" | \
-        while IFS= read -r line; do echo "  $line"; done
+    # Em Windows o 'conda' pode ser um .exe/.bat que apresenta comportamento
+    # diferente quando seu stdout/err e redirecionados/pipados. Para evitar que
+    # o processo trave esperando por um TTY ou produza progress bars que bloqueiam
+    # o pipeline, executamos sem o pipe/grep no Windows.
+    if [[ "$TARGET_OS" == "windows" ]] || [[ "$CONDA_CMD" == *.exe ]] || [[ "$CONDA_CMD" == *.bat ]]; then
+        "$CONDA_CMD" create -n "$CONDA_ENV_NAME" python=3.9 -y
+    else
+        "$CONDA_CMD" create -n "$CONDA_ENV_NAME" python=3.9 -y 2>&1 | \
+            grep -E "^(Collecting|Downloading|Installing|Successfully|Preparing|Executing)" | \
+            while IFS= read -r line; do echo "  $line"; done
+    fi
+    if [[ $? -ne 0 ]]; then
+        fail "Falha ao criar o ambiente conda '$CONDA_ENV_NAME'. Veja a saida acima para detalhes."
+    fi
     ok "Ambiente '$CONDA_ENV_NAME' criado com Python 3.9."
 fi
 
