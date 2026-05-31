@@ -23,21 +23,25 @@ def _center_geometry(root: tk.Tk) -> None:
 
 def _load_logo(canvas: tk.Canvas, logo_path: Path) -> int:
     """Render logo blended onto the splash background; return bottom-y (or 0 on failure)."""
+    from PIL import Image, ImageTk  # pylint: disable=import-outside-toplevel
     try:
-        from PIL import Image, ImageTk  # pylint: disable=import-outside-toplevel
         img = Image.open(logo_path).convert("RGBA")
-        img.thumbnail((200, 90), Image.LANCZOS)
-
-        # Blend transparent pixels onto the white panel background
-        bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
-        bg.paste(img, mask=img.split()[3])
-
-        photo = ImageTk.PhotoImage(bg.convert("RGB"))
-        canvas._logo_photo = photo
-        item = canvas.create_image(_WIDTH // 2, 56, image=photo, anchor=tk.CENTER)
-        return canvas.bbox(item)[3] + 8
-    except Exception:  # pylint: disable=broad-except
-        return 0
+    except Exception:
+        try:
+            from app.config import BASE_DIR
+            alt_logo = BASE_DIR / "assets" / "inovisao.png"
+            img = Image.open(alt_logo).convert("RGBA")
+        except Exception:
+            print(f"[WARN] Logo não encontrada em {logo_path} nem em {alt_logo if 'alt_logo' in locals() else 'N/A'}")
+            return 0
+    img.thumbnail((200, 90), Image.LANCZOS)
+    # Blend transparent pixels onto the white panel background
+    bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+    bg.paste(img, mask=img.split()[3])
+    photo = ImageTk.PhotoImage(bg.convert("RGB"))
+    canvas._logo_photo = photo
+    item = canvas.create_image(_WIDTH // 2, 56, image=photo, anchor=tk.CENTER)
+    return canvas.bbox(item)[3] + 8
 
 
 def show_splash() -> None:

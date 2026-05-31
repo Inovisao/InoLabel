@@ -86,7 +86,8 @@ class StartupWizard:
         self.output_states: list[OutputState] = []
         # Project location: parent dir + session name chosen by user
         cached_parent = self.cache.parent_dir
-        default_parent = str(cached_parent) if cached_parent and cached_parent.exists() else str(Path.home())
+        from app.config import _EXE_DIR
+        default_parent = str(cached_parent) if cached_parent and cached_parent.exists() else str(_EXE_DIR)
         self.parent_dir_var = tk.StringVar(value=default_parent)
         self.session_name_var = tk.StringVar(value="")
 
@@ -460,9 +461,10 @@ class StartupWizard:
 
     def browse_dataset_folder(self):
         initial = Path(self.data_root_var.get()).expanduser() if self.data_root_var.get().strip() else Path.home()
+        from app.config import _EXE_DIR
         path = filedialog.askdirectory(
             title="Selecione a pasta com imagens ou videos",
-            initialdir=str(initial if initial.exists() else Path.home()),
+            initialdir=str(initial if initial.exists() else _EXE_DIR),
             parent=self.root,
         )
         if path:
@@ -472,9 +474,10 @@ class StartupWizard:
 
     def browse_dataset_file(self):
         initial = Path(self.data_root_var.get()).expanduser() if self.data_root_var.get().strip() else Path.home()
+        from app.config import _EXE_DIR
         path = filedialog.askopenfilename(
             title="Selecione uma imagem, video ou lista",
-            initialdir=str(initial.parent if initial.parent.exists() else Path.home()),
+            initialdir=str(initial.parent if initial.parent.exists() else _EXE_DIR),
             filetypes=[
                 ("Fontes suportadas", "*.mp4 *.avi *.mov *.mkv *.jpg *.jpeg *.png *.bmp *.tif *.tiff *.txt *.lst"),
                 ("Todos os arquivos", "*.*"),
