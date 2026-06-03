@@ -3,8 +3,7 @@ opencv-python
 Pillow
 numpy
 scipy
-lap
-cython-bbox
+lapx
 fastapi
 uvicorn[standard]
 python-multipart

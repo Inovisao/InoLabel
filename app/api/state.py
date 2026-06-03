@@ -49,7 +49,7 @@ def get_session(session_id: str) -> Optional[SessionState]:
 
 
 def remove_session(session_id: str) -> Optional[SessionState]:
-    session = _sessions.get(session_id)
+    session = _sessions.pop(session_id, None)
     if session is not None:
         session.status = "done"
     return session
