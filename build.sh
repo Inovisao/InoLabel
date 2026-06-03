@@ -465,6 +465,9 @@ done
 STRIP_ARG=()
 [[ "$TARGET_OS" == "linux" ]] && STRIP_ARG=("--strip")
 
+# Coexistence decision: keep PyInstaller focused on the native Tkinter desktop
+# app. The React WebUI remains a separate frontend/dist served by api_server.py,
+# so this build intentionally does not bundle frontend/dist.
 $PYTHON -m PyInstaller \
     --log-level INFO \
     --noconfirm \

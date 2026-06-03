@@ -1,0 +1,156 @@
+from __future__ import annotations
+
+from enum import Enum
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class TaskMode(str, Enum):
+    TRACKING = "tracking"
+    DETECTION = "detection"
+    OBB = "obb"
+    CLASSIFICATION = "classification"
+
+
+class ModeInfo(BaseModel):
+    id: TaskMode
+    label: str
+    description: str
+    icon: str
+
+
+class PathValidationRequest(BaseModel):
+    path: str
+
+
+class OutputsRequest(BaseModel):
+    output_path: str
+
+
+class SessionStartRequest(BaseModel):
+    mode: TaskMode
+    data_path: Optional[str] = None
+    output_path: Optional[str] = None
+    model_path: Optional[str] = None
+    resume: bool = False
+    classes: List[str]
+    data_root: Optional[str] = None
+    output_dir: Optional[str] = None
+    weights_paths: List[str] = Field(default_factory=list)
+    confidence_threshold: float = 0.4
+    resume_existing: bool = False
+
+    @model_validator(mode="after")
+    def normalize_legacy_frontend_names(self) -> "SessionStartRequest":
+        if self.data_path is None and self.data_root is not None:
+            self.data_path = self.data_root
+        if self.output_path is None and self.output_dir is not None:
+            self.output_path = self.output_dir
+        if self.model_path is None and self.weights_paths:
+            self.model_path = self.weights_paths[0]
+        self.resume = self.resume or self.resume_existing
+        return self
+
+    @field_validator("classes")
+    @classmethod
+    def classes_not_empty(cls, value: List[str]) -> List[str]:
+        cleaned = [item.strip() for item in value if item.strip()]
+        if not cleaned:
+            raise ValueError("Informe ao menos uma classe.")
+        return cleaned
+
+
+class SessionStartResponse(BaseModel):
+    session_id: str
+    total_frames: int
+    current_frame: int
+    active: bool = True
+    mode: Optional[TaskMode] = None
+    current_index: int = 0
+    classes: List[str] = []
+    autosaved: bool = False
+
+
+class SessionStatusResponse(BaseModel):
+    session_id: str
+    current_frame: int
+    total_frames: int
+    saved_frames: int
+    status: str
+
+
+class SessionActionRequest(BaseModel):
+    action: str
+
+
+class SessionActionResponse(BaseModel):
+    current_frame: int
+    annotation_count: int
+
+
+class SessionStopResponse(BaseModel):
+    saved_frames: int
+    output_path: str
+
+
+class SplitConfig(BaseModel):
+    train: float = 0.7
+    val: float = 0.2
+    test: float = 0.1
+
+
+class ExportRequest(BaseModel):
+    session_id: str
+    destination: str
+    name: str
+    formats: List[str]
+    split: SplitConfig = Field(default_factory=SplitConfig)
+    augmentation: bool = False
+
+
+class ExportStartResponse(BaseModel):
+    export_id: str
+
+
+class ExportProgressResponse(BaseModel):
+    export_id: str
+    progress: float
+    current_file: str
+    status: str
+
+
+class KeybindProfile(BaseModel):
+    profile: str
+    binds: Dict[str, str]
+
+
+class Annotation(BaseModel):
+    id: int
+    image_id: int
+    category_id: int
+    bbox: List[float]
+    track_id: Optional[int] = None
+    source: str = "manual"
+
+
+class FrameResponse(BaseModel):
+    index: int
+    total: int
+    image_b64: str
+    filename: str
+    annotations: List[Annotation] = []
+    is_saved: bool = False
+
+
+class ClassItem(BaseModel):
+    id: int
+    name: str
+    color: Optional[str] = None
+
+
+class AnnotationUpsert(BaseModel):
+    category_id: int
+    bbox: List[float]
+    track_id: Optional[int] = None
+    source: str = "manual"

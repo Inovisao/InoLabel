@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-01T00:00:00Z",
+  "title": "Design System: InoLabel",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Action Blue", "canonical": "#1560BD" },
+      "accent": { "role": "accent", "displayName": "Accent Orange", "canonical": "#F07820" },
+      "canvas_bg": { "role": "canvas", "displayName": "Canvas Dark", "canonical": "#16130f" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Dialog and major titles" },
+      "body": { "displayName": "Body", "purpose": "Primary UI copy" }
+    },
+    "roundedMeta": {
+      "sm": "6px",
+      "md": "8px"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action button used across toolbars and dialogs.",
+      "html": "<button class=\"ds-btn-primary\">Primary</button>",
+      "css": ".ds-btn-primary { background: #1560BD; color: #FFFFFF; padding: 10px 14px; border: none; border-radius: 6px; font-family: Helvetica, Arial, sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; transition: background 200ms cubic-bezier(0.2,0,0,1), transform 150ms; } .ds-btn-primary:hover { background: #0D47A1; transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: 3px solid rgba(21,96,189,0.12); outline-offset: 2px; } @media (prefers-reduced-motion: reduce){ .ds-btn-primary{ transition: none; transform: none; } }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary/ghost button used in toolbars and inline actions.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: #152040; padding: 10px 14px; border: 1px solid #C2D0E8; border-radius: 6px; font-family: Helvetica, Arial, sans-serif; font-size: 12px; cursor: pointer; } .ds-btn-ghost:hover { background: #EEF3FB; } .ds-btn-ghost:focus-visible { outline: 3px solid rgba(21,96,189,0.06); outline-offset: 2px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Text input with clear focus state and accessible labels.",
+      "html": "<label class=\"ds-field\"><input class=\"ds-input\" placeholder=\"Search\"></label>",
+      "css": ".ds-field { display: inline-block; } .ds-input { background: #F8FBFF; border: 1px solid #C2D0E8; padding: 8px; border-radius: 6px; font-family: Helvetica, Arial, sans-serif; font-size: 12px; color: #152040; } .ds-input:focus-visible { border-color: #1560BD; box-shadow: 0 0 0 4px rgba(21,96,189,0.08); outline: none; } .ds-input:disabled { background: #F0F4FA; color: #B8C8DC; }",
+      "htmlPreview": "<input class=\"ds-input\" value=\"Sample\">"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Container for grouped information and controls.",
+      "html": "<div class=\"ds-card\"><h3>Title</h3><p>Supporting text</p></div>",
+      "css": ".ds-card { background: #FFFFFF; border: 1px solid #EEF3FB; border-radius: 8px; padding: 16px; font-family: Helvetica, Arial, sans-serif; color: #152040; } .ds-card h3{ margin:0 0 8px 0; font-size:15px; font-weight:700; }"
+    },
+    {
+      "name": "Sidebar",
+      "kind": "custom",
+      "refersTo": "sidebar",
+      "description": "Primary navigation and tools container.",
+      "html": "<aside class=\"ds-sidebar\">Sidebar</aside>",
+      "css": ".ds-sidebar { width: 320px; background: #FFFFFF; border-right: 1px solid #DDE5F0; padding: 12px; box-sizing: border-box; }"
+    },
+    {
+      "name": "Canvas Overlay (BBox)",
+      "kind": "custom",
+      "refersTo": "canvas-overlay",
+      "description": "SVG overlay pattern for bounding boxes and labels on the canvas.",
+      "html": "<svg class=\"ds-overlay\" viewBox=\"0 0 800 600\" width=\"800\" height=\"600\"><rect x=\"100\" y=\"80\" width=\"240\" height=\"160\" class=\"ds-bbox\"></rect><text x=\"104\" y=\"76\" class=\"ds-label\">person</text></svg>",
+      "css": ".ds-overlay { pointer-events: none; } .ds-bbox { fill: none; stroke: #F07820; stroke-width: 2px; shape-rendering: crispEdges; } .ds-label { font-family: Helvetica, Arial, sans-serif; font-size: 12px; fill: #FFFFFF; background: rgba(21,96,189,0.9); }"
+    },
+    {
+      "name": "Toast (Success)",
+      "kind": "notification",
+      "refersTo": "toast-success",
+      "description": "Transient success toast used for brief confirmations (export complete, saved).",
+      "html": "<div class=\"ds-toast ds-toast-success\"><span class=\"ds-toast-icon\">✓</span><div class=\"ds-toast-body\">Export complete</div></div>",
+      "css": ".ds-toast { display:flex; gap:8px; align-items:center; padding:10px 14px; border-radius:6px; background:#E8F7EF; color:#0B6B3A; box-shadow: 0 6px 18px rgba(0,0,0,0.08); font-family: Helvetica, Arial, sans-serif; } .ds-toast-success { background: #E8F7EF; color: #0B6B3A; }"
+    },
+    {
+      "name": "Toast (Error)",
+      "kind": "notification",
+      "refersTo": "toast-error",
+      "description": "Transient error toast for actionable failures.",
+      "html": "<div class=\"ds-toast ds-toast-error\"><span class=\"ds-toast-icon\">!</span><div class=\"ds-toast-body\">Export failed</div></div>",
+      "css": ".ds-toast-error { background:#FBEAEA; color:#7A1212; }"
+    },
+    {
+      "name": "Modal / Dialog",
+      "kind": "modal",
+      "refersTo": "modal",
+      "description": "Centered dialog for confirmations and workflows.",
+      "html": "<div class=\"ds-modal-backdrop\"><div class=\"ds-modal\"><h2>Confirm export</h2><p>Exporting will write files to disk.</p><div class=\"ds-modal-actions\"><button class=\"ds-btn-primary\">Export</button><button class=\"ds-btn-ghost\">Cancel</button></div></div></div>",
+      "css": ".ds-modal-backdrop { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.35); } .ds-modal { width: 560px; background:#FFFFFF; border-radius:8px; padding:20px; box-shadow: 0 24px 48px rgba(0,0,0,0.2); } .ds-modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }"
+    },
+    {
+      "name": "Tooltip",
+      "kind": "tooltip",
+      "refersTo": "tooltip",
+      "description": "Small contextual helper used on hover/focus for controls.",
+      "html": "<div class=\"ds-tooltip\">Open dataset</div>",
+      "css": ".ds-tooltip { background: #152040; color: #FFFFFF; padding:6px 8px; border-radius:6px; font-size:11px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); }"
+    },
+    {
+      "name": "Badge / Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Compact badge for class labels and quick filters.",
+      "html": "<span class=\"ds-chip\">person</span>",
+      "css": ".ds-chip { display:inline-block; background:#EEF3FB; color:#1560BD; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; }"
+    },
+    {
+      "name": "Toggle / Switch",
+      "kind": "control",
+      "refersTo": "toggle",
+      "description": "Small on/off toggle used in settings panels.",
+      "html": "<button class=\"ds-toggle\" aria-pressed=\"false\"><span class=\"ds-toggle-knob\"></span></button>",
+      "css": ".ds-toggle { width:44px; height:24px; background:#DDE5F0; border-radius:999px; border:none; position:relative; cursor:pointer; } .ds-toggle .ds-toggle-knob { position:absolute; left:3px; top:3px; width:18px; height:18px; background:#FFFFFF; border-radius:50%; transition:left 150ms; } .ds-toggle[aria-pressed=\"true\"] { background:#1560BD; } .ds-toggle[aria-pressed=\"true\"] .ds-toggle-knob { left:23px; }"
+    },
+    {
+      "name": "Dropdown / Menu",
+      "kind": "menu",
+      "refersTo": "dropdown",
+      "description": "Compact dropdown menu used for context actions.",
+      "html": "<div class=\"ds-dropdown\"><button class=\"ds-btn-ghost\">More</button><div class=\"ds-menu\"><button class=\"ds-menu-item\">Export</button><button class=\"ds-menu-item\">Delete</button></div></div>",
+      "css": ".ds-menu { display:none; position:absolute; background:#FFFFFF; border:1px solid #C2D0E8; border-radius:6px; padding:6px; box-shadow: 0 12px 36px rgba(0,0,0,0.12); } .ds-dropdown:hover .ds-menu { display:block; } .ds-menu-item { display:block; padding:8px 12px; border-radius:4px; background:transparent; border:none; text-align:left; width:100%; } .ds-menu-item:hover { background:#EEF3FB; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Lab Notebook",
+    "overview": "Research-focused, practical, and legible UI that puts imagery first.",
+    "keyCharacteristics": ["Friendly and practical", "Research-focused", "Legible and precise"],
+    "rules": [ { "name": "The One-Voice Rule", "body": "Primary blue is the single dominant accent.", "section": "colors" } ],
+    "dos": ["Use primary for primary actions", "Respect reduced-motion"],
+    "donts": ["No side-stripe borders", "No gradient text"]
+  }
+}

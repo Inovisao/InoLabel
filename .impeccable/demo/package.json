@@ -1,0 +1,11 @@
+{
+  "name": "inolabel-demo-tests",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/accessibility.test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.37.0"
+  }
+}
