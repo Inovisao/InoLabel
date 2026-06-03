@@ -1,0 +1,141 @@
+================================================================================
+  InoLabel — Instruções de Uso
+================================================================================
+
+ANTES DE COMEÇAR
+----------------
+O executável está dentro da pasta gerada pelo build:
+
+  Windows:
+    dist\InoLabel-windows\InoLabel\InoLabel.exe
+
+  Linux:
+    dist/InoLabel-linux/InoLabel/InoLabel
+
+
+ESTRUTURA DE ARQUIVOS NECESSÁRIA
+---------------------------------
+Coloque os seguintes arquivos NA MESMA PASTA que o executável:
+
+  InoLabel.exe  (ou InoLabel no Linux)
+  model.pt          ← modelo YOLO treinado (necessário para detecção automática)
+  dataset/          ← pasta com suas imagens ou vídeos
+
+  Exemplo:
+    dist\InoLabel-windows\InoLabel\
+    ├── InoLabel.exe
+    ├── model.pt
+    └── dataset\
+        ├── imagem1.jpg
+        ├── imagem2.png
+        └── video.mp4
+
+Formatos de imagem aceitos : .jpg  .jpeg  .png  .bmp  .tif  .tiff
+Formatos de vídeo aceitos   : .mp4  .avi  .mov  .mkv
+
+Nota: o model.pt é opcional. Sem ele, você ainda pode fazer anotação manual,
+      mas a detecção automática YOLO não estará disponível.
+
+
+COMO RODAR — WINDOWS
+---------------------
+Opção 1 (mais simples):
+  Dê duplo clique em InoLabel.exe
+
+Opção 2 (pelo terminal — recomendado para ver mensagens de erro):
+  1. Abra o Prompt de Comando (cmd) ou PowerShell
+  2. Navegue até a pasta do executável:
+       cd dist\InoLabel-windows\InoLabel
+  3. Execute:
+       .\InoLabel.exe
+
+O navegador padrão abrirá automaticamente em:
+  http://127.0.0.1:8765
+
+Se o navegador não abrir, acesse esse endereço manualmente.
+
+
+COMO RODAR — LINUX
+------------------
+1. Abra um terminal
+2. Navegue até a pasta do executável:
+     cd dist/InoLabel-linux/InoLabel
+3. Execute:
+     ./InoLabel
+
+O navegador padrão abrirá automaticamente em:
+  http://127.0.0.1:8765
+
+Se o navegador não abrir, acesse esse endereço manualmente.
+
+Nota: se receber "Permission denied", conceda permissão de execução:
+  chmod +x InoLabel
+
+
+COMO PARAR O PROGRAMA
+---------------------
+Windows:
+  - Feche o terminal/janela onde o InoLabel está rodando, OU
+  - Pressione Ctrl+C no terminal
+
+Linux:
+  - Pressione Ctrl+C no terminal
+
+
+ONDE FICAM AS ANOTAÇÕES GERADAS
+--------------------------------
+As anotações e resultados são salvos na pasta:
+
+  Windows:  dist\InoLabel-windows\InoLabel\_internal\outputs\
+  Linux:    dist/InoLabel-linux/InoLabel/_internal/outputs/
+
+Para salvar em outro lugar, defina a variável de ambiente antes de rodar:
+
+  Windows (PowerShell):
+    $env:INOLABEL_OUTPUT_BASE = "C:\meus_dados\saidas"
+    .\InoLabel.exe
+
+  Linux (terminal):
+    INOLABEL_OUTPUT_BASE=/home/usuario/saidas ./InoLabel
+
+
+CONFIGURAÇÕES AVANÇADAS (variáveis de ambiente)
+------------------------------------------------
+  INOLABEL_OUTPUT_BASE   — pasta onde as anotações serão salvas
+  INOLABEL_LOCAL_DIR     — pasta para configurações e atalhos de teclado
+  CONF_THRESHOLD         — limiar de confiança para detecção (padrão: 0.40)
+  MANUAL_IOU_THRESHOLD   — limiar de IoU para anotação manual (padrão: 0.30)
+  INOLABEL_ENV           — defina como "development" para modo de desenvolvimento
+
+
+RESOLUÇÃO DE PROBLEMAS
+-----------------------
+Problema: "A porta 8765 já está em uso"
+  Solução: Feche outra instância do InoLabel que possa estar rodando em segundo
+           plano. No Windows, use o Gerenciador de Tarefas para encerrar
+           processos "InoLabel". No Linux: kill $(lsof -t -i:8765)
+
+Problema: O navegador abre mas a tela fica em branco
+  Solução: Aguarde alguns segundos e recarregue a página (F5). O servidor pode
+           levar alguns instantes para inicializar completamente.
+
+Problema: "model.pt not found" ou detecção automática não funciona
+  Solução: Coloque o arquivo model.pt na mesma pasta que o InoLabel.exe.
+
+Problema: Erro ao iniciar sessão / dataset não encontrado
+  Solução: Certifique-se de que a pasta dataset/ existe e contém imagens ou
+           vídeos nos formatos aceitos.
+
+Problema: No Linux, erro relacionado a libGL ou libgthread
+  Solução: Instale as dependências do sistema:
+           sudo apt-get install libgl1 libglib2.0-0
+
+Problema: O executável não abre (Windows — "Windows protegeu seu computador")
+  Solução: Clique em "Mais informações" e depois em "Executar assim mesmo".
+           O aviso aparece porque o executável não tem assinatura digital.
+
+
+================================================================================
+  Dúvidas ou problemas: abra uma issue em
+  https://github.com/Inovisao/InoLabel/issues
+================================================================================
