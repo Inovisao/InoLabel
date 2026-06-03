@@ -1,149 +1,168 @@
 ================================================================================
-  InoLabel — Instruções de Uso
+  InoLabel - Instrucoes de Uso (Passo a Passo)
 ================================================================================
 
-ANTES DE COMEÇAR
-----------------
-O executável é gerado pelo build e fica dentro de uma pasta com todos os
-arquivos necessários para rodar:
-
-  Windows:   dist\InoLabel-windows\InoLabel\InoLabel.exe
-  Linux:     dist/InoLabel-linux/InoLabel/InoLabel
-
-
-ESTRUTURA DE ARQUIVOS NECESSÁRIA
----------------------------------
-Coloque os seguintes arquivos NA MESMA PASTA que o executável:
-
-  InoLabel.exe  (ou InoLabel no Linux)
-  model.pt          ← modelo YOLO treinado (necessário para detecção automática)
-  dataset/          ← pasta com suas imagens ou vídeos
-
-  Exemplo (Windows):
-    dist\InoLabel-windows\InoLabel\
-    ├── InoLabel.exe
-    ├── _internal\          ← não mexa aqui (arquivos internos do app)
-    ├── model.pt            ← coloque aqui
-    └── dataset\            ← coloque aqui
-        ├── imagem1.jpg
-        ├── imagem2.png
-        └── video.mp4
-
-Formatos de imagem aceitos : .jpg  .jpeg  .png  .bmp  .tif  .tiff
-Formatos de vídeo aceitos   : .mp4  .avi  .mov  .mkv
-
-Nota: o model.pt é opcional. Sem ele você ainda pode fazer anotação manual,
-      mas a detecção automática YOLO não estará disponível.
-
-
-COMO RODAR — WINDOWS
+GUIA RAPIDO (WINDOWS)
 ---------------------
-Opção 1 (mais simples):
-  Dê duplo clique em InoLabel.exe
+Se voce quer so rodar sem dor de cabeca:
 
-Opção 2 (pelo terminal — recomendado para ver erros):
-  1. Abra o Prompt de Comando (cmd) ou PowerShell
-  2. Navegue até a pasta do executável:
-       cd dist\InoLabel-windows\InoLabel
-  3. Execute:
-       .\InoLabel.exe
+1) Abra PowerShell na raiz do projeto.
+2) Rode:
+     cd frontend
+     npm install
+     npm run build
+     cd ..
+     powershell -ExecutionPolicy Bypass -File .\build.ps1
+3) Depois rode:
+     cd .\dist\InoLabel-windows\InoLabel
+     .\InoLabel.exe
+4) Abra no navegador:
+     http://127.0.0.1:8765
 
-O navegador padrão abrirá automaticamente em:
+
+ANTES DE COMECAR (IMPORTANTE)
+-----------------------------
+No Windows, o executavel so existe depois do build.
+
+Caminho final esperado:
+  dist\InoLabel-windows\InoLabel\InoLabel.exe
+
+Erros comuns:
+  - Usar "Dist" (D maiusculo) em vez de "dist".
+  - Tentar entrar em dist\... antes de executar o build.
+  - Rodar build.ps1 sem gerar frontend\dist antes.
+
+
+PASSO A PASSO COMPLETO - WINDOWS (DO ZERO)
+-------------------------------------------
+Execute todos os comandos abaixo no PowerShell.
+
+PASSO 1 - Ir para a raiz do projeto
+  cd C:\Users\magnu\OneDrive\Documentos\GitHub\InoLabel
+
+PASSO 2 - Verificar Node e npm (frontend)
+  node -v
+  npm -v
+
+Se algum comando falhar, instale o Node.js LTS e abra um novo terminal.
+
+PASSO 3 - Gerar frontend\dist
+  cd frontend
+  npm install
+  npm run build
+  cd ..
+
+Validacao esperada:
+  A pasta frontend\dist deve existir.
+
+PASSO 4 - Rodar build do executavel
+  powershell -ExecutionPolicy Bypass -File .\build.ps1
+
+O script vai:
+  - validar pre-requisitos
+  - localizar/criar ambiente conda "inolabel"
+  - instalar dependencias Python
+  - gerar InoLabel.exe
+
+PASSO 5 - Entrar na pasta correta do executavel
+  cd .\dist\InoLabel-windows\InoLabel
+
+Validacao esperada:
+  O comando abaixo deve listar InoLabel.exe:
+    dir InoLabel.exe
+
+PASSO 6 - Rodar o programa
+  .\InoLabel.exe
+
+PASSO 7 - Abrir no navegador
   http://127.0.0.1:8765
 
-Se o navegador não abrir sozinho, acesse esse endereço manualmente.
 
+ESTRUTURA DE ARQUIVOS RECOMENDADA (AO LADO DO EXE)
+---------------------------------------------------
+Na mesma pasta do executavel, mantenha:
 
-COMO RODAR — LINUX
-------------------
-1. Abra um terminal
-2. Navegue até a pasta do executável:
-     cd dist/InoLabel-linux/InoLabel
-3. Execute:
-     ./InoLabel
+  InoLabel.exe
+  model.pt      (opcional, so para deteccao automatica YOLO)
+  dataset\      (imagens e/ou videos)
 
-O navegador padrão abrirá automaticamente em:
-  http://127.0.0.1:8765
+Exemplo:
+  dist\InoLabel-windows\InoLabel\
+  |- InoLabel.exe
+  |- _internal\
+  |- model.pt
+  |- dataset\
+  |  |- imagem1.jpg
+  |  |- imagem2.png
+  |  \- video.mp4
 
-Se o navegador não abrir sozinho, acesse esse endereço manualmente.
-
-Permissão de execução (caso necessário):
-  chmod +x InoLabel
+Formatos aceitos:
+  Imagens: .jpg .jpeg .png .bmp .tif .tiff
+  Videos : .mp4 .avi .mov .mkv
 
 
 COMO PARAR O PROGRAMA
 ---------------------
-Windows:
-  - Feche a janela do terminal onde o InoLabel está rodando, OU
-  - Pressione Ctrl+C no terminal
-
-Linux:
-  - Pressione Ctrl+C no terminal
+No terminal onde o InoLabel esta rodando:
+  Ctrl+C
 
 
-ONDE FICAM AS ANOTAÇÕES GERADAS
---------------------------------
-As anotações e resultados são salvos na pasta "outputs/" criada
-AUTOMATICAMENTE ao lado do executável:
-
-  Windows:  dist\InoLabel-windows\InoLabel\outputs\
-  Linux:    dist/InoLabel-linux/InoLabel/outputs/
-
-Para salvar em outro lugar, defina a variável de ambiente antes de rodar:
-
-  Windows (PowerShell):
-    $env:INOLABEL_OUTPUT_BASE = "C:\meus_dados\saidas"
-    .\InoLabel.exe
-
-  Linux (terminal):
-    INOLABEL_OUTPUT_BASE=/home/usuario/saidas ./InoLabel
-
-
-CONFIGURAÇÕES AVANÇADAS (variáveis de ambiente)
-------------------------------------------------
-  INOLABEL_OUTPUT_BASE    — pasta onde as anotações serão salvas
-                            (padrão: outputs/ ao lado do executável)
-  INOLABEL_LOCAL_DIR      — pasta para configurações e atalhos de teclado
-                            (padrão: .local/ ao lado do executável)
-  CONF_THRESHOLD          — limiar de confiança para detecção YOLO
-                            (padrão: 0.40, aceita valores entre 0 e 1)
-  MANUAL_IOU_THRESHOLD    — limiar IoU para anotação manual
-                            (padrão: 0.30)
-  INOLABEL_ENV            — defina como "development" para modo dev
-                            (ativa reload automático do servidor)
-
-
-RESOLUÇÃO DE PROBLEMAS
+ONDE FICAM AS ANOTACOES
 -----------------------
-Problema: "A porta 8765 já está em uso"
-  Causa:   Outra instância do InoLabel já está rodando em segundo plano.
-  Solução: Windows — abra o Gerenciador de Tarefas e encerre "InoLabel".
-           Linux   — execute: kill $(lsof -t -i:8765)
+Por padrao, sao gravadas em:
+  dist\InoLabel-windows\InoLabel\outputs\
 
-Problema: O navegador abre mas a tela fica em branco
-  Solução: Aguarde 3-5 segundos e recarregue a página (F5). O servidor
-           pode levar alguns instantes para inicializar na primeira vez.
+Para mudar o destino (PowerShell):
+  $env:INOLABEL_OUTPUT_BASE = "C:\meus_dados\saidas"
+  .\InoLabel.exe
 
-Problema: Detecção automática não funciona / "model.pt not found"
-  Solução: Coloque o arquivo model.pt na mesma pasta que o InoLabel.exe.
 
-Problema: Erro ao iniciar sessão / imagens não encontradas
-  Solução: Certifique-se de que a pasta dataset/ existe ao lado do
-           executável e contém imagens ou vídeos nos formatos aceitos.
+RESOLUCAO DE PROBLEMAS (WINDOWS)
+--------------------------------
+Problema: "cd Dist" deu erro
+  Causa: pasta com nome errado (maiuscula/minuscula).
+  Solucao: use exatamente:
+    cd .\dist\InoLabel-windows\InoLabel
 
-Problema: No Linux — erro "libGL" ou "libgthread"
-  Solução: Instale as dependências do sistema:
-             sudo apt-get install libgl1 libglib2.0-0
+Problema: "Nao existe o caminho dist\InoLabel-windows\InoLabel"
+  Causa: build ainda nao foi feito.
+  Solucao: execute primeiro:
+    cd frontend
+    npm install
+    npm run build
+    cd ..
+    powershell -ExecutionPolicy Bypass -File .\build.ps1
 
-Problema: No Windows — aviso "Windows protegeu seu computador"
-  Causa:   O executável não tem assinatura digital comercial.
-  Solução: Clique em "Mais informações" e depois em "Executar assim mesmo".
+Problema: build.ps1 reclama de frontend\dist ausente
+  Solucao: dentro de frontend, rode npm run build.
 
-Problema: No Linux — "Permission denied" ao tentar rodar
-  Solução: chmod +x InoLabel
+Problema: navegador abriu em branco
+  Solucao: aguarde 3-5 segundos e aperte F5.
+
+Problema: "model.pt not found"
+  Solucao: coloque model.pt na mesma pasta de InoLabel.exe.
+
+Problema: "porta 8765 em uso"
+  Solucao: feche outra instancia do InoLabel ou finalize o processo no
+           Gerenciador de Tarefas.
+
+Problema: aviso "Windows protegeu seu computador"
+  Solucao: clique em "Mais informacoes" e depois "Executar assim mesmo".
+
+
+MODO ALTERNATIVO (SEM EXE, SO PARA TESTE RAPIDO)
+-------------------------------------------------
+Se voce quiser testar sem gerar executavel:
+
+1) Na raiz do projeto:
+     pip install -r requirements.txt
+2) Rode:
+     python main.py
+
+Obs.: esse modo depende do ambiente Python local corretamente configurado.
 
 
 ================================================================================
-  Dúvidas ou problemas: abra uma issue em
+  Duvidas ou problemas: abra uma issue em
   https://github.com/Inovisao/InoLabel/issues
 ================================================================================
