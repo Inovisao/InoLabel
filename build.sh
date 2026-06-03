@@ -306,8 +306,14 @@ fi
 
 # ── Ativar o ambiente e usar o Python dele ────────────────────────────────────
 conda activate "$CONDA_ENV_NAME" 2>/dev/null || true
-PYTHON="$CONDA_BASE/envs/$CONDA_ENV_NAME/bin/python"
-[[ -x "$PYTHON" ]] || PYTHON=$(conda run -n "$CONDA_ENV_NAME" which python 2>/dev/null)
+if [[ "$TARGET_OS" == "windows" ]]; then
+    # No Windows (Git Bash), o Python do conda fica na raiz do env, sem bin/
+    PYTHON="$CONDA_BASE/envs/$CONDA_ENV_NAME/python.exe"
+    [[ -x "$PYTHON" ]] || PYTHON=$(conda run -n "$CONDA_ENV_NAME" python -c "import sys;print(sys.executable)" 2>/dev/null | tr -d '\r')
+else
+    PYTHON="$CONDA_BASE/envs/$CONDA_ENV_NAME/bin/python"
+    [[ -x "$PYTHON" ]] || PYTHON=$(conda run -n "$CONDA_ENV_NAME" which python 2>/dev/null)
+fi
 [[ -x "$PYTHON" ]] || fail "Nao foi possivel localizar o Python do ambiente '$CONDA_ENV_NAME'."
 
 PYTHON_MAJOR=$($PYTHON -c "import sys; print(sys.version_info.major)")
@@ -576,9 +582,9 @@ if [[ "$TARGET_OS" == "linux" ]]; then
     step "Registrando InoLabel na lista de aplicativos (Linux)..."
 
     ABS_EXE=$(realpath "$EXE_PATH")
-    ABS_ICON=$(realpath "$BUNDLE_DIR/_internal/assets/inovisao.png" 2>/dev/null || \
-               realpath "$BUNDLE_DIR/assets/inovisao.png" 2>/dev/null || \
-               realpath "assets/inovisao.png" 2>/dev/null || echo "")
+    ABS_ICON=$(realpath "$BUNDLE_DIR/_internal/assets/inolabellogo.png" 2>/dev/null || \
+               realpath "$BUNDLE_DIR/assets/inolabellogo.png" 2>/dev/null || \
+               realpath "assets/inolabellogo.png" 2>/dev/null || echo "")
 
     DESKTOP_DIR="$HOME/.local/share/applications"
     DESKTOP_FILE="$DESKTOP_DIR/inolabel.desktop"
@@ -621,8 +627,8 @@ elif [[ "$TARGET_OS" == "windows" ]]; then
 
         # Converter paths para formato Windows
         WIN_EXE=$(cygpath -w "$(realpath "$EXE_PATH")" 2>/dev/null || echo "$EXE_PATH")
-        WIN_ICON=$(cygpath -w "$(realpath "$BUNDLE_DIR/_internal/assets/inovisao.png" 2>/dev/null || \
-                                 realpath "$BUNDLE_DIR/assets/inovisao.png" 2>/dev/null || \
+        WIN_ICON=$(cygpath -w "$(realpath "$BUNDLE_DIR/_internal/assets/inolabellogo.png" 2>/dev/null || \
+                                 realpath "$BUNDLE_DIR/assets/inolabellogo.png" 2>/dev/null || \
                                  echo "")" 2>/dev/null || echo "")
 
         # Criar atalho .lnk no Menu Iniciar do usuario

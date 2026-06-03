@@ -1,11 +1,15 @@
 # ── Dados e modelos (nunca versionar) ────────────────────────────────────────
 outputs/
+output_dataset/
+saved_data_states/
 dataset/
 data/
 models/
 videos/
 imagens/
 dataset_original/
+model.pt
+*.pt
 
 # ── Build e distribuição ──────────────────────────────────────────────────────
 dist/
