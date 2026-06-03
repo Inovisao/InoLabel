@@ -2,6 +2,22 @@ from app.annotation.shared import *
 
 
 class SelectionEditMixin:
+    def trigger_selection_pulse(self, frames: int = 8):
+        """Briefly animates the selected bbox to make selection more obvious."""
+        self.selection_pulse_frames = max(getattr(self, "selection_pulse_frames", 0), frames)
+        if getattr(self, "_selection_pulse_job", None) is None:
+            self._selection_pulse_job = self.window.after(60, self._selection_pulse_tick)
+
+    def _selection_pulse_tick(self):
+        frames = int(getattr(self, "selection_pulse_frames", 0))
+        if frames <= 0 or getattr(self, "current_frame", None) is None:
+            self.selection_pulse_frames = 0
+            self._selection_pulse_job = None
+            return
+        self.selection_pulse_frames = frames - 1
+        self.update_display(refresh_status=False)
+        self._selection_pulse_job = self.window.after(60, self._selection_pulse_tick)
+
     def push_undo_state(self, reason: str = ""):
         """Saves a lightweight snapshot of the current frame for Ctrl+Z."""
         if self.current_frame is None:
@@ -139,6 +155,7 @@ class SelectionEditMixin:
             if class_name and manual_var is not None:
                 manual_var.set(class_name)
             self.update_class_panel()
+            self.trigger_selection_pulse()
         self.update_display(refresh_status=True)
 
     def apply_manual_id_to_selection(self):
@@ -169,6 +186,7 @@ class SelectionEditMixin:
                 del self.manual_track_memory[old_id]
             self.manual_track_memory[new_id] = {"bbox": det.original_bbox.copy()}
         print(f"[INFO] Track ID atualizado: {old_id} -> {new_id}.")
+        self.trigger_selection_pulse()
         self.update_display(refresh_status=True)
 
     def update_track_history_for_edit(self, old_id: int, new_id: int, bbox: np.ndarray):

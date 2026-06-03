@@ -39,3 +39,9 @@ htmlcov/
 
 # ── Documentação gerada ───────────────────────────────────────────────────────
 docs/
+
+# ── Frontend (Node / Tauri) ───────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/src-tauri/target/
+frontend/.tauri/

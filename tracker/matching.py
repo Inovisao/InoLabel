@@ -1,12 +1,74 @@
 import cv2
 import numpy as np
 import scipy
-import lap
+try:
+    import lap
+except ImportError:
+    lap = None
 from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
 
-from cython_bbox import bbox_overlaps as bbox_ious
+try:
+    from cython_bbox import bbox_overlaps as bbox_ious
+except ImportError:
+    bbox_ious = None
 from tracker import kalman_filter
 import time
+
+
+def _bbox_overlaps_numpy(boxes, query_boxes):
+    boxes = np.asarray(boxes, dtype=float)
+    query_boxes = np.asarray(query_boxes, dtype=float)
+    overlaps = np.zeros((boxes.shape[0], query_boxes.shape[0]), dtype=float)
+    if overlaps.size == 0:
+        return overlaps
+
+    # Match cython_bbox's inclusive pixel-coordinate semantics.
+    x_left = np.maximum(boxes[:, None, 0], query_boxes[None, :, 0])
+    y_top = np.maximum(boxes[:, None, 1], query_boxes[None, :, 1])
+    x_right = np.minimum(boxes[:, None, 2], query_boxes[None, :, 2])
+    y_bottom = np.minimum(boxes[:, None, 3], query_boxes[None, :, 3])
+
+    width = np.maximum(0.0, x_right - x_left + 1.0)
+    height = np.maximum(0.0, y_bottom - y_top + 1.0)
+    intersection = width * height
+
+    boxes_area = np.maximum(0.0, boxes[:, 2] - boxes[:, 0] + 1.0) * np.maximum(
+        0.0, boxes[:, 3] - boxes[:, 1] + 1.0
+    )
+    query_area = np.maximum(0.0, query_boxes[:, 2] - query_boxes[:, 0] + 1.0) * np.maximum(
+        0.0, query_boxes[:, 3] - query_boxes[:, 1] + 1.0
+    )
+    union = boxes_area[:, None] + query_area[None, :] - intersection
+    np.divide(intersection, union, out=overlaps, where=union > 0)
+    return overlaps
+
+
+def _linear_assignment_scipy(cost_matrix, thresh):
+    if cost_matrix.size == 0:
+        return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
+
+    finite_mask = np.isfinite(cost_matrix)
+    if not finite_mask.any():
+        return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
+
+    finite_costs = cost_matrix[finite_mask]
+    invalid_cost = max(float(thresh) + 1.0, float(finite_costs.max()) + 1.0)
+    safe_cost_matrix = np.where(finite_mask, cost_matrix, invalid_cost)
+    rows, cols = linear_sum_assignment(safe_cost_matrix)
+    matches = np.asarray(
+        [
+            [row, col]
+            for row, col in zip(rows, cols)
+            if finite_mask[row, col] and cost_matrix[row, col] <= thresh
+        ],
+        dtype=int,
+    )
+    if matches.size == 0:
+        matches = np.empty((0, 2), dtype=int)
+    unmatched_a = tuple(set(range(cost_matrix.shape[0])) - set(matches[:, 0]))
+    unmatched_b = tuple(set(range(cost_matrix.shape[1])) - set(matches[:, 1]))
+    return matches, unmatched_a, unmatched_b
 
 def merge_matches(m1, m2, shape):
     O,P,Q = shape
@@ -39,6 +101,8 @@ def _indices_to_matches(cost_matrix, indices, thresh):
 def linear_assignment(cost_matrix, thresh):
     if cost_matrix.size == 0:
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
+    if lap is None:
+        return _linear_assignment_scipy(cost_matrix, thresh)
     matches, unmatched_a, unmatched_b = [], [], []
     cost, x, y = lap.lapjv(cost_matrix, extend_cost=True, cost_limit=thresh)
     for ix, mx in enumerate(x):
@@ -62,10 +126,12 @@ def ious(atlbrs, btlbrs):
     if ious.size == 0:
         return ious
 
-    ious = bbox_ious(
-        np.ascontiguousarray(atlbrs, dtype=float),
-        np.ascontiguousarray(btlbrs, dtype=float)
-    )
+    boxes = np.ascontiguousarray(atlbrs, dtype=float)
+    query_boxes = np.ascontiguousarray(btlbrs, dtype=float)
+    if bbox_ious is not None:
+        ious = bbox_ious(boxes, query_boxes)
+    else:
+        ious = _bbox_overlaps_numpy(boxes, query_boxes)
 
     return ious
 

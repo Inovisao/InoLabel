@@ -49,6 +49,20 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### WebUI / FastAPI
+
+O executavel PyInstaller continua sendo o app desktop Tkinter. A WebUI React e servida separadamente pelo FastAPI em `api_server.py`, que monta `frontend/dist/` quando o build do frontend existe.
+
+```bash
+# API em producao local
+python api_server.py
+
+# API em desenvolvimento, com reload
+INOLABEL_ENV=development python api_server.py
+```
+
+Decisao de coexistencia: `build.sh` nao embute `frontend/dist/` no bundle desktop. Use `python main.py` para o Tkinter e `python api_server.py` para a WebUI. Evite executar os dois modos com o mesmo `output_path` ao mesmo tempo, porque `outputs/` e `.local/keybinds.json` sao recursos compartilhados.
+
 ---
 
 ## Instalação — Windows 11

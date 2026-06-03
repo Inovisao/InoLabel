@@ -5,3 +5,10 @@ numpy
 scipy
 lap
 cython-bbox
+fastapi
+uvicorn[standard]
+python-multipart
+websockets
+aiofiles
+filelock
+python-jose[cryptography]
