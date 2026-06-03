@@ -116,9 +116,8 @@ _clean_build() {
 }
 
 _build_is_complete() {
-    # Executable exists AND assets are present (PyInstaller 6+ puts them in _internal/)
     [[ -f "$EXE_PATH" ]] && \
-    { [[ -d "$BUNDLE_DIR/assets" ]] || [[ -d "$BUNDLE_DIR/_internal/assets" ]]; }
+    { [[ -d "$BUNDLE_DIR/frontend/dist" ]] || [[ -d "$BUNDLE_DIR/_internal/frontend/dist" ]]; }
 }
 
 _build_is_partial() {
@@ -167,8 +166,9 @@ elif _build_is_partial; then
     echo ""
     warn "Instalacao incompleta ou corrompida detectada em: $BUNDLE_DIR"
     CORRUPTION_DETAILS=()
-    [[ ! -f "$EXE_PATH" ]]          && CORRUPTION_DETAILS+=("executavel '$EXE_NAME' ausente")
-    [[ ! -d "$BUNDLE_DIR/assets" ]] && CORRUPTION_DETAILS+=("pasta 'assets/' ausente")
+    [[ ! -f "$EXE_PATH" ]] && CORRUPTION_DETAILS+=("executavel '$EXE_NAME' ausente")
+    [[ ! -d "$BUNDLE_DIR/frontend/dist" ]] && [[ ! -d "$BUNDLE_DIR/_internal/frontend/dist" ]] && \
+        CORRUPTION_DETAILS+=("pasta 'frontend/dist/' ausente")
     echo "  Problemas encontrados:"
     for d in "${CORRUPTION_DETAILS[@]}"; do echo -e "    ${RED}✗${NC} $d"; done
     echo ""
@@ -191,7 +191,9 @@ step "Verificando pre-requisitos..."
 # Diretório correto
 [[ -f "main.py" ]]          || fail "main.py nao encontrado. Execute build.sh a partir da raiz do projeto."
 [[ -f "requirements.txt" ]] || fail "requirements.txt nao encontrado."
+[[ -d "frontend/dist" ]]    || fail "frontend/dist nao encontrado. Execute 'npm run build' dentro de frontend/ antes de buildar."
 ok "Raiz do projeto"
+ok "frontend/dist encontrado"
 
 # ── Conda: instalar se ausente ────────────────────────────────────────────────
 CONDA_ENV_NAME="inolabel"
@@ -319,14 +321,6 @@ ok "Python $PYTHON_VERSION (ambiente: $CONDA_ENV_NAME)"
 
 info "Ambiente ativo: ${CONDA_DEFAULT_ENV:-$CONDA_ENV_NAME}"
 
-# Tkinter
-if ! $PYTHON -c "import tkinter" &>/dev/null 2>&1; then
-    warn "Tkinter nao encontrado — interface grafica nao funcionara."
-    [[ "$TARGET_OS" == "linux" ]] && echo "       Instale: sudo apt-get install python3-tk"
-else
-    ok "Tkinter"
-fi
-
 # pip — garante versao compativel com Python 3.9 (pip>=24 requer Python 3.10+)
 _pip_ok() { $PYTHON -m pip --version &>/dev/null 2>&1; }
 _pip_broken() {
@@ -416,7 +410,7 @@ ok "PyInstaller $PI_VERSION"
 # Validar imports criticos — garante que os pacotes nao estao so instalados mas funcionam
 step "Validando imports criticos..."
 IMPORT_ERRORS=()
-for pkg in "tkinter" "cv2" "PIL" "numpy" "ultralytics"; do
+for pkg in "fastapi" "uvicorn" "cv2" "PIL" "numpy" "ultralytics"; do
     if ! $PYTHON -c "import $pkg" &>/dev/null 2>&1; then
         IMPORT_ERRORS+=("$pkg")
         warn "Falha ao importar '$pkg' — pacote pode estar corrompido."
@@ -448,13 +442,9 @@ step "Gerando executavel com PyInstaller..."
 echo "  (etapa mais demorada — 5-15 minutos dependendo da maquina)"
 echo ""
 
-# Modulos excluidos para reduzir tamanho do bundle
-# REGRA: nao excluir nada que ultralytics/torch possam importar dinamicamente
-# matplotlib NAO esta aqui — ultralytics/models/yolo/semantic usa internamente
 EXCLUDES=(
     notebook jupyter ipykernel
     pytest _pytest
-    tkinter.test turtle
     multiprocessing.dummy
 )
 EXCLUDE_ARGS=()
@@ -465,19 +455,19 @@ done
 STRIP_ARG=()
 [[ "$TARGET_OS" == "linux" ]] && STRIP_ARG=("--strip")
 
-# Coexistence decision: keep PyInstaller focused on the native Tkinter desktop
-# app. The React WebUI remains a separate frontend/dist served by api_server.py,
-# so this build intentionally does not bundle frontend/dist.
+# On Windows, hide the console window — the browser is the UI.
+WINDOWED_ARG=()
+[[ "$TARGET_OS" == "windows" ]] && WINDOWED_ARG=("--windowed")
+
 $PYTHON -m PyInstaller \
     --log-level INFO \
     --noconfirm \
     --onedir \
-    --windowed \
+    "${WINDOWED_ARG[@]}" \
     --name "InoLabel" \
     --distpath "$DIST_DIR" \
     --add-data "assets${SEPARATOR}assets" \
-    --add-data "app/ui/theme${SEPARATOR}app/ui/theme" \
-    --hidden-import "PIL._tkinter_finder" \
+    --add-data "frontend/dist${SEPARATOR}frontend/dist" \
     --hidden-import "cv2" \
     --hidden-import "ultralytics" \
     --hidden-import "scipy.spatial" \
@@ -486,6 +476,22 @@ $PYTHON -m PyInstaller \
     --hidden-import "scipy.linalg" \
     --hidden-import "cython_bbox" \
     --hidden-import "lap" \
+    --hidden-import "fastapi" \
+    --hidden-import "uvicorn.logging" \
+    --hidden-import "uvicorn.loops" \
+    --hidden-import "uvicorn.loops.auto" \
+    --hidden-import "uvicorn.protocols" \
+    --hidden-import "uvicorn.protocols.http" \
+    --hidden-import "uvicorn.protocols.http.auto" \
+    --hidden-import "uvicorn.protocols.websockets" \
+    --hidden-import "uvicorn.protocols.websockets.auto" \
+    --hidden-import "uvicorn.lifespan" \
+    --hidden-import "uvicorn.lifespan.on" \
+    --hidden-import "aiofiles" \
+    --hidden-import "multipart" \
+    --hidden-import "jose" \
+    --hidden-import "filelock" \
+    --hidden-import "websockets" \
     --hidden-import "pdb" \
     --hidden-import "doctest" \
     --hidden-import "unittest" \
@@ -494,7 +500,9 @@ $PYTHON -m PyInstaller \
     --hidden-import "xmlrpc.client" \
     --collect-all "ultralytics" \
     --collect-all "matplotlib" \
-    --collect-all "tkinter" \
+    --collect-all "uvicorn" \
+    --collect-all "fastapi" \
+    --collect-all "starlette" \
     --collect-all "tracker" \
     "${EXCLUDE_ARGS[@]}" \
     "${STRIP_ARG[@]}" \
@@ -513,7 +521,6 @@ step "Verificando build..."
 ok "Executavel: $EXE_PATH"
 ok "Tamanho do bundle: $(du -sh "$BUNDLE_DIR" 2>/dev/null | cut -f1)"
 
-# Assets incluidos — PyInstaller 6+ coloca em _internal/, versoes antigas na raiz
 ASSETS_FOUND=0
 for assets_candidate in "$BUNDLE_DIR/assets" "$BUNDLE_DIR/_internal/assets"; do
     if [[ -d "$assets_candidate" ]]; then
@@ -524,10 +531,19 @@ for assets_candidate in "$BUNDLE_DIR/assets" "$BUNDLE_DIR/_internal/assets"; do
 done
 [[ "$ASSETS_FOUND" -eq 0 ]] && warn "assets/ nao encontrado no bundle — logo pode nao aparecer."
 
-# Modulos criticos presentes no bundle
+FRONTEND_FOUND=0
+for dist_candidate in "$BUNDLE_DIR/frontend/dist" "$BUNDLE_DIR/_internal/frontend/dist"; do
+    if [[ -d "$dist_candidate" ]]; then
+        ok "frontend/dist incluido em: $dist_candidate"
+        FRONTEND_FOUND=1
+        break
+    fi
+done
+[[ "$FRONTEND_FOUND" -eq 0 ]] && warn "frontend/dist nao encontrado — UI do navegador nao sera servida."
+
 step "Verificando modulos criticos no bundle..."
 CRITICAL_MISSING=()
-for lib in "cv2" "PIL" "tkinter"; do
+for lib in "cv2" "PIL" "fastapi"; do
     if ! find "$BUNDLE_DIR" \( -name "${lib}*" -o -name "*${lib}*" \) 2>/dev/null | grep -q .; then
         CRITICAL_MISSING+=("$lib")
     else
@@ -539,15 +555,13 @@ done
 # Smoke test — inicializa o processo e verifica que nao crashou imediatamente
 step "Smoke test do executavel..."
 if [[ "$TARGET_OS" != "windows" ]] && command -v timeout &>/dev/null; then
-    # Roda com DISPLAY falso para nao abrir janela; espera 3s e verifica exit code
-    # Exit code 1 = erro de import/crash; outros = normal (janela nao abriu = esperado)
-    SMOKE_OUTPUT=$(DISPLAY=:99 timeout 3s "$EXE_PATH" 2>&1 || true)
+    SMOKE_OUTPUT=$(timeout 5s "$EXE_PATH" 2>&1 || true)
     if echo "$SMOKE_OUTPUT" | grep -qiE "ModuleNotFoundError|ImportError|Traceback"; then
         warn "Smoke test detectou erro de import:"
-        echo "$SMOKE_OUTPUT" | grep -iE "ModuleNotFoundError|ImportError|No module" | head -5 | while IFS= read -r line; do echo "    $line"; done
+        echo "$SMOKE_OUTPUT" | grep -iE "ModuleNotFoundError|ImportError|No module|Traceback" | head -5 | while IFS= read -r line; do echo "    $line"; done
         warn "O executavel pode nao funcionar corretamente."
     else
-        ok "Smoke test passou — sem erros de import"
+        ok "Smoke test passou — sem erros de import detectados"
     fi
 else
     info "Smoke test ignorado (Windows ou 'timeout' indisponivel)."
