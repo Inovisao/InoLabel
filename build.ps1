@@ -162,7 +162,7 @@ Write-Ok "PyInstaller $piVersion"
 Write-Step "Validando imports criticos..."
 $failedImports = @()
 foreach ($pkg in @("fastapi", "uvicorn", "cv2", "PIL", "numpy", "ultralytics")) {
-    $null = & $pythonPath -c "import $pkg" 2>&1
+    & $pythonPath -c "import $pkg" 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Warn "Falha ao importar '$pkg'"
         $failedImports += $pkg
@@ -176,7 +176,7 @@ if ($failedImports.Count -gt 0) {
     foreach ($pkg in $failedImports) {
         Write-Info "Reinstalando $pkg..."
         & $pythonPath -m pip install --force-reinstall $pkg
-        $null = & $pythonPath -c "import $pkg" 2>&1
+        & $pythonPath -c "import $pkg" 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) { Write-Ok "$pkg reinstalado" } else { Write-Warn "Falha ao reinstalar $pkg" }
     }
 }
@@ -292,8 +292,8 @@ try {
     $lnk.Description      = "Ferramenta de anotacao de imagens e videos — Inovisao"
 
     $iconCandidates = @(
-        "$BUNDLE_DIR\_internal\assets\inovisao.png",
-        "$BUNDLE_DIR\assets\inovisao.png"
+        "$BUNDLE_DIR\_internal\assets\inolabellogo.png",
+        "$BUNDLE_DIR\assets\inolabellogo.png"
     )
     foreach ($ico in $iconCandidates) {
         if (Test-Path $ico) { $lnk.IconLocation = "$ico,0"; break }

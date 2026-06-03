@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -41,6 +42,11 @@ def health() -> dict:
     return {"ok": True, "version": "2.0.0"}
 
 
-FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    _base = Path(sys._MEIPASS)
+else:
+    _base = Path(__file__).resolve().parents[2]
+
+FRONTEND_DIST = _base / "frontend" / "dist"
 if FRONTEND_DIST.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="static")
