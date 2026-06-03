@@ -4,7 +4,10 @@ import scipy
 try:
     import lap
 except ImportError:
-    lap = None
+    try:
+        import lapx as lap
+    except ImportError:
+        lap = None
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 

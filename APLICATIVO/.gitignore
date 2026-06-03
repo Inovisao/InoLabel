@@ -1,0 +1,11 @@
+# Executável e dependências geradas pelo build.ps1 — não versionar
+InoLabel/
+*.pt
+outputs/
+*.log
+dist/
+build/
+
+# Manter dataset e estrutura base
+!dataset/
+!dataset/.gitkeep

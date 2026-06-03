@@ -13,6 +13,12 @@ _store: Dict[int, List[Annotation]] = {}
 _next_id: int = 1
 
 
+def reset_annotations() -> None:
+    global _next_id
+    _store.clear()
+    _next_id = 1
+
+
 @router.get("/{image_id}", response_model=List[Annotation])
 def get_annotations(image_id: int) -> List[Annotation]:
     return _store.get(image_id, [])

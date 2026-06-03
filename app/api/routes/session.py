@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
+from app.api.routes.annotations import reset_annotations
 from app.api.schemas import (
     SessionActionRequest,
     SessionActionResponse,
@@ -20,23 +21,11 @@ router = APIRouter(prefix="/api/session", tags=["session"])
 
 def _count_frames(path: Path) -> int:
     if path.is_dir():
-        exts = set(IMAGE_EXTENSIONS + VIDEO_EXTENSIONS)
+        exts = set(IMAGE_EXTENSIONS)
         return sum(1 for child in path.rglob("*") if child.is_file() and child.suffix.lower() in exts)
     if path.suffix.lower() in IMAGE_EXTENSIONS + VIDEO_EXTENSIONS + IMAGE_LIST_EXTENSIONS:
         return 1
     return 0
-
-
-async def _run_session_loop(session_id: str) -> None:
-    session = get_session(session_id)
-    if session is None:
-        return
-    if session.model_path is not None:
-        # Coexistence: model loading is intentionally lazy and isolated to this
-        # background path; app.api.main import never imports ultralytics.
-        from app.core.detector import Detector
-
-        Detector(session.model_path)
 
 
 @router.post("/start", response_model=SessionStartResponse)
@@ -50,6 +39,7 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
     data_path = Path(req.data_path).expanduser()
     output_path = Path(req.output_path or "outputs").expanduser()
     model_path = Path(req.model_path).expanduser() if req.model_path else None
+    reset_annotations()
     session = create_session(
         mode=req.mode.value,
         data_path=data_path,
@@ -59,7 +49,6 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
         classes=req.classes,
         total_frames=_count_frames(data_path),
     )
-    background_tasks.add_task(_run_session_loop, session.session_id)
     return SessionStartResponse(
         session_id=session.session_id,
         total_frames=session.total_frames,
@@ -128,6 +117,7 @@ def stop_session(session_id: str) -> SessionStopResponse:
     session = remove_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    reset_annotations()
     return SessionStopResponse(
         saved_frames=session.saved_frames,
         output_path=str(session.output_path),
