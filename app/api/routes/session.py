@@ -31,13 +31,16 @@ def _count_frames(path: Path) -> int:
 @router.post("/start", response_model=SessionStartResponse)
 async def start_session(req: SessionStartRequest, background_tasks: BackgroundTasks) -> SessionStartResponse:
     """Create one API session without touching Tkinter runtime state."""
-    if active_session() is not None:
-        raise HTTPException(status_code=409, detail="Sessão já em andamento")
+    # Auto-encerra sessão anterior se ainda estiver ativa
+    existing = active_session()
+    if existing is not None:
+        remove_session(existing.session_id)
+        reset_annotations()
     if req.data_path is None:
         raise HTTPException(status_code=422, detail="Informe data_path.")
 
-    data_path = Path(req.data_path).expanduser()
-    output_path = Path(req.output_path or "outputs").expanduser()
+    data_path = Path(req.data_path).expanduser().resolve()
+    output_path = Path(req.output_path or "outputs").expanduser().resolve()
     model_path = Path(req.model_path).expanduser() if req.model_path else None
     reset_annotations()
     session = create_session(

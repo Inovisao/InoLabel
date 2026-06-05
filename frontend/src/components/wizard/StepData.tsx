@@ -1,3 +1,5 @@
+import { Folder, FileSearch } from "lucide-react";
+import { api } from "../../api/client";
 import type { WizardState } from "./Wizard";
 
 interface Props {
@@ -6,30 +8,54 @@ interface Props {
 }
 
 export default function StepData({ state, onChange }: Props) {
+  const browseFolder = async (field: "dataRoot" | "outputDir") => {
+    try {
+      const res = await api.get<{ path: string }>("/browse/folder");
+      if (res.path) onChange({ [field]: res.path });
+    } catch {
+      /* usuário cancelou ou backend indisponível */
+    }
+  };
+
+  const browseFile = async () => {
+    try {
+      const res = await api.get<{ path: string }>("/browse/file?ext=pt");
+      if (res.path) onChange({ weightsPath: res.path });
+    } catch {
+      /* usuário cancelou ou backend indisponível */
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Field
+      <PathField
         label="Pasta de dados"
-        hint="Caminho para a pasta com as imagens ou o arquivo de vídeo."
+        hint="Pasta com as imagens ou arquivo de vídeo a ser anotado."
         placeholder="/caminho/para/dados"
         value={state.dataRoot}
         onChange={(v) => onChange({ dataRoot: v })}
+        onBrowse={() => browseFolder("dataRoot")}
+        browseIcon="folder"
       />
 
-      <Field
+      <PathField
         label="Pasta de saída"
-        hint="Onde salvar os arquivos de anotação."
+        hint="Onde salvar os arquivos de anotação gerados."
         placeholder="output"
         value={state.outputDir}
         onChange={(v) => onChange({ outputDir: v })}
+        onBrowse={() => browseFolder("outputDir")}
+        browseIcon="folder"
       />
 
-      <Field
+      <PathField
         label="Pesos do modelo (opcional)"
         hint="Arquivo .pt do YOLO para pré-anotar os frames automaticamente."
         placeholder="/caminho/para/model.pt"
         value={state.weightsPath}
         onChange={(v) => onChange({ weightsPath: v })}
+        onBrowse={browseFile}
+        browseIcon="file"
       />
 
       <label
@@ -70,30 +96,61 @@ export default function StepData({ state, onChange }: Props) {
   );
 }
 
-function Field({
-  label,
-  hint,
-  placeholder,
-  value,
-  onChange,
-}: {
+interface PathFieldProps {
   label: string;
   hint?: string;
   placeholder?: string;
   value: string;
   onChange: (v: string) => void;
-}) {
+  onBrowse: () => void;
+  browseIcon: "folder" | "file";
+}
+
+function PathField({ label, hint, placeholder, value, onChange, onBrowse, browseIcon }: PathFieldProps) {
+  const Icon = browseIcon === "folder" ? Folder : FileSearch;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <label className="text-label">{label}</label>
       {hint && <span className="text-helper">{hint}</span>}
-      <input
-        className="input"
-        style={{ marginTop: hint ? 4 : 0 }}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div style={{ display: "flex", gap: 8, marginTop: hint ? 4 : 0 }}>
+        <input
+          className="input"
+          style={{ flex: 1 }}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={onBrowse}
+          title="Explorar arquivos"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            flexShrink: 0,
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--color-border)",
+            background: "var(--color-panel)",
+            cursor: "pointer",
+            color: "var(--color-primary)",
+            transition: "background 120ms, border-color 120ms",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--color-primary-light)";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--color-primary)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--color-panel)";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--color-border)";
+          }}
+        >
+          <Icon size={18} strokeWidth={1.75} />
+        </button>
+      </div>
     </div>
   );
 }

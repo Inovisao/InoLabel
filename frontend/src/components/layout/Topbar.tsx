@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Save, Download, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Download, Settings, LogOut } from "lucide-react";
 import { useSessionStore } from "../../stores/session";
 import { useAnnotationStore } from "../../stores/annotation";
 import { useToast } from "../../ui/ToastContext";
@@ -13,9 +13,10 @@ const MODE_LABELS: Record<string, string> = {
 interface Props {
   onExport: () => void;
   onSettings: () => void;
+  onStop?: () => void;
 }
 
-export default function Topbar({ onExport, onSettings }: Props) {
+export default function Topbar({ onExport, onSettings, onStop }: Props) {
   const mode = useSessionStore((s) => s.mode);
   const { frame, loading, prevFrame, nextFrame } = useAnnotationStore();
   const { toast } = useToast();
@@ -38,6 +39,22 @@ export default function Topbar({ onExport, onSettings }: Props) {
         userSelect: "none",
       }}
     >
+      {/* Stop session */}
+      {onStop && (
+        <>
+          <button
+            className="btn-icon"
+            onClick={onStop}
+            title="Encerrar sessão"
+            aria-label="Encerrar sessão"
+            style={{ color: "var(--color-muted)" }}
+          >
+            <LogOut size={15} />
+          </button>
+          <div style={{ width: 1, height: 24, background: "var(--color-border)", margin: "0 4px" }} />
+        </>
+      )}
+
       {/* Mode badge */}
       {mode && (
         <span className="badge">

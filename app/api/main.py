@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import annotations, classes, export, frames, keybinds, modes, session, validation
+from app.api.routes import annotations, browse, classes, export, frames, keybinds, modes, session, validation
 
 app = FastAPI(title="InoLabel API", version="2.0.0")
 
@@ -35,6 +35,7 @@ app.include_router(keybinds.router)
 app.include_router(frames.router)
 app.include_router(annotations.router)
 app.include_router(classes.router)
+app.include_router(browse.router)
 
 
 @app.get("/health")

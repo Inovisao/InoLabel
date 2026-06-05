@@ -17,6 +17,7 @@ export interface SessionStatus {
   current_index: number;
   classes: string[];
   autosaved: boolean;
+  session_id?: string;
 }
 
 export interface Annotation {
