@@ -77,6 +77,9 @@ def test_validate_model_accepts_readable_pt_file(tmp_path: Path):
 
 
 def test_session_lifecycle_and_actions(tmp_path: Path):
+    from app.api import state as _state
+    _state.reset_state()
+
     (tmp_path / "frame1.jpg").write_bytes(b"placeholder")
     (tmp_path / "frame2.jpg").write_bytes(b"placeholder")
     client = _client()
@@ -112,7 +115,12 @@ def test_session_lifecycle_and_actions(tmp_path: Path):
     assert "saved_frames" in stop.json()
 
 
-def test_second_session_returns_conflict_while_running(tmp_path: Path):
+def test_second_session_replaces_first_session_automatically(tmp_path: Path):
+    """Starting a new session auto-stops the running one (no 409). The first session
+    must be gone after the second start succeeds and IDs must differ."""
+    from app.api import state as _state
+    _state.reset_state()  # isolate from other tests
+
     client = _client()
     body = {
         "mode": "detection",
@@ -125,14 +133,23 @@ def test_second_session_returns_conflict_while_running(tmp_path: Path):
 
     first = client.post("/api/session/start", json=body)
     assert first.status_code == 200
+    first_id = first.json()["session_id"]
 
     second = client.post("/api/session/start", json=body)
-    assert second.status_code == 409
+    assert second.status_code == 200, second.text  # auto-stop + new session
+    second_id = second.json()["session_id"]
+    assert second_id != first_id, "Session IDs must differ after replacement"
 
-    client.post(f"/api/session/{first.json()['session_id']}/stop")
+    # First session must be gone
+    assert client.get(f"/api/session/{first_id}/status").status_code == 404
+
+    client.post(f"/api/session/{second_id}/stop")
 
 
 def test_export_lifecycle(tmp_path: Path):
+    from app.api import state as _state
+    _state.reset_state()
+
     client = _client()
     start = client.post(
         "/api/session/start",

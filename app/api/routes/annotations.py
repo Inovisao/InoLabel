@@ -24,6 +24,8 @@ def reset_annotations() -> None:
 def _autosave(image_id: int) -> None:
     """Write YOLO txt for this frame. Failures are logged and never surface as HTTP errors."""
     try:
+        import cv2 as _cv2
+
         session = _state.active_session()
         if session is None:
             return
@@ -31,8 +33,16 @@ def _autosave(image_id: int) -> None:
             return
         dims = _state.frame_dims.get(image_id)
         if dims is None:
-            log.warning("autosave: dims not known for frame %d — skipped", image_id)
-            return
+            # Frame not yet loaded through the UI — read dims from disk so we never
+            # silently discard annotations added before the frame is displayed.
+            img_path = _state.frame_paths[image_id]
+            img = _cv2.imread(str(img_path))
+            if img is None:
+                log.warning("autosave: cannot read image %s for frame %d — skipped", img_path.name, image_id)
+                return
+            h, w = img.shape[:2]
+            dims = (w, h)
+            _state.frame_dims[image_id] = dims
 
         img_w, img_h = dims
         if img_w == 0 or img_h == 0:
@@ -123,6 +133,15 @@ def get_annotations(image_id: int) -> List[Annotation]:
 
 @router.post("/{image_id}", response_model=Annotation)
 def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
+    # Use frame_paths when available (fully loaded session); fall back to
+    # session.total_frames so the guard works before any frame is fetched.
+    session = _state.active_session()
+    total = len(_state.frame_paths) or (session.total_frames if session else 0)
+    if total and image_id >= total:
+        raise HTTPException(
+            status_code=400,
+            detail=f"image_id {image_id} fora do intervalo (sessão tem {total} frames, índices 0–{total - 1}).",
+        )
     ann = Annotation(
         id=_state.next_ann_id[0],
         image_id=image_id,

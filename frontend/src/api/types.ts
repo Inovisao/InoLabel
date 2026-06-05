@@ -18,6 +18,19 @@ export interface SessionStatus {
   classes: string[];
   autosaved: boolean;
   session_id?: string;
+  data_path?: string;
+  output_path?: string;
+}
+
+export interface ProjectEntry {
+  name: string;
+  path: string;
+  data_path: string;
+  mode: string;
+  annotated_frames: number;
+  classes: string[];
+  created_at: string;
+  last_modified: string;
 }
 
 export interface Annotation {
