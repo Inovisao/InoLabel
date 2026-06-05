@@ -33,6 +33,15 @@ class SessionState:
 _sessions: dict[str, SessionState] = {}
 _exports: dict[str, ExportJob] = {}
 
+# Shared frame state — written by frames.py, read by annotations.py for autosave/load
+frame_paths: list[Path] = []
+frame_dims: dict[int, tuple[int, int]] = {}  # frame_index → (width, height)
+
+# Annotation store — shared between annotations.py (write) and frames.py (read)
+# Keyed by frame index (int). Using a plain dict to avoid any module-level import ambiguity.
+annotation_store: dict[int, list] = {}
+next_ann_id: list[int] = [1]  # list so it's mutable from any module without 'global'
+
 
 def active_session() -> Optional[SessionState]:
     return next((s for s in _sessions.values() if s.status in {"running", "paused"}), None)
@@ -68,3 +77,7 @@ def reset_state() -> None:
     """Clear API process state for tests and controlled restarts."""
     _sessions.clear()
     _exports.clear()
+    frame_paths.clear()
+    frame_dims.clear()
+    annotation_store.clear()
+    next_ann_id[0] = 1

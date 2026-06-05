@@ -31,7 +31,9 @@ export default function App() {
   return (
     <ToastProvider>
       {active ? (
-        <AnnotatePage />
+        <AnnotatePage
+          onStop={(dest) => setView((dest || "mode") as AppView)}
+        />
       ) : isWizard ? (
         <WizardPage
           step={wizardStep}

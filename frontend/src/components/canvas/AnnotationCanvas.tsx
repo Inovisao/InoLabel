@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Stage, Layer, Image as KonvaImage, Rect } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Group } from "react-konva";
 import Konva from "konva";
 import { useAnnotationStore } from "../../stores/annotation";
 import ConfirmModal from "../modals/ConfirmModal";
@@ -12,7 +12,7 @@ interface DrawingRect {
 }
 
 export default function AnnotationCanvas() {
-  const { frame, classes, selectedClassId, addAnnotation, removeAnnotation } =
+  const { frame, classes, selectedClassId, addAnnotation, removeAnnotation, error, clearError } =
     useAnnotationStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,31 +45,40 @@ export default function AnnotationCanvas() {
   const offsetX = (size.width - imgW) / 2;
   const offsetY = (size.height - imgH) / 2;
 
+  /** Convert stage → image pixel coords, clamped to image bounds */
   const toImageCoords = useCallback(
     (stageX: number, stageY: number) => ({
-      x: (stageX - offsetX) / imgScale,
-      y: (stageY - offsetY) / imgScale,
+      x: Math.max(0, Math.min((stageX - offsetX) / imgScale, img?.width ?? 0)),
+      y: Math.max(0, Math.min((stageY - offsetY) / imgScale, img?.height ?? 0)),
     }),
-    [offsetX, offsetY, imgScale]
+    [offsetX, offsetY, imgScale, img]
   );
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (e.evt.button !== 0) return;
+    if (e.evt.button !== 0 || !img) return;
     const pos = e.target.getStage()?.getPointerPosition();
     if (!pos) return;
+    // Only start drawing if click is within image bounds
+    if (
+      pos.x < offsetX || pos.x > offsetX + imgW ||
+      pos.y < offsetY || pos.y > offsetY + imgH
+    ) return;
     setStartPos({ x: pos.x, y: pos.y });
     setDrawing({ x: pos.x, y: pos.y, w: 0, h: 0 });
   };
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!startPos) return;
+    if (!startPos || !img) return;
     const pos = e.target.getStage()?.getPointerPosition();
     if (!pos) return;
+    // Clamp to image bounds on screen
+    const cx = Math.max(offsetX, Math.min(pos.x, offsetX + imgW));
+    const cy = Math.max(offsetY, Math.min(pos.y, offsetY + imgH));
     setDrawing({
-      x: Math.min(pos.x, startPos.x),
-      y: Math.min(pos.y, startPos.y),
-      w: Math.abs(pos.x - startPos.x),
-      h: Math.abs(pos.y - startPos.y),
+      x: Math.min(cx, startPos.x),
+      y: Math.min(cy, startPos.y),
+      w: Math.abs(cx - startPos.x),
+      h: Math.abs(cy - startPos.y),
     });
   };
 
@@ -80,13 +89,16 @@ export default function AnnotationCanvas() {
       return;
     }
     const tl = toImageCoords(drawing.x, drawing.y);
-    await addAnnotation([tl.x, tl.y, drawing.w / imgScale, drawing.h / imgScale]);
+    const br = toImageCoords(drawing.x + drawing.w, drawing.y + drawing.h);
+    const bboxW = Math.max(1, br.x - tl.x);
+    const bboxH = Math.max(1, br.y - tl.y);
+    await addAnnotation([tl.x, tl.y, bboxW, bboxH]);
     setDrawing(null);
     setStartPos(null);
   };
 
   const selectedClass = classes.find((c) => c.id === selectedClassId);
-  const color = selectedClass?.color ?? "#4F46E5";
+  const drawColor = selectedClass?.color ?? "#4F46E5";
 
   return (
     <>
@@ -97,9 +109,35 @@ export default function AnnotationCanvas() {
           background: "var(--color-canvas-bg)",
           overflow: "hidden",
           position: "relative",
-          cursor: "crosshair",
+          cursor: img ? "crosshair" : "default",
         }}
       >
+        {/* Error toast */}
+        {error && (
+          <div
+            onClick={clearError}
+            style={{
+              position: "absolute",
+              top: 12,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 10,
+              padding: "8px 16px",
+              background: "rgba(220,38,38,0.9)",
+              color: "#fff",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+              backdropFilter: "blur(4px)",
+              maxWidth: 400,
+              textAlign: "center",
+            }}
+          >
+            {error} · clique para fechar
+          </div>
+        )}
+
         <Stage
           width={size.width}
           height={size.height}
@@ -118,40 +156,74 @@ export default function AnnotationCanvas() {
               />
             )}
 
+            {/* Existing annotations */}
             {frame?.annotations.map((ann) => {
               const cls = classes.find((c) => c.id === ann.category_id);
               const clsColor = cls?.color ?? "#4F46E5";
+              const clsName = cls?.name ?? `#${ann.category_id}`;
               const [bx, by, bw, bh] = ann.bbox;
+              const sx = offsetX + bx * imgScale;
+              const sy = offsetY + by * imgScale;
+              const sw = bw * imgScale;
+              const sh = bh * imgScale;
+              const labelFontSize = Math.max(10, Math.min(14, sw * 0.12));
+
               return (
-                <Rect
-                  key={ann.id}
-                  x={offsetX + bx * imgScale}
-                  y={offsetY + by * imgScale}
-                  width={bw * imgScale}
-                  height={bh * imgScale}
-                  stroke={clsColor}
-                  strokeWidth={2}
-                  listening={true}
-                  onDblClick={() => setConfirmAnnId(ann.id)}
-                />
+                <Group key={ann.id} onDblClick={() => setConfirmAnnId(ann.id)}>
+                  {/* Bbox rectangle */}
+                  <Rect
+                    x={sx}
+                    y={sy}
+                    width={sw}
+                    height={sh}
+                    stroke={clsColor}
+                    strokeWidth={2}
+                    fill={`${clsColor}18`}
+                    listening={true}
+                  />
+                  {/* Label background */}
+                  <Rect
+                    x={sx}
+                    y={Math.max(0, sy - labelFontSize - 4)}
+                    width={clsName.length * labelFontSize * 0.6 + 8}
+                    height={labelFontSize + 4}
+                    fill={clsColor}
+                    cornerRadius={3}
+                    listening={false}
+                  />
+                  {/* Label text */}
+                  <Text
+                    x={sx + 4}
+                    y={Math.max(2, sy - labelFontSize - 1)}
+                    text={clsName}
+                    fontSize={labelFontSize}
+                    fontFamily="Inter, sans-serif"
+                    fontStyle="600"
+                    fill="#fff"
+                    listening={false}
+                  />
+                </Group>
               );
             })}
 
+            {/* Drawing preview */}
             {drawing && drawing.w > 2 && drawing.h > 2 && (
               <Rect
                 x={drawing.x}
                 y={drawing.y}
                 width={drawing.w}
                 height={drawing.h}
-                stroke={color}
+                stroke={drawColor}
                 strokeWidth={2}
-                dash={[5, 4]}
+                fill={`${drawColor}18`}
+                dash={[6, 4]}
                 listening={false}
               />
             )}
           </Layer>
         </Stage>
 
+        {/* Empty state */}
         {!frame && (
           <div
             style={{
@@ -176,7 +248,7 @@ export default function AnnotationCanvas() {
           </div>
         )}
 
-        {/* Class indicator overlay */}
+        {/* Active class indicator */}
         {frame && selectedClass && (
           <div
             style={{
@@ -205,6 +277,22 @@ export default function AnnotationCanvas() {
             <span style={{ fontSize: 12, color: "#fff", fontWeight: 500 }}>
               {selectedClass.name}
             </span>
+          </div>
+        )}
+
+        {/* Hint */}
+        {frame && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 12,
+              left: 12,
+              fontSize: 11,
+              color: "rgba(255,255,255,0.4)",
+              pointerEvents: "none",
+            }}
+          >
+            Arraste para anotar · Duplo clique na caixa para remover
           </div>
         )}
       </div>
