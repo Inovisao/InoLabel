@@ -52,13 +52,34 @@ class SessionStartRequest(BaseModel):
         self.resume = self.resume or self.resume_existing
         return self
 
+    @model_validator(mode="after")
+    def validate_mode_specific_constraints(self) -> "SessionStartRequest":
+        if self.mode == TaskMode.CLASSIFICATION and len(self.classes) < 2:
+            raise ValueError(
+                "Modo classificação requer ao menos 2 classes. "
+                "Com apenas 1 classe não é possível distinguir categorias."
+            )
+        return self
+
+    @field_validator("confidence_threshold")
+    @classmethod
+    def confidence_threshold_in_range(cls, value: float) -> float:
+        if not (0.0 <= value <= 1.0):
+            raise ValueError(
+                f"confidence_threshold deve estar entre 0.0 e 1.0, recebeu {value}."
+            )
+        return value
+
     @field_validator("classes")
     @classmethod
     def classes_not_empty(cls, value: List[str]) -> List[str]:
         cleaned = [item.strip() for item in value if item.strip()]
         if not cleaned:
             raise ValueError("Informe ao menos uma classe.")
-        return cleaned
+        # Deduplicate preserving order — duplicate class names create ambiguous
+        # category IDs and break YOLO export consistency.
+        seen: set[str] = set()
+        return [c for c in cleaned if not (c in seen or seen.add(c))]  # type: ignore[func-returns-value]
 
 
 class SessionStartResponse(BaseModel):
@@ -154,3 +175,21 @@ class AnnotationUpsert(BaseModel):
     bbox: List[float]
     track_id: Optional[int] = None
     source: str = "manual"
+
+    @field_validator("category_id")
+    @classmethod
+    def category_id_non_negative(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError(
+                f"category_id deve ser >= 0 (índice da classe YOLO), recebeu {value}."
+            )
+        return value
+
+    @field_validator("bbox")
+    @classmethod
+    def bbox_must_have_four_elements(cls, value: List[float]) -> List[float]:
+        if len(value) != 4:
+            raise ValueError(
+                f"bbox deve ter exatamente 4 elementos [x, y, w, h], recebeu {len(value)}."
+            )
+        return value

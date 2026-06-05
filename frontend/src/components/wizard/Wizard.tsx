@@ -41,10 +41,11 @@ interface Props {
   onStepChange: (s: number) => void;
   activeNav: string;
   onNavigate: (id: string) => void;
+  initialState?: Partial<WizardState>;
 }
 
-export default function Wizard({ step, onStepChange, activeNav, onNavigate }: Props) {
-  const [state, setState] = useState<WizardState>(INITIAL);
+export default function Wizard({ step, onStepChange, activeNav, onNavigate, initialState }: Props) {
+  const [state, setState] = useState<WizardState>({ ...INITIAL, ...initialState });
   const { start, loading, error } = useSessionStore();
 
   const update = (patch: Partial<WizardState>) =>
