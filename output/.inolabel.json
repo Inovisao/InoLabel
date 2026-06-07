@@ -1,9 +1,0 @@
-{
-  "session_id": "ba621cd4-e7b0-4d23-a7b0-838407024158",
-  "mode": "detection",
-  "data_path": "C:\\Users\\magnu\\OneDrive\\Documentos\\GitHub\\InoLabel\\APLICATIVO\\dataset",
-  "classes": [
-    "boi"
-  ],
-  "created_at": "2026-06-05T22:32:53.274049+00:00"
-}
