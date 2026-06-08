@@ -127,6 +127,7 @@ class ExportRequest(BaseModel):
     name: str
     formats: List[str]
     split: SplitConfig = Field(default_factory=SplitConfig)
+    use_split: bool = True
     augmentation: bool = False
 
 
