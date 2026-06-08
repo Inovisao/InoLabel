@@ -16,6 +16,8 @@ class ExportJob:
     destination: Path
     name: str
     formats: list[str]
+    use_split: bool = True
+    split_ratios: tuple[float, float, float] = (0.7, 0.2, 0.1)
     progress: float = 0.0
     current_file: str = ""
     status: ExportStatus = "running"

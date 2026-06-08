@@ -10,7 +10,7 @@ import cv2
 
 from app.annotation.core.augmentation.augmentation_service import apply_preset
 from app.annotation.core.augmentation.augmentation_types import AugmentationPreset
-from app.annotation.core.export.split_service import assign_splits
+from app.annotation.core.export.split_service import assign_splits, normalize_split_ratios
 from app.annotation.core.export.yolo_label_service import (
     annotations_to_yolo_bboxes,
     build_zero_based_category_mapping,
@@ -61,14 +61,7 @@ def _write_augmented_copies(
 
 
 def _normalized_split_ratios(split_ratios: Tuple[float, float, float]) -> Tuple[float, float, float]:
-    if len(split_ratios) != 3:
-        raise ValueError("split_ratios must contain train, val and test.")
-    if any(ratio < 0 for ratio in split_ratios):
-        raise ValueError("split_ratios cannot contain negative values.")
-    total_ratio = sum(split_ratios)
-    if total_ratio <= 0:
-        raise ValueError("split_ratios must have a positive sum.")
-    return tuple(ratio / total_ratio for ratio in split_ratios)
+    return normalize_split_ratios(split_ratios)
 
 
 
@@ -90,6 +83,7 @@ def export_yolo_dataset(
 ) -> Dict[str, Any]:
     normalized_ratios = _normalized_split_ratios(split_ratios)
     if dataset_root.exists():
+        print(f"[AVISO] Removendo dataset existente antes de re-exportar: {dataset_root}")
         shutil.rmtree(dataset_root)
 
     images = payload.get("images", [])
@@ -192,6 +186,7 @@ def export_yolo_no_split(
     on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> Dict[str, Any]:
     if dataset_root.exists():
+        print(f"[AVISO] Removendo dataset existente antes de re-exportar: {dataset_root}")
         shutil.rmtree(dataset_root)
 
     images = payload.get("images", [])
