@@ -22,7 +22,7 @@ function getInitialTheme(): ThemeMode {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme());
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;

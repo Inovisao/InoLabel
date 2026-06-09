@@ -61,7 +61,7 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
 
       {/* Mode badge */}
       {mode && (
-        <span className="badge">
+        <span className={`badge badge-${mode}`}>
           {MODE_LABELS[mode] ?? mode}
         </span>
       )}
