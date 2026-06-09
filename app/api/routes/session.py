@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -38,6 +39,7 @@ def _update_project_meta(session: _SessionState) -> None:
         "classes": session.classes,
         "data_path": str(session.data_path),
         "last_modified": datetime.now(timezone.utc).isoformat(),
+        "current_frame": session.current_frame,
     })
     try:
         meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -86,11 +88,13 @@ def list_projects(path: str = "output") -> list[ProjectEntry]:
 
         if labels_dir.exists():
             try:
-                for txt in labels_dir.glob("*.txt"):
-                    st = txt.stat()
-                    mtimes.append(st.st_mtime)
-                    if st.st_size > 0:
-                        annotated_frames += 1
+                with os.scandir(labels_dir) as it:
+                    for entry in it:
+                        if entry.name.endswith(".txt") and entry.is_file(follow_symlinks=False):
+                            st = entry.stat()
+                            mtimes.append(st.st_mtime)
+                            if st.st_size > 0:
+                                annotated_frames += 1
             except PermissionError:
                 pass
 
@@ -165,9 +169,31 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
 
     reset_annotations()
 
+    # Read existing metadata early: needed to restore current_frame on resume and
+    # to preserve created_at so the project doesn't reset its creation date.
+    meta_path = output_path / ".inolabel.json"
+    existing_meta: dict = {}
+    if meta_path.exists():
+        try:
+            existing_meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
     # run_in_threadpool: _count_frames does blocking I/O (rglob) and must not
     # run on the uvicorn async event loop thread directly.
     total = await run_in_threadpool(_count_frames, data_path)
+
+    # Restore last-known frame position on resume; clamp to valid range so a
+    # renamed or deleted image file never leaves the index out of bounds.
+    restored_frame = 0
+    if req.resume:
+        try:
+            restored_frame = min(
+                max(int(existing_meta.get("current_frame", 0)), 0),
+                max(total - 1, 0),
+            )
+        except (TypeError, ValueError):
+            pass
 
     session = create_session(
         mode=req.mode.value,
@@ -177,24 +203,25 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
         resume=req.resume,
         classes=req.classes,
         total_frames=total,
+        current_frame=restored_frame,
     )
     log.info(
-        "start_session: created session %s mode=%s frames=%d path=%s",
-        session.session_id, session.mode, total, data_path,
+        "start_session: created session %s mode=%s frames=%d path=%s resume=%s frame=%d",
+        session.session_id, session.mode, total, data_path, req.resume, restored_frame,
     )
 
     # Write project metadata so the Projects page can discover this session later.
+    # Preserve created_at from any existing metadata; include current_frame for resume.
     try:
         meta = {
             "session_id": session.session_id,
             "mode": session.mode,
             "data_path": str(data_path),
             "classes": req.classes,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "current_frame": session.current_frame,
+            "created_at": existing_meta.get("created_at") or datetime.now(timezone.utc).isoformat(),
         }
-        (output_path / ".inolabel.json").write_text(
-            json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass  # non-critical — projects page will just miss this entry
 

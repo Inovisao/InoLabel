@@ -34,6 +34,7 @@ export default function Sidebar() {
           return (
             <button
               key={cls.id}
+              className={`nav-item ${active ? "nav-item-active" : ""}`}
               onClick={() => setSelectedClass(cls.id)}
               style={{
                 display: "flex",
@@ -41,25 +42,12 @@ export default function Sidebar() {
                 gap: 8,
                 minHeight: 36,
                 padding: "7px 10px",
-                background: active ? "var(--color-primary-light)" : "transparent",
-                border: "1px solid",
-                borderColor: active ? "rgba(79,70,229,0.2)" : "transparent",
+                border: "1px solid transparent",
                 borderRadius: "var(--radius-md)",
                 cursor: "pointer",
                 textAlign: "left",
                 width: "100%",
-                transition: "background 120ms, border-color 120ms",
                 fontFamily: "var(--font-sans)",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLButtonElement).style.background = "var(--color-neutral)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                }
               }}
             >
               <span
@@ -120,6 +108,7 @@ export default function Sidebar() {
 function ToolButton({ label, shortcut }: { label: string; shortcut: string }) {
   return (
     <div
+      className="nav-item"
       style={{
         display: "flex",
         alignItems: "center",
@@ -127,16 +116,8 @@ function ToolButton({ label, shortcut }: { label: string; shortcut: string }) {
         padding: "6px 10px",
         borderRadius: "var(--radius-md)",
         cursor: "pointer",
-        color: "var(--color-sidebar-text)",
         fontSize: 13,
-        transition: "background 120ms",
       }}
-      onMouseEnter={(e) =>
-        ((e.currentTarget as HTMLDivElement).style.background = "var(--color-neutral)")
-      }
-      onMouseLeave={(e) =>
-        ((e.currentTarget as HTMLDivElement).style.background = "transparent")
-      }
     >
       <span>{label}</span>
       <span

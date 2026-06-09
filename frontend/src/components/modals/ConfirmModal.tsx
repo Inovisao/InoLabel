@@ -23,28 +23,12 @@ export default function ConfirmModal({
   return (
     <Dialog.Root open={open} onOpenChange={(v) => !v && onCancel()}>
       <Dialog.Portal>
-        <Dialog.Overlay
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            zIndex: 1000,
-            backdropFilter: "blur(2px)",
-          }}
-        />
+        <Dialog.Overlay className="modal-overlay" />
         <Dialog.Content
+          className="modal-content"
           style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            zIndex: 1001,
             width: 420,
-            background: "var(--color-panel)",
-            borderRadius: "var(--radius-xl)",
             padding: 28,
-            boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
-            fontFamily: "var(--font-sans)",
           }}
         >
           <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
@@ -53,7 +37,7 @@ export default function ConfirmModal({
                 width: 44,
                 height: 44,
                 borderRadius: 12,
-                background: danger ? "#FEF2F2" : "var(--color-hero-bg)",
+                background: danger ? "var(--color-error-bg)" : "var(--color-hero-bg)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -62,7 +46,7 @@ export default function ConfirmModal({
             >
               <AlertTriangle
                 size={22}
-                color={danger ? "#EF4444" : "var(--color-primary)"}
+                color={danger ? "var(--color-error-icon)" : "var(--color-primary)"}
                 strokeWidth={2}
               />
             </div>
@@ -90,21 +74,10 @@ export default function ConfirmModal({
               Cancelar
             </button>
             <button
+              className={danger ? "btn-danger" : "btn-primary"}
               onClick={onConfirm}
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: 48,
-                padding: "0 20px",
-                borderRadius: "var(--radius-md)",
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: "pointer",
-                border: "1px solid transparent",
-                background: danger ? "var(--color-danger)" : "var(--color-primary)",
-                color: "#fff",
-                fontFamily: "var(--font-sans)",
+                minWidth: 112,
               }}
             >
               {confirmLabel}

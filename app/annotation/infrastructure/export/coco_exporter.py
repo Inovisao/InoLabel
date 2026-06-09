@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 
 def _flat_name(file_name: str) -> str:
@@ -112,6 +115,7 @@ def export_detection_coco_json(
     output_path: Path,
     only_annotated_images: bool = False,
     source_images_dir: Optional[Path] = None,
+    source_image_map: Optional[Dict[str, Path]] = None,
     on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> Dict[str, Any]:
     converted = convert_tracking_to_detection(payload, only_annotated_images=only_annotated_images)
@@ -126,23 +130,47 @@ def export_detection_coco_json(
         tmp_path.unlink(missing_ok=True)
         raise
 
-    if source_images_dir is not None:
+    if source_images_dir is not None or source_image_map is not None:
         imgs = converted.get("images", [])
-        total = len(imgs)
         images_dest = output_path.parent / "images"
         images_dest.mkdir(parents=True, exist_ok=True)
+
+        # Sequential phase: resolve names and deduplicate (must be serial for collision tracking)
         used_flat_names: Set[str] = set()
-        for done, img in enumerate(imgs, 1):
+        copy_jobs: List[Tuple[Path, Path]] = []
+        for img in imgs:
             file_name = str(img.get("file_name", "")).strip()
             if not file_name:
                 continue
-            src = source_images_dir / file_name
-            if not src.exists():
-                continue
+            if source_image_map is not None:
+                src = source_image_map.get(file_name)
+                if src is None or not src.exists():
+                    continue
+            else:
+                src = source_images_dir / file_name  # type: ignore[operator]
+                if not src.exists():
+                    continue
             flat = _flat_name_unique(file_name, used_flat_names)
             used_flat_names.add(flat)
-            shutil.copy2(src, images_dest / flat)
-            if on_progress:
-                on_progress(done, total)
+            copy_jobs.append((src, images_dest / flat))
+
+        # Parallel phase: copy images concurrently
+        total = len(copy_jobs)
+        done_count = [0]
+        lock = threading.Lock()
+
+        def _copy_one(job: Tuple[Path, Path]) -> None:
+            src, dst = job
+            shutil.copy2(src, dst)
+            with lock:
+                done_count[0] += 1
+                if on_progress:
+                    on_progress(done_count[0], total)
+
+        n_workers = min(4, os.cpu_count() or 4)
+        with ThreadPoolExecutor(max_workers=n_workers) as exe:
+            futures = [exe.submit(_copy_one, job) for job in copy_jobs]
+            for f in as_completed(futures):
+                f.result()
 
     return converted

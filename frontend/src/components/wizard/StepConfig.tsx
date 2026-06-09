@@ -61,7 +61,7 @@ export default function StepConfig({ state, onChange }: Props) {
                   gap: 6,
                   padding: "4px 10px 4px 8px",
                   background: "var(--color-primary-light)",
-                  border: "1px solid rgba(79,70,229,0.2)",
+                  border: "1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)",
                   borderRadius: 999,
                   fontSize: 13,
                   color: "var(--color-primary)",
@@ -85,10 +85,11 @@ export default function StepConfig({ state, onChange }: Props) {
                     border: "none",
                     padding: 0,
                     cursor: "pointer",
-                    color: "#A5B4FC",
+                    color: "var(--color-primary)",
                     display: "flex",
                     lineHeight: 1,
                     marginLeft: 2,
+                    opacity: 0.65,
                   }}
                   aria-label={`Remover ${cls}`}
                 >

@@ -102,10 +102,10 @@ export default function HistoryPage({ activeNav, onNavigate, onResume }: Props) 
         Exibindo sessões de{" "}
         <code
           style={{
-            background: "var(--color-neutral, #F3F4F6)",
+            background: "var(--color-neutral-active)",
             padding: "1px 6px",
             borderRadius: 4,
-            fontFamily: "var(--font-mono, monospace)",
+            fontFamily: "var(--font-mono)",
           }}
         >
           {scanPath}
@@ -288,10 +288,8 @@ function TimelineRow({
 function EmptyState({ onNewProject }: { onNewProject: () => void }) {
   return (
     <div
+      className="surface-card"
       style={{
-        background: "var(--color-panel)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-xl)",
         padding: "60px 32px",
         display: "flex",
         flexDirection: "column",

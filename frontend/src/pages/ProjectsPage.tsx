@@ -110,22 +110,16 @@ export default function ProjectsPage({ activeNav, onNavigate, onResume }: Props)
             }}
           />
           <input
+            className="input"
             value={inputPath}
             onChange={(e) => setInputPath(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder="Pasta de saída (ex: output)"
             style={{
-              width: "100%",
               paddingLeft: 36,
               paddingRight: 12,
               height: 38,
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-md)",
-              background: "var(--color-panel)",
-              color: "var(--color-text)",
               fontSize: 13,
-              outline: "none",
-              boxSizing: "border-box",
             }}
           />
         </div>
@@ -167,18 +161,13 @@ export default function ProjectsPage({ activeNav, onNavigate, onResume }: Props)
 function ProjectCard({ project, onResume }: { project: ProjectEntry; onResume: (p: ProjectEntry) => void }) {
   return (
     <div
+      className="surface-card surface-card-interactive"
       style={{
-        background: "var(--color-panel)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-xl)",
         padding: "20px 20px 16px",
         display: "flex",
         flexDirection: "column",
         gap: 12,
-        transition: "box-shadow 150ms",
       }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 16px rgba(79,70,229,0.08)")}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.boxShadow = "none")}
     >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -282,10 +271,8 @@ function Stat({ icon, label }: { icon: React.ReactNode; label: string }) {
 function EmptyState({ onNewProject }: { onNewProject: () => void }) {
   return (
     <div
+      className="surface-card"
       style={{
-        background: "var(--color-panel)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-xl)",
         padding: "60px 32px",
         display: "flex",
         flexDirection: "column",

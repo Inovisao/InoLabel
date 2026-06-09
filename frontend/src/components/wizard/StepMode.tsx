@@ -16,32 +16,32 @@ const MODES: ModeOption[] = [
     label: "Rastreamento",
     description: "Mantém identidade de objetos entre frames usando BYTETracker.",
     icon: ScanLine,
-    iconBg: "#DBEAFE",
-    iconColor: "#3B82F6",
+    iconBg: "var(--color-icon-track)",
+    iconColor: "var(--color-icon-track-fg)",
   },
   {
     id: "detection",
     label: "Detecção padrão",
     description: "Bounding boxes independentes por frame, sem track_id.",
     icon: BoxSelect,
-    iconBg: "#DBEAFE",
-    iconColor: "#3B82F6",
+    iconBg: "var(--color-icon-detect)",
+    iconColor: "var(--color-icon-detect-fg)",
   },
   {
     id: "obb",
     label: "Detecção orientada (OBB)",
     description: "Caixas rotacionadas com ângulo, exportáveis em formato YOLO OBB.",
     icon: Diamond,
-    iconBg: "#DCFCE7",
-    iconColor: "#22C55E",
+    iconBg: "var(--color-icon-obb)",
+    iconColor: "var(--color-icon-obb-fg)",
   },
   {
     id: "classification",
     label: "Classificação",
     description: "Organiza imagens em subpastas por classe com um keypress.",
     icon: Grid2X2,
-    iconBg: "#FEF3C7",
-    iconColor: "#F59E0B",
+    iconBg: "var(--color-icon-class)",
+    iconColor: "var(--color-icon-class-fg)",
   },
 ];
 
@@ -65,6 +65,7 @@ export default function StepMode({ value, onChange }: Props) {
         return (
           <button
             key={mode.id}
+            className={`surface-card mode-card ${selected ? "mode-card-selected" : ""}`}
             onClick={() => onChange(mode.id)}
             style={{
               display: "flex",
@@ -72,24 +73,10 @@ export default function StepMode({ value, onChange }: Props) {
               alignItems: "flex-start",
               gap: 14,
               padding: 20,
-              background: selected ? "var(--color-primary-light)" : "var(--color-panel)",
-              border: `1px solid ${selected ? "var(--color-primary)" : "var(--color-border)"}`,
-              borderRadius: "var(--radius-lg)",
               cursor: "pointer",
               textAlign: "left",
               position: "relative",
-              transition: "background 150ms, border-color 150ms",
               width: "100%",
-            }}
-            onMouseEnter={(e) => {
-              if (!selected) {
-                (e.currentTarget as HTMLButtonElement).style.background = "#FAFAFA";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!selected) {
-                (e.currentTarget as HTMLButtonElement).style.background = "var(--color-panel)";
-              }
             }}
           >
             {/* Radio indicator */}
@@ -101,13 +88,13 @@ export default function StepMode({ value, onChange }: Props) {
                 width: 20,
                 height: 20,
                 borderRadius: "50%",
-                border: `2px solid ${selected ? "var(--color-primary)" : "#D1D5DB"}`,
+                border: `2px solid ${selected ? "var(--color-primary)" : "var(--color-border-hover)"}`,
                 background: selected ? "var(--color-primary)" : "transparent",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
-                transition: "border-color 150ms, background 150ms",
+                transition: "border-color var(--motion-base), background var(--motion-base)",
               }}
             >
               {selected && (
@@ -116,7 +103,7 @@ export default function StepMode({ value, onChange }: Props) {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: "#fff",
+                    background: "var(--color-text-inverse)",
                   }}
                 />
               )}
@@ -124,15 +111,11 @@ export default function StepMode({ value, onChange }: Props) {
 
             {/* Icon box */}
             <div
+              className="icon-surface"
               style={{
                 width: 52,
                 height: 52,
-                borderRadius: 10,
                 background: mode.iconBg,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
               }}
             >
               <Icon size={24} color={mode.iconColor} strokeWidth={1.75} />
@@ -147,7 +130,7 @@ export default function StepMode({ value, onChange }: Props) {
                   color: selected ? "var(--color-primary)" : "var(--color-text)",
                   marginBottom: 4,
                   lineHeight: 1.3,
-                  transition: "color 150ms",
+                  transition: "color var(--motion-base)",
                 }}
               >
                 {mode.label}

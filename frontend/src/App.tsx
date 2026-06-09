@@ -7,6 +7,7 @@ import HistoryPage from "./pages/HistoryPage";
 import HelpPage from "./pages/HelpPage";
 import ShortcutsPage from "./pages/ShortcutsPage";
 import { ToastProvider } from "./ui/ToastContext";
+import { ThemeProvider } from "./ui/ThemeContext";
 import type { WizardState } from "./components/wizard/Wizard";
 import type { ProjectEntry } from "./api/types";
 
@@ -51,31 +52,33 @@ export default function App() {
   };
 
   return (
-    <ToastProvider>
-      {active ? (
-        <AnnotatePage
-          onStop={(dest) => {
-            setWizardInitial(undefined);
-            setView((dest || "mode") as AppView);
-          }}
-        />
-      ) : isWizard ? (
-        <WizardPage
-          step={wizardStep}
-          onStepChange={(s) => setView(WIZARD_STEPS[s])}
-          activeNav={view}
-          onNavigate={handleNavigate}
-          initialState={wizardInitial}
-        />
-      ) : view === "projects" ? (
-        <ProjectsPage activeNav={view} onNavigate={handleNavigate} onResume={handleResume} />
-      ) : view === "history" ? (
-        <HistoryPage activeNav={view} onNavigate={handleNavigate} onResume={handleResume} />
-      ) : view === "help" ? (
-        <HelpPage activeNav={view} onNavigate={handleNavigate} />
-      ) : (
-        <ShortcutsPage activeNav={view} onNavigate={handleNavigate} />
-      )}
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        {active ? (
+          <AnnotatePage
+            onStop={(dest) => {
+              setWizardInitial(undefined);
+              setView((dest || "mode") as AppView);
+            }}
+          />
+        ) : isWizard ? (
+          <WizardPage
+            step={wizardStep}
+            onStepChange={(s) => setView(WIZARD_STEPS[s])}
+            activeNav={view}
+            onNavigate={handleNavigate}
+            initialState={wizardInitial}
+          />
+        ) : view === "projects" ? (
+          <ProjectsPage activeNav={view} onNavigate={handleNavigate} onResume={handleResume} />
+        ) : view === "history" ? (
+          <HistoryPage activeNav={view} onNavigate={handleNavigate} onResume={handleResume} />
+        ) : view === "help" ? (
+          <HelpPage activeNav={view} onNavigate={handleNavigate} />
+        ) : (
+          <ShortcutsPage activeNav={view} onNavigate={handleNavigate} />
+        )}
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
