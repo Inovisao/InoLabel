@@ -380,6 +380,30 @@ html, body, #root {
   border-color: var(--color-border);
 }
 
+.badge-tracking {
+  background: var(--color-icon-track);
+  color: var(--color-icon-track-fg);
+  border-color: color-mix(in srgb, var(--color-icon-track-fg) 20%, transparent);
+}
+
+.badge-detection {
+  background: var(--color-icon-detect);
+  color: var(--color-icon-detect-fg);
+  border-color: color-mix(in srgb, var(--color-icon-detect-fg) 20%, transparent);
+}
+
+.badge-obb {
+  background: var(--color-icon-obb);
+  color: var(--color-icon-obb-fg);
+  border-color: color-mix(in srgb, var(--color-icon-obb-fg) 20%, transparent);
+}
+
+.badge-classification {
+  background: var(--color-icon-class);
+  color: var(--color-icon-class-fg);
+  border-color: color-mix(in srgb, var(--color-icon-class-fg) 20%, transparent);
+}
+
 /* Divider */
 
 .divider {
