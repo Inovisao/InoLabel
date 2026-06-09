@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
 import shutil
 from dataclasses import dataclass
@@ -12,6 +14,8 @@ from typing import Iterable, Optional
 
 from app.config import IMAGE_EXTENSIONS, OUTPUT_DATASET_PREFIX
 from app.core.session import normalize_class_names
+
+log = logging.getLogger(__name__)
 
 STATE_FILE_NAME = "classification_state.json"
 STATE_PATTERN = re.compile(rf"^{re.escape(OUTPUT_DATASET_PREFIX)}(?P<index>\d+)_(?P<stamp>\d{{8}}_\d{{6}})")
@@ -340,6 +344,25 @@ def classify_image_source(
     )
 
 
+def _get_disk_free_space(path: Path) -> int:
+    """Get available disk space in bytes for the given path."""
+    try:
+        stat = os.statvfs(str(path))
+        return stat.f_bavail * stat.f_frsize
+    except (OSError, AttributeError):
+        return -1
+
+
+def _estimate_copy_size(records: Iterable[ClassificationRecord]) -> int:
+    """Estimate total bytes needed to copy all records."""
+    total = 0
+    for record in records:
+        source_path = _existing_record_image_path(record)
+        if source_path is not None and source_path.exists():
+            total += source_path.stat().st_size
+    return total
+
+
 def export_classification_dataset(
     *,
     records: Iterable[ClassificationRecord],
@@ -356,10 +379,21 @@ def export_classification_dataset(
     for dirname in directories.values():
         (dataset_root / dirname).mkdir(parents=True, exist_ok=True)
 
+    records_list = list(records)
+    needed_bytes = _estimate_copy_size(_latest_records_by_source(records_list))
+    free_bytes = _get_disk_free_space(dataset_root)
+
+    if free_bytes > 0 and needed_bytes > free_bytes:
+        needed_mb = needed_bytes / (1024 * 1024)
+        free_mb = free_bytes / (1024 * 1024)
+        error_msg = f"Espaço em disco insuficiente. Necessário: {needed_mb:.1f}MB, Disponível: {free_mb:.1f}MB"
+        log.error(error_msg)
+        raise OSError(error_msg)
+
     copied = 0
     skipped: list[str] = []
     exported_by_class = {class_name: 0 for class_name in normalize_class_names(classes)}
-    for record in _latest_records_by_source(records):
+    for record in _latest_records_by_source(records_list):
         if record.class_name not in directories:
             skipped.append(str(record.source_path))
             continue
