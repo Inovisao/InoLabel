@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Stage, Layer, Image as KonvaImage, Rect, Text, Group } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Group, Line } from "react-konva";
 import Konva from "konva";
 import { useAnnotationStore } from "../../stores/annotation";
+import { useSessionStore } from "../../stores/session";
+import type { Annotation } from "../../api/types";
 import ConfirmModal from "../modals/ConfirmModal";
 
 interface DrawingRect {
@@ -11,9 +13,52 @@ interface DrawingRect {
   h: number;
 }
 
+const TRACK_COLOR_VARS = [
+  "--color-icon-track-fg",
+  "--color-icon-detect-fg",
+  "--color-icon-obb-fg",
+  "--color-icon-class-fg",
+  "--color-primary",
+  "--color-danger",
+];
+
+function colorForTrack(trackId: number) {
+  return `var(${TRACK_COLOR_VARS[Math.abs(trackId) % TRACK_COLOR_VARS.length]})`;
+}
+
+function obbPoints(ann: Annotation): [number, number][] | null {
+  const obb = ann.obb;
+  if (!obb) return null;
+  if (obb.points?.length === 4) return obb.points;
+
+  const theta = (obb.angle * Math.PI) / 180;
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
+  const halfW = obb.width / 2;
+  const halfH = obb.height / 2;
+  return [
+    [-halfW, -halfH],
+    [halfW, -halfH],
+    [halfW, halfH],
+    [-halfW, halfH],
+  ].map(([dx, dy]) => [
+    obb.cx + dx * cos - dy * sin,
+    obb.cy + dx * sin + dy * cos,
+  ]);
+}
+
 export default function AnnotationCanvas() {
-  const { frame, classes, selectedClassId, addAnnotation, removeAnnotation, error, clearError } =
-    useAnnotationStore();
+  const {
+    frame,
+    classes,
+    selectedClassId,
+    classificationResult,
+    addAnnotation,
+    removeAnnotation,
+    error,
+    clearError,
+  } = useAnnotationStore();
+  const mode = useSessionStore((s) => s.mode);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -55,7 +100,7 @@ export default function AnnotationCanvas() {
   );
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (e.evt.button !== 0 || !img) return;
+    if (e.evt.button !== 0 || !img || mode === "classification") return;
     const pos = e.target.getStage()?.getPointerPosition();
     if (!pos) return;
     // Only start drawing if click is within image bounds
@@ -68,7 +113,7 @@ export default function AnnotationCanvas() {
   };
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!startPos || !img) return;
+    if (!startPos || !img || mode === "classification") return;
     const pos = e.target.getStage()?.getPointerPosition();
     if (!pos) return;
     // Clamp to image bounds on screen
@@ -83,6 +128,11 @@ export default function AnnotationCanvas() {
   };
 
   const handleMouseUp = async () => {
+    if (mode === "classification") {
+      setDrawing(null);
+      setStartPos(null);
+      return;
+    }
     if (!drawing || !startPos || drawing.w < 5 || drawing.h < 5) {
       setDrawing(null);
       setStartPos(null);
@@ -109,7 +159,7 @@ export default function AnnotationCanvas() {
           background: "var(--color-canvas-bg)",
           overflow: "hidden",
           position: "relative",
-          cursor: img ? "crosshair" : "default",
+          cursor: img && mode !== "classification" ? "crosshair" : "default",
         }}
       >
         {/* Error toast */}
@@ -157,16 +207,65 @@ export default function AnnotationCanvas() {
             )}
 
             {/* Existing annotations */}
-            {frame?.annotations.map((ann) => {
+            {mode !== "classification" && frame?.annotations.map((ann) => {
               const cls = classes.find((c) => c.id === ann.category_id);
-              const clsColor = cls?.color ?? "#4F46E5";
+              const clsColor =
+                mode === "tracking" && ann.track_id !== undefined
+                  ? colorForTrack(ann.track_id)
+                  : cls?.color ?? "#4F46E5";
               const clsName = cls?.name ?? `#${ann.category_id}`;
+              const label =
+                mode === "tracking" && ann.track_id !== undefined
+                  ? `ID ${ann.track_id} | ${clsName}`
+                  : clsName;
               const [bx, by, bw, bh] = ann.bbox;
               const sx = offsetX + bx * imgScale;
               const sy = offsetY + by * imgScale;
               const sw = bw * imgScale;
               const sh = bh * imgScale;
               const labelFontSize = Math.max(10, Math.min(14, sw * 0.12));
+              const points = mode === "obb" ? obbPoints(ann) : null;
+
+              if (points) {
+                const scaled = points.flatMap(([px, py]) => [
+                  offsetX + px * imgScale,
+                  offsetY + py * imgScale,
+                ]);
+                const labelX = Math.min(...points.map(([px]) => offsetX + px * imgScale));
+                const labelY = Math.min(...points.map(([, py]) => offsetY + py * imgScale));
+
+                return (
+                  <Group key={ann.id} onDblClick={() => setConfirmAnnId(ann.id)}>
+                    <Line
+                      points={scaled}
+                      closed
+                      stroke={clsColor}
+                      strokeWidth={2}
+                      fill={`${clsColor}18`}
+                      listening={true}
+                    />
+                    <Rect
+                      x={labelX}
+                      y={Math.max(0, labelY - labelFontSize - 4)}
+                      width={label.length * labelFontSize * 0.6 + 8}
+                      height={labelFontSize + 4}
+                      fill={clsColor}
+                      cornerRadius={3}
+                      listening={false}
+                    />
+                    <Text
+                      x={labelX + 4}
+                      y={Math.max(2, labelY - labelFontSize - 1)}
+                      text={label}
+                      fontSize={labelFontSize}
+                      fontFamily="Inter, sans-serif"
+                      fontStyle="600"
+                      fill="#fff"
+                      listening={false}
+                    />
+                  </Group>
+                );
+              }
 
               return (
                 <Group key={ann.id} onDblClick={() => setConfirmAnnId(ann.id)}>
@@ -185,7 +284,7 @@ export default function AnnotationCanvas() {
                   <Rect
                     x={sx}
                     y={Math.max(0, sy - labelFontSize - 4)}
-                    width={clsName.length * labelFontSize * 0.6 + 8}
+                    width={label.length * labelFontSize * 0.6 + 8}
                     height={labelFontSize + 4}
                     fill={clsColor}
                     cornerRadius={3}
@@ -195,7 +294,7 @@ export default function AnnotationCanvas() {
                   <Text
                     x={sx + 4}
                     y={Math.max(2, sy - labelFontSize - 1)}
-                    text={clsName}
+                    text={label}
                     fontSize={labelFontSize}
                     fontFamily="Inter, sans-serif"
                     fontStyle="600"
@@ -292,7 +391,28 @@ export default function AnnotationCanvas() {
               pointerEvents: "none",
             }}
           >
-            Arraste para anotar · Duplo clique na caixa para remover
+            {mode === "classification"
+              ? "Use 1-9 para classificar pela lista de classes"
+              : "Arraste para anotar - Duplo clique na caixa para remover"}
+          </div>
+        )}
+
+        {mode === "classification" && classificationResult && (
+          <div
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              padding: "8px 12px",
+              background: "var(--overlay-canvas-control)",
+              color: "var(--color-text-inverse)",
+              borderRadius: "var(--radius-md)",
+              fontSize: 12,
+              fontWeight: 600,
+              pointerEvents: "none",
+            }}
+          >
+            {classificationResult.top1_class_name}
           </div>
         )}
       </div>

@@ -127,7 +127,7 @@ def _run_export_blocking(export_id: str) -> None:
                 if cat_id < 0 or cat_id >= len(classes):
                     continue
                 x, y, w, h = ann.bbox
-                coco_annotations.append({
+                ann_entry = {
                     "id": ann_id,
                     "image_id": frame_idx,
                     "category_id": cat_id,
@@ -135,7 +135,13 @@ def _run_export_blocking(export_id: str) -> None:
                     "area": float(max(w, 0) * max(h, 0)),
                     "iscrowd": 0,
                     "segmentation": [],
-                })
+                    "source": getattr(ann, "source", "manual"),
+                }
+                if getattr(ann, "track_id", None) is not None:
+                    ann_entry["track_id"] = int(ann.track_id)
+                if getattr(ann, "obb", None) is not None:
+                    ann_entry["obb"] = ann.obb.model_dump(exclude_none=True)
+                coco_annotations.append(ann_entry)
                 ann_id += 1
 
         payload = {
@@ -156,7 +162,18 @@ def _run_export_blocking(export_id: str) -> None:
                     current = sorted_export_names[done - 1]
                     job.current_file = export_to_original.get(current, current)
 
-            if job.use_split:
+            if session.mode == "obb":
+                from app.annotation_obb.infrastructure.export.yolo_obb_exporter import export_yolo_obb_dataset
+
+                export_yolo_obb_dataset(
+                    payload,
+                    output_dir=out,
+                    source_images_dir=None,
+                    split_ratios=job.split_ratios if job.use_split else None,
+                    source_image_map=source_image_map,
+                    on_progress=_on_yolo_progress,
+                )
+            elif job.use_split:
                 export_yolo_dataset(
                     payload,
                     source_images_dir=None,

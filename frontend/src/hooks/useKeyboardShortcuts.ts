@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAnnotationStore } from "../stores/annotation";
+import { useSessionStore } from "../stores/session";
 
 interface Options {
   onSave?: () => void;
@@ -8,7 +9,8 @@ interface Options {
 }
 
 export function useKeyboardShortcuts(options: Options = {}) {
-  const { nextFrame, prevFrame } = useAnnotationStore();
+  const { nextFrame, prevFrame, classifyFrame, classes } = useAnnotationStore();
+  const mode = useSessionStore((s) => s.mode);
   const { onSave, onExport, onSettings } = options;
 
   useEffect(() => {
@@ -34,6 +36,17 @@ export function useKeyboardShortcuts(options: Options = {}) {
         }
       }
 
+      if (mode === "classification" && /^[1-9]$/.test(e.key)) {
+        const classItem = classes[Number(e.key) - 1];
+        if (classItem) {
+          e.preventDefault();
+          classifyFrame(classItem.id).then((result) => {
+            if (result) nextFrame();
+          });
+          return;
+        }
+      }
+
       // Navigation
       switch (e.key) {
         case "ArrowRight":
@@ -53,5 +66,5 @@ export function useKeyboardShortcuts(options: Options = {}) {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nextFrame, prevFrame, onSave, onExport, onSettings]);
+  }, [classes, classifyFrame, mode, nextFrame, prevFrame, onSave, onExport, onSettings]);
 }

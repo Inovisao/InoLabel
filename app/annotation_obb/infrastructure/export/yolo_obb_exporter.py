@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from app.annotation.core.export.split_service import assign_splits, normalize_split_ratios
 from app.annotation.core.export.yolo_label_service import build_zero_based_category_mapping
@@ -43,8 +43,10 @@ def _format_data_yaml(dataset_root: Path, names: Dict[int, str], splits: Optiona
 def export_yolo_obb_dataset(
     payload: dict,
     output_dir: Path,
-    source_images_dir: Path,
+    source_images_dir: Optional[Path],
     split_ratios: Optional[Tuple[float, float, float]] = None,
+    source_image_map: Optional[Dict[str, Path]] = None,
+    on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> dict:
     output_dir = Path(output_dir)
 
@@ -89,12 +91,20 @@ def export_yolo_obb_dataset(
 
     copied = 0
     images_per_split: Dict[str, int] = {s: 0 for s in splits_with_images}
+    total_images = len(images_lookup)
 
     for image_id, image in images_lookup.items():
         file_name = str(image.get("file_name", ""))
         if not file_name:
             continue
-        src = source_images_dir / file_name
+        if source_image_map is not None:
+            src = source_image_map.get(file_name)
+            if src is None:
+                continue
+        elif source_images_dir is not None:
+            src = source_images_dir / file_name
+        else:
+            continue
         if not src.exists():
             continue
 
@@ -112,6 +122,8 @@ def export_yolo_obb_dataset(
         )
         copied += 1
         images_per_split[split] = images_per_split.get(split, 0) + 1
+        if on_progress:
+            on_progress(copied, total_images)
 
     (output_dir / "data.yaml").write_text(
         _format_data_yaml(output_dir, names, splits=splits_with_images),

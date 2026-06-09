@@ -47,7 +47,7 @@ def normalize_categories(categories: Sequence[Dict[str, Any]]) -> List[Dict[str,
     ]
 
 
-_OPTIONAL_ANNOTATION_FIELDS = ("score", "source", "track_id", "video")
+_OPTIONAL_ANNOTATION_FIELDS = ("score", "source", "track_id", "video", "obb")
 
 
 def convert_tracking_to_detection(
