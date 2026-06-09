@@ -15,10 +15,15 @@ router = APIRouter(prefix="/api/annotations", tags=["annotations"])
 # All annotation data lives in _state.annotation_store (shared with frames.py)
 # _state.next_ann_id[0] is the next annotation id counter
 
+# Tracks which labels/ directories have already been created this session,
+# avoiding a redundant mkdir syscall on every autosave.
+_labels_dir_created: set[str] = set()
+
 
 def reset_annotations() -> None:
     _state.annotation_store.clear()
     _state.next_ann_id[0] = 1
+    _labels_dir_created.clear()
 
 
 def _autosave(image_id: int) -> None:
@@ -52,7 +57,10 @@ def _autosave(image_id: int) -> None:
         annotations: List[Annotation] = _state.annotation_store.get(image_id, [])
 
         labels_dir = session.output_path / "labels"
-        labels_dir.mkdir(parents=True, exist_ok=True)
+        labels_key = str(labels_dir)
+        if labels_key not in _labels_dir_created:
+            labels_dir.mkdir(parents=True, exist_ok=True)
+            _labels_dir_created.add(labels_key)
         txt_path = labels_dir / (path.stem + ".txt")
 
         lines: List[str] = []

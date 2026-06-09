@@ -27,28 +27,11 @@ export default function SettingsModal({ open, onClose }: Props) {
   return (
     <Dialog.Root open={open} onOpenChange={(v) => !v && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            zIndex: 1000,
-            backdropFilter: "blur(2px)",
-          }}
-        />
+        <Dialog.Overlay className="modal-overlay" />
         <Dialog.Content
+          className="modal-content"
           style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            zIndex: 1001,
             width: 460,
-            background: "var(--color-panel)",
-            borderRadius: "var(--radius-xl)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
-            fontFamily: "var(--font-sans)",
-            overflow: "hidden",
           }}
         >
           {/* Header */}
@@ -147,6 +130,7 @@ export default function SettingsModal({ open, onClose }: Props) {
             }}
           >
             <button
+              className="danger-outline"
               onClick={handleStop}
               style={{
                 display: "inline-flex",
@@ -154,22 +138,12 @@ export default function SettingsModal({ open, onClose }: Props) {
                 gap: 8,
                 height: 40,
                 padding: "0 16px",
-                background: "transparent",
-                border: "1px solid #FECACA",
                 borderRadius: "var(--radius-md)",
-                color: "var(--color-danger)",
                 fontSize: 14,
                 fontWeight: 500,
                 cursor: "pointer",
                 fontFamily: "var(--font-sans)",
-                transition: "background 150ms",
               }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.background = "#FEF2F2")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.background = "transparent")
-              }
             >
               <LogOut size={15} />
               Encerrar sessão

@@ -74,7 +74,7 @@ export default function Statusbar() {
               <span
                 style={{
                   fontSize: 11,
-                  color: frame.is_saved ? "#22C55E" : "var(--color-muted)",
+                  color: frame.is_saved ? "var(--color-success-icon)" : "var(--color-muted)",
                   fontWeight: frame.is_saved ? 600 : 400,
                 }}
               >

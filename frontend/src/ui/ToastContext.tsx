@@ -38,19 +38,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ toast }}>
       {children}
 
-      {/* Toast container */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 56,
-          right: 20,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          zIndex: 9999,
-          pointerEvents: "none",
-        }}
-      >
+      <div className="toast-container">
         {toasts.map((t) => (
           <ToastItem key={t.id} item={t} onDismiss={dismiss} />
         ))}
@@ -65,12 +53,6 @@ const ICONS: Record<ToastType, React.ElementType> = {
   info: Info,
 };
 
-const COLORS: Record<ToastType, { bg: string; icon: string; border: string }> = {
-  success: { bg: "#F0FDF4", icon: "#22C55E", border: "#BBF7D0" },
-  error:   { bg: "#FEF2F2", icon: "#EF4444", border: "#FECACA" },
-  info:    { bg: "#EFF6FF", icon: "#3B82F6", border: "#BFDBFE" },
-};
-
 function ToastItem({
   item,
   onDismiss,
@@ -79,26 +61,10 @@ function ToastItem({
   onDismiss: (id: number) => void;
 }) {
   const Icon = ICONS[item.type];
-  const clr = COLORS[item.type];
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        minWidth: 280,
-        maxWidth: 400,
-        padding: "12px 14px",
-        background: clr.bg,
-        border: `1px solid ${clr.border}`,
-        borderRadius: "var(--radius-lg)",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-        pointerEvents: "all",
-        fontFamily: "var(--font-sans)",
-      }}
-    >
-      <Icon size={18} color={clr.icon} style={{ flexShrink: 0 }} />
+    <div className={`toast toast-${item.type}`}>
+      <Icon size={18} color="var(--toast-icon)" style={{ flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: 14, color: "var(--color-text)", lineHeight: 1.4 }}>
         {item.message}
       </span>

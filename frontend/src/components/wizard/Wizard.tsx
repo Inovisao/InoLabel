@@ -98,14 +98,11 @@ export default function Wizard({ step, onStepChange, activeNav, onNavigate, init
 
           {error && (
             <div
+              className="alert alert-error"
               style={{
                 marginTop: 12,
-                padding: "10px 14px",
-                background: "rgba(220,38,38,0.06)",
-                border: "1px solid rgba(220,38,38,0.25)",
-                borderRadius: "var(--radius-md)",
-                color: "var(--color-danger)",
                 fontSize: 13,
+                color: "var(--alert-title)",
               }}
             >
               {error}
@@ -219,14 +216,14 @@ function StepperBar({ current, labels }: { current: number; labels: string[] }) 
                 height: 28,
                 borderRadius: "50%",
                 background: i <= current ? "var(--color-primary)" : "var(--color-border)",
-                color: i <= current ? "#fff" : "#9CA3AF",
+                color: i <= current ? "var(--color-text-inverse)" : "var(--color-placeholder)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: 12,
                 fontWeight: 700,
                 flexShrink: 0,
-                transition: "background 200ms",
+                transition: "background var(--motion-base)",
               }}
             >
               {i < current ? <Check size={14} strokeWidth={3} /> : i + 1}
@@ -235,8 +232,8 @@ function StepperBar({ current, labels }: { current: number; labels: string[] }) 
               style={{
                 fontSize: 13,
                 fontWeight: i === current ? 600 : 400,
-                color: i <= current ? "var(--color-primary)" : "#9CA3AF",
-                transition: "color 200ms",
+                color: i <= current ? "var(--color-primary)" : "var(--color-placeholder)",
+                transition: "color var(--motion-base)",
               }}
             >
               {label}
@@ -254,26 +251,26 @@ function StepperBar({ current, labels }: { current: number; labels: string[] }) 
 function HeroIllustration() {
   return (
     <svg width="240" height="190" viewBox="0 0 240 190" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <polygon points="80,50 130,28 200,28 150,50" fill="rgba(165,180,252,0.12)" stroke="#A5B4FC" strokeWidth="1.5" strokeLinejoin="round" />
-      <polygon points="150,50 200,28 200,110 150,132" fill="rgba(165,180,252,0.1)" stroke="#A5B4FC" strokeWidth="1.5" strokeLinejoin="round" />
-      <polygon points="80,50 150,50 150,132 80,132" fill="rgba(165,180,252,0.08)" stroke="#A5B4FC" strokeWidth="1.5" strokeLinejoin="round" />
+      <polygon points="80,50 130,28 200,28 150,50" fill="var(--color-illustration-soft)" stroke="var(--color-illustration-stroke)" strokeWidth="1.5" strokeLinejoin="round" />
+      <polygon points="150,50 200,28 200,110 150,132" fill="var(--color-illustration-softer)" stroke="var(--color-illustration-stroke)" strokeWidth="1.5" strokeLinejoin="round" />
+      <polygon points="80,50 150,50 150,132 80,132" fill="var(--color-illustration-softest)" stroke="var(--color-illustration-stroke)" strokeWidth="1.5" strokeLinejoin="round" />
       {([
         [80, 50], [150, 50], [80, 132], [150, 132],
         [130, 28], [200, 28], [200, 110],
       ] as [number, number][]).map(([cx, cy], i) => (
-        <circle key={i} cx={cx} cy={cy} r="3.5" fill="#A5B4FC" />
+        <circle key={i} cx={cx} cy={cy} r="3.5" fill="var(--color-illustration-stroke)" />
       ))}
-      <rect x="148" y="124" width="78" height="54" rx="10" fill="white" filter="drop-shadow(0 4px 12px rgba(99,102,241,0.18))" />
-      <rect x="156" y="132" width="22" height="16" rx="4" fill="#EEF2FF" />
-      <circle cx="159.5" cy="135.5" r="2.5" fill="#A5B4FC" />
-      <path d="M156 147l5-5 4 4 3-3 6 6" stroke="#A5B4FC" strokeWidth="1.2" fill="none" strokeLinecap="round" />
-      <rect x="182" y="133" width="36" height="3" rx="1.5" fill="#E5E7EB" />
-      <rect x="182" y="140" width="26" height="3" rx="1.5" fill="#E5E7EB" />
-      <rect x="186" y="38" width="46" height="26" rx="13" fill="#F3F4F6" />
-      <text x="209" y="55" textAnchor="middle" fontSize="11" fill="#6B7280" fontFamily="monospace" fontWeight="600">{"</>"}</text>
-      <circle cx="52" cy="48" r="2.5" fill="#C7D2FE" opacity="0.8" />
-      <circle cx="44" cy="60" r="1.8" fill="#C7D2FE" opacity="0.5" />
-      <circle cx="58" cy="70" r="1.5" fill="#C7D2FE" opacity="0.4" />
+      <rect x="148" y="124" width="78" height="54" rx="10" fill="var(--color-illustration-panel)" filter="var(--shadow-illustration)" />
+      <rect x="156" y="132" width="22" height="16" rx="4" fill="var(--color-primary-light)" />
+      <circle cx="159.5" cy="135.5" r="2.5" fill="var(--color-illustration-stroke)" />
+      <path d="M156 147l5-5 4 4 3-3 6 6" stroke="var(--color-illustration-stroke)" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      <rect x="182" y="133" width="36" height="3" rx="1.5" fill="var(--color-border)" />
+      <rect x="182" y="140" width="26" height="3" rx="1.5" fill="var(--color-border)" />
+      <rect x="186" y="38" width="46" height="26" rx="13" fill="var(--color-neutral-active)" />
+      <text x="209" y="55" textAnchor="middle" fontSize="11" fill="var(--color-muted)" fontFamily="monospace" fontWeight="600">{"</>"}</text>
+      <circle cx="52" cy="48" r="2.5" fill="var(--color-illustration-dot)" opacity="0.8" />
+      <circle cx="44" cy="60" r="1.8" fill="var(--color-illustration-dot)" opacity="0.5" />
+      <circle cx="58" cy="70" r="1.5" fill="var(--color-illustration-dot)" opacity="0.4" />
     </svg>
   );
 }

@@ -1,10 +1,15 @@
-import { Home, Sun, Bell } from "lucide-react";
+import { Home, Sun, Moon, Bell } from "lucide-react";
+import { useTheme } from "../../ui/ThemeContext";
 
 interface Props {
   breadcrumb?: string;
 }
 
 export default function WizardTopbar({ breadcrumb = "Início" }: Props) {
+  const { isDark, toggleTheme } = useTheme();
+  const ThemeIcon = isDark ? Sun : Moon;
+  const themeLabel = isDark ? "Ativar tema claro" : "Ativar tema escuro";
+
   return (
     <header
       style={{
@@ -42,8 +47,13 @@ export default function WizardTopbar({ breadcrumb = "Início" }: Props) {
           marginLeft: "auto",
         }}
       >
-        <button className="btn-icon" title="Tema" aria-label="Alternar tema">
-          <Sun size={16} />
+        <button
+          className="btn-icon"
+          title={themeLabel}
+          aria-label={themeLabel}
+          onClick={toggleTheme}
+        >
+          <ThemeIcon size={16} />
         </button>
 
         {/* Bell with badge */}
@@ -61,7 +71,7 @@ export default function WizardTopbar({ breadcrumb = "Início" }: Props) {
               right: 6,
               width: 8,
               height: 8,
-              background: "#EF4444",
+              background: "var(--color-error-icon)",
               borderRadius: "50%",
               border: "2px solid var(--color-panel)",
             }}
@@ -80,7 +90,7 @@ export default function WizardTopbar({ breadcrumb = "Início" }: Props) {
             alignItems: "center",
             fontSize: 13,
             fontWeight: 500,
-            border: "1px solid rgba(79,70,229,0.15)",
+            border: "1px solid color-mix(in srgb, var(--color-primary) 15%, transparent)",
             cursor: "default",
           }}
         >

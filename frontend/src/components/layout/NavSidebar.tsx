@@ -2,6 +2,7 @@ import {
   LayoutGrid, Database, Settings, Folder,
   History, HelpCircle, Keyboard,
 } from "lucide-react";
+import { useTheme } from "../../ui/ThemeContext";
 
 interface NavItem {
   id: string;
@@ -31,6 +32,9 @@ interface Props {
 }
 
 export default function NavSidebar({ activeItem = "mode", onNavigate }: Props) {
+  const { isDark } = useTheme();
+  const logoSrc = isDark ? "/InolabelLogoBnraca-cropped.png" : "/inolabellogo-cropped.png";
+
   return (
     <aside
       style={{
@@ -51,15 +55,23 @@ export default function NavSidebar({ activeItem = "mode", onNavigate }: Props) {
           height: 80,
           display: "flex",
           alignItems: "center",
-          padding: "0 20px",
+          justifyContent: "center",
+          padding: "0 16px",
           borderBottom: "1px solid var(--color-border)",
           flexShrink: 0,
         }}
       >
         <img
-          src="/inolabellogo.png"
+          src={logoSrc}
           alt="InoLabel"
-          style={{ height: 75, width: "auto", objectFit: "contain" }}
+          style={{
+            width: 218,
+            maxWidth: "100%",
+            maxHeight: 54,
+            height: "auto",
+            objectFit: "contain",
+            display: "block",
+          }}
           draggable={false}
         />
       </div>
@@ -82,6 +94,7 @@ export default function NavSidebar({ activeItem = "mode", onNavigate }: Props) {
               return (
                 <button
                   key={item.id}
+                  className={`nav-item ${active ? "nav-item-active" : ""}`}
                   onClick={() => onNavigate?.(item.id)}
                   style={{
                     display: "flex",
@@ -92,24 +105,11 @@ export default function NavSidebar({ activeItem = "mode", onNavigate }: Props) {
                     borderRadius: 8,
                     border: "none",
                     cursor: "pointer",
-                    background: active ? "var(--color-primary-light)" : "transparent",
-                    color: active ? "var(--color-primary)" : "var(--color-sidebar-text)",
                     fontSize: 14,
                     fontWeight: active ? 600 : 500,
                     fontFamily: "var(--font-sans)",
                     textAlign: "left",
-                    transition: "background 120ms, color 120ms",
                     marginBottom: 2,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!active) {
-                      (e.currentTarget as HTMLButtonElement).style.background = "#F9FAFB";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!active) {
-                      (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                    }
                   }}
                 >
                   <Icon

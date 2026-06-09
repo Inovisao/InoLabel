@@ -123,8 +123,8 @@ export default function AnnotationCanvas() {
               transform: "translateX(-50%)",
               zIndex: 10,
               padding: "8px 16px",
-              background: "rgba(220,38,38,0.9)",
-              color: "#fff",
+              background: "var(--overlay-canvas-error)",
+              color: "var(--color-text-inverse)",
               borderRadius: 8,
               fontSize: 13,
               fontWeight: 500,
@@ -233,16 +233,16 @@ export default function AnnotationCanvas() {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              color: "rgba(255,255,255,0.3)",
+              color: "var(--color-canvas-muted)",
               fontSize: 14,
               gap: 8,
               pointerEvents: "none",
             }}
           >
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity="0.4">
-              <rect x="8" y="8" width="32" height="32" rx="4" stroke="white" strokeWidth="1.5" />
-              <circle cx="18" cy="20" r="3" stroke="white" strokeWidth="1.5" />
-              <path d="M8 34l9-9 5 5 7-8 11 12" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <rect x="8" y="8" width="32" height="32" rx="4" stroke="var(--color-text-inverse)" strokeWidth="1.5" />
+              <circle cx="18" cy="20" r="3" stroke="var(--color-text-inverse)" strokeWidth="1.5" />
+              <path d="M8 34l9-9 5 5 7-8 11 12" stroke="var(--color-text-inverse)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <span>Carregando frame…</span>
           </div>
@@ -259,7 +259,7 @@ export default function AnnotationCanvas() {
               alignItems: "center",
               gap: 6,
               padding: "5px 10px",
-              background: "rgba(0,0,0,0.55)",
+              background: "var(--overlay-canvas-control)",
               backdropFilter: "blur(4px)",
               borderRadius: 999,
               pointerEvents: "none",
@@ -274,7 +274,7 @@ export default function AnnotationCanvas() {
                 flexShrink: 0,
               }}
             />
-            <span style={{ fontSize: 12, color: "#fff", fontWeight: 500 }}>
+            <span style={{ fontSize: 12, color: "var(--color-text-inverse)", fontWeight: 500 }}>
               {selectedClass.name}
             </span>
           </div>
@@ -288,7 +288,7 @@ export default function AnnotationCanvas() {
               bottom: 12,
               left: 12,
               fontSize: 11,
-              color: "rgba(255,255,255,0.4)",
+              color: "var(--color-canvas-subtle)",
               pointerEvents: "none",
             }}
           >

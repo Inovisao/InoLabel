@@ -70,15 +70,15 @@ export default function StepData({ state, onChange }: Props) {
             background: state.resumeExisting ? "var(--color-primary)" : "var(--color-panel)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            transition: "background 150ms, border-color 150ms",
-          }}
+                justifyContent: "center",
+                flexShrink: 0,
+                transition: "background var(--motion-base), border-color var(--motion-base)",
+              }}
           onClick={() => onChange({ resumeExisting: !state.resumeExisting })}
         >
           {state.resumeExisting && (
             <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-              <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M1 4l3 3 5-6" stroke="var(--color-text-inverse)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </div>
@@ -122,30 +122,14 @@ function PathField({ label, hint, placeholder, value, onChange, onBrowse, browse
           onChange={(e) => onChange(e.target.value)}
         />
         <button
+          className="btn-icon"
           type="button"
           onClick={onBrowse}
           title="Explorar arquivos"
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             width: 40,
             height: 40,
-            flexShrink: 0,
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border)",
-            background: "var(--color-panel)",
-            cursor: "pointer",
             color: "var(--color-primary)",
-            transition: "background 120ms, border-color 120ms",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "var(--color-primary-light)";
-            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--color-primary)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "var(--color-panel)";
-            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--color-border)";
           }}
         >
           <Icon size={18} strokeWidth={1.75} />

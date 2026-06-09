@@ -194,28 +194,11 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
   return (
     <Dialog.Root open={open} onOpenChange={(v) => !v && exportState !== "running" && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            zIndex: 1000,
-            backdropFilter: "blur(2px)",
-          }}
-        />
+        <Dialog.Overlay className="modal-overlay" />
         <Dialog.Content
+          className="modal-content"
           style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            zIndex: 1001,
             width: 500,
-            background: "var(--color-panel)",
-            borderRadius: "var(--radius-xl)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
-            fontFamily: "var(--font-sans)",
-            overflow: "hidden",
           }}
         >
           {/* Header */}
@@ -253,22 +236,13 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
 
             {/* Success state */}
             {exportState === "done" && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  padding: "16px",
-                  background: "#F0FDF4",
-                  border: "1px solid #86EFAC",
-                  borderRadius: "var(--radius-md)",
-                }}
-              >
-                <CheckCircle size={20} color="#16A34A" style={{ flexShrink: 0 }} />
+              <div className="alert alert-success">
+                <CheckCircle size={20} color="var(--alert-icon)" style={{ flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#15803D" }}>
+                  <div className="alert-title">
                     Dataset exportado com sucesso!
                   </div>
-                  <div style={{ fontSize: 12, color: "#166534", marginTop: 2 }}>
+                  <div className="alert-text">
                     Salvo em: {destination}/{name}
                   </div>
                 </div>
@@ -277,22 +251,13 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
 
             {/* Error state */}
             {exportState === "error" && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  padding: "16px",
-                  background: "#FEF2F2",
-                  border: "1px solid #FECACA",
-                  borderRadius: "var(--radius-md)",
-                }}
-              >
-                <AlertCircle size={20} color="#DC2626" style={{ flexShrink: 0 }} />
+              <div className="alert alert-error">
+                <AlertCircle size={20} color="var(--alert-icon)" style={{ flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#DC2626" }}>
+                  <div className="alert-title">
                     Erro na exportação
                   </div>
-                  <div style={{ fontSize: 12, color: "#991B1B", marginTop: 2 }}>{errorMsg}</div>
+                  <div className="alert-text">{errorMsg}</div>
                 </div>
               </div>
             )}
@@ -326,7 +291,7 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                       width: `${progress * 100}%`,
                       background: "var(--color-primary)",
                       borderRadius: 999,
-                      transition: "width 300ms ease",
+                      transition: "width var(--motion-slow)",
                     }}
                   />
                 </div>
@@ -363,7 +328,7 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                             textAlign: "left",
                             fontFamily: "var(--font-sans)",
                             opacity: f.soon ? 0.55 : 1,
-                            transition: "background 150ms, border-color 150ms",
+                            transition: "background var(--motion-base), border-color var(--motion-base)",
                           }}
                         >
                           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -371,7 +336,7 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                               {f.label}
                             </span>
                             {f.soon && (
-                              <span style={{ fontSize: 10, fontWeight: 600, color: "#92400E", background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: 4, padding: "1px 5px" }}>
+                              <span style={{ fontSize: 10, fontWeight: 600, color: "var(--color-warning)", background: "var(--color-warning-bg)", border: "1px solid var(--color-warning-border)", borderRadius: 4, padding: "1px 5px" }}>
                                 em breve
                               </span>
                             )}
@@ -403,21 +368,14 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                       onChange={(e) => setDestination(e.target.value)}
                     />
                     <button
+                      className="btn-icon"
                       type="button"
                       onClick={browseDestination}
                       disabled={exportState === "running"}
                       title="Selecionar pasta"
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
                         width: 40,
                         height: 40,
-                        flexShrink: 0,
-                        borderRadius: "var(--radius-md)",
-                        border: "1px solid var(--color-border)",
-                        background: "var(--color-panel)",
-                        cursor: "pointer",
                         color: "var(--color-primary)",
                       }}
                     >

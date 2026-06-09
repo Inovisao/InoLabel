@@ -10,29 +10,29 @@ const MODES = [
   {
     icon: BoxSelect,
     label: "Detecção padrão",
-    color: "#DBEAFE",
-    iconColor: "#3B82F6",
+    color: "var(--color-icon-detect)",
+    iconColor: "var(--color-icon-detect-fg)",
     desc: "Cria bounding boxes independentes por frame. Cada frame é anotado de forma autônoma, sem rastrear objetos entre quadros. Ideal para datasets de detecção de objetos.",
   },
   {
     icon: ScanLine,
     label: "Rastreamento",
-    color: "#DBEAFE",
-    iconColor: "#3B82F6",
+    color: "var(--color-icon-track)",
+    iconColor: "var(--color-icon-track-fg)",
     desc: "Mantém a identidade de objetos entre frames usando o BYTETracker. Cada objeto recebe um track_id persistente. Ideal para datasets de tracking em vídeo.",
   },
   {
     icon: Diamond,
     label: "Detecção orientada (OBB)",
-    color: "#DCFCE7",
-    iconColor: "#22C55E",
+    color: "var(--color-icon-obb)",
+    iconColor: "var(--color-icon-obb-fg)",
     desc: "Caixas delimitadoras rotacionadas com ângulo. Útil para objetos aéreos (satélites, drones) onde a orientação importa. Exportado em formato YOLO OBB.",
   },
   {
     icon: Grid2X2,
     label: "Classificação",
-    color: "#FEF3C7",
-    iconColor: "#F59E0B",
+    color: "var(--color-icon-class)",
+    iconColor: "var(--color-icon-class-fg)",
     desc: "Organiza imagens inteiras em subpastas por classe com um keypress. Sem bounding boxes — útil para datasets de classificação de imagens.",
   },
 ];
@@ -84,7 +84,7 @@ export default function HelpPage({ activeNav, onNavigate }: Props) {
                   height: 32,
                   borderRadius: 8,
                   background: "var(--color-primary)",
-                  color: "#fff",
+                  color: "var(--color-text-inverse)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -126,15 +126,11 @@ export default function HelpPage({ activeNav, onNavigate }: Props) {
                 }}
               >
                 <div
+                  className="icon-surface"
                   style={{
                     width: 48,
                     height: 48,
-                    borderRadius: 10,
                     background: m.color,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
                   }}
                 >
                   <Icon size={22} color={m.iconColor} strokeWidth={1.75} />

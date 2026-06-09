@@ -32,6 +32,8 @@ class SessionState:
 # tools keep their own runtime state and are never imported by app.api routes.
 _sessions: dict[str, SessionState] = {}
 _exports: dict[str, ExportJob] = {}
+# Cached ID of the currently active session — avoids O(n) scan on every request.
+_active_session_id: Optional[str] = None
 
 # Shared frame state — written by frames.py, read by annotations.py for autosave/load
 frame_paths: list[Path] = []
@@ -44,12 +46,24 @@ next_ann_id: list[int] = [1]  # list so it's mutable from any module without 'gl
 
 
 def active_session() -> Optional[SessionState]:
-    return next((s for s in _sessions.values() if s.status in {"running", "paused"}), None)
+    global _active_session_id
+    if _active_session_id is not None:
+        s = _sessions.get(_active_session_id)
+        if s is not None and s.status in {"running", "paused"}:
+            return s
+        _active_session_id = None
+    for s in _sessions.values():
+        if s.status in {"running", "paused"}:
+            _active_session_id = s.session_id
+            return s
+    return None
 
 
 def create_session(**kwargs) -> SessionState:
+    global _active_session_id
     session = SessionState(**kwargs)
     _sessions[session.session_id] = session
+    _active_session_id = session.session_id
     return session
 
 
@@ -58,9 +72,12 @@ def get_session(session_id: str) -> Optional[SessionState]:
 
 
 def remove_session(session_id: str) -> Optional[SessionState]:
+    global _active_session_id
     session = _sessions.pop(session_id, None)
     if session is not None:
         session.status = "done"
+        if _active_session_id == session_id:
+            _active_session_id = None
     return session
 
 
@@ -75,9 +92,11 @@ def get_export(export_id: str) -> Optional[ExportJob]:
 
 def reset_state() -> None:
     """Clear API process state for tests and controlled restarts."""
+    global _active_session_id
     _sessions.clear()
     _exports.clear()
     frame_paths.clear()
     frame_dims.clear()
     annotation_store.clear()
     next_ann_id[0] = 1
+    _active_session_id = None

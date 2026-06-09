@@ -1,7 +1,8 @@
-import { ChevronLeft, ChevronRight, Save, Download, Settings, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Download, Settings, LogOut, Sun, Moon } from "lucide-react";
 import { useSessionStore } from "../../stores/session";
 import { useAnnotationStore } from "../../stores/annotation";
 import { useToast } from "../../ui/ToastContext";
+import { useTheme } from "../../ui/ThemeContext";
 
 const MODE_LABELS: Record<string, string> = {
   tracking: "Rastreamento",
@@ -20,6 +21,9 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
   const mode = useSessionStore((s) => s.mode);
   const { frame, loading, prevFrame, nextFrame } = useAnnotationStore();
   const { toast } = useToast();
+  const { isDark, toggleTheme } = useTheme();
+  const ThemeIcon = isDark ? Sun : Moon;
+  const themeLabel = isDark ? "Ativar tema claro" : "Ativar tema escuro";
 
   const handleSave = () => {
     toast("Anotações salvas automaticamente a cada operação.", "success");
@@ -124,6 +128,14 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
       <div style={{ width: 1, height: 24, background: "var(--color-border)", margin: "0 4px" }} />
 
       <div style={{ display: "flex", gap: 4 }}>
+        <button
+          className="btn-icon"
+          title={themeLabel}
+          aria-label={themeLabel}
+          onClick={toggleTheme}
+        >
+          <ThemeIcon size={15} />
+        </button>
         <button
           className="btn-icon"
           title="Salvar (Ctrl+S)"
