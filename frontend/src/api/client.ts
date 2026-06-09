@@ -12,7 +12,11 @@ async function request<T>(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail ?? "Request failed");
+    const detail = err.detail;
+    const msg = Array.isArray(detail)
+      ? detail.map((d: { msg?: string; loc?: unknown[] }) => d.msg ?? JSON.stringify(d)).join("; ")
+      : (detail ?? "Request failed");
+    throw new Error(msg);
   }
   return res.json() as Promise<T>;
 }

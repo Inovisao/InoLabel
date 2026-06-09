@@ -10,6 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.routes.annotations import reset_annotations
 from app.api.schemas import (
+    ProjectEntry,
     SessionActionRequest,
     SessionActionResponse,
     SessionStartRequest,
@@ -18,10 +19,30 @@ from app.api.schemas import (
     SessionStopResponse,
 )
 from app.api.state import active_session, create_session, get_session, remove_session
+from app.api.state import SessionState as _SessionState
 from app.config import IMAGE_EXTENSIONS, IMAGE_LIST_EXTENSIONS, VIDEO_EXTENSIONS
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/session", tags=["session"])
+
+
+def _update_project_meta(session: _SessionState) -> None:
+    """Rewrite .inolabel.json on stop so Projects page shows fresh data."""
+    meta_path = session.output_path / ".inolabel.json"
+    try:
+        meta: dict = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    except Exception:
+        meta = {}
+    meta.update({
+        "mode": session.mode,
+        "classes": session.classes,
+        "data_path": str(session.data_path),
+        "last_modified": datetime.now(timezone.utc).isoformat(),
+    })
+    try:
+        meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def _count_frames(path: Path) -> int:
@@ -32,6 +53,66 @@ def _count_frames(path: Path) -> int:
     if path.suffix.lower() in IMAGE_EXTENSIONS + VIDEO_EXTENSIONS + IMAGE_LIST_EXTENSIONS:
         return 1
     return 0
+
+
+@router.get("/projects", response_model=list[ProjectEntry])
+def list_projects(path: str = "output") -> list[ProjectEntry]:
+    """Scan a directory for InoLabel project folders and return metadata for each."""
+    scan_root = Path(path).expanduser().resolve()
+    if not scan_root.exists() or not scan_root.is_dir():
+        return []
+
+    candidates: list[Path] = []
+    if (scan_root / ".inolabel.json").exists():
+        candidates.append(scan_root)
+    try:
+        for subdir in scan_root.iterdir():
+            if subdir.is_dir() and (subdir / ".inolabel.json").exists():
+                candidates.append(subdir)
+    except PermissionError:
+        pass
+
+    projects: list[ProjectEntry] = []
+    for output_dir in candidates:
+        meta_path = output_dir / ".inolabel.json"
+        try:
+            meta: dict = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+        labels_dir = output_dir / "labels"
+        annotated_frames = 0
+        mtimes: list[float] = [meta_path.stat().st_mtime]
+
+        if labels_dir.exists():
+            try:
+                for txt in labels_dir.glob("*.txt"):
+                    st = txt.stat()
+                    mtimes.append(st.st_mtime)
+                    if st.st_size > 0:
+                        annotated_frames += 1
+            except PermissionError:
+                pass
+
+        last_modified = datetime.fromtimestamp(
+            max(mtimes), tz=timezone.utc
+        ).isoformat(timespec="seconds")
+
+        raw_data_path = meta.get("data_path", "")
+        data_path = raw_data_path if raw_data_path and Path(raw_data_path).exists() else ""
+
+        projects.append(ProjectEntry(
+            name=output_dir.name,
+            path=str(output_dir),
+            data_path=data_path,
+            mode=meta.get("mode", "unknown"),
+            annotated_frames=annotated_frames,
+            classes=meta.get("classes", []),
+            created_at=meta.get("created_at", ""),
+            last_modified=last_modified,
+        ))
+
+    return sorted(projects, key=lambda p: p.last_modified, reverse=True)
 
 
 @router.post("/start", response_model=SessionStartResponse)
@@ -198,6 +279,7 @@ def stop_session(session_id: str) -> SessionStopResponse:
     if session is None:
         raise HTTPException(status_code=404, detail="Sessão não encontrada")
     reset_annotations()
+    _update_project_meta(session)
     return SessionStopResponse(
         saved_frames=session.saved_frames,
         output_path=str(session.output_path),
@@ -210,5 +292,6 @@ def stop_legacy_session():
     if session is None:
         return {"ok": True}
     remove_session(session.session_id)
-    reset_annotations()  # must mirror stop_session(); legacy endpoint used by frontend
+    _update_project_meta(session)
+    reset_annotations()
     return {"ok": True}

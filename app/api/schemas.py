@@ -142,6 +142,17 @@ class ExportProgressResponse(BaseModel):
     status: str
 
 
+class ProjectEntry(BaseModel):
+    name: str
+    path: str
+    data_path: str
+    mode: str
+    annotated_frames: int
+    classes: List[str]
+    created_at: str
+    last_modified: str
+
+
 class KeybindProfile(BaseModel):
     profile: str
     binds: Dict[str, str]

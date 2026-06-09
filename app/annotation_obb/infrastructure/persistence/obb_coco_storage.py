@@ -151,8 +151,14 @@ class OBBCocoStorageMixin:
         self.update_annotation_state()
         data = self.build_coco_payload()
         self.annotations_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.annotations_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+        tmp_path = self.annotations_path.with_name(self.annotations_path.name + ".tmp")
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+            tmp_path.replace(self.annotations_path)
+        except Exception:
+            tmp_path.unlink(missing_ok=True)
+            raise
         print(f"[INFO] Anotacoes OBB atualizadas em {self.annotations_path}")
 
     def backup_annotations_file(self):

@@ -46,12 +46,12 @@ def _encode_and_store_dims(path: Path, index: int) -> str:
 
 
 def _lazy_load_from_disk(index: int, path: Path, img_w: int, img_h: int) -> None:
-    """First time a frame is seen: load annotations from disk if session.resume=True."""
+    """First time a frame is seen: load saved annotations from disk into memory."""
     if index in _loaded_from_disk:
         return
     _loaded_from_disk.add(index)
     session = _state.active_session()
-    if session is None or not session.resume:
+    if session is None:
         return
     if index not in _state.annotation_store:
         # Import here to avoid top-level circular dependency

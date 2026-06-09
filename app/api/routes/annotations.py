@@ -80,7 +80,7 @@ def _autosave(image_id: int) -> None:
 def _load_frame_from_txt(
     image_id: int, path: Path, img_w: int, img_h: int, output_path: Path
 ) -> None:
-    """Load YOLO annotations from disk into annotation_store (resume mode)."""
+    """Load YOLO annotations from disk into annotation_store for a single frame."""
     labels_dir = output_path / "labels"
     txt_path = labels_dir / (path.stem + ".txt")
     if not txt_path.exists():
