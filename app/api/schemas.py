@@ -158,11 +158,47 @@ class KeybindProfile(BaseModel):
     binds: Dict[str, str]
 
 
+class OBBGeometry(BaseModel):
+    cx: float
+    cy: float
+    width: float
+    height: float
+    angle: float = 0.0
+    angle_unit: str = "degrees"
+    points: Optional[List[List[float]]] = None
+
+    @field_validator("width", "height")
+    @classmethod
+    def positive_size(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError("width e height devem ser maiores que zero.")
+        return value
+
+    @field_validator("angle_unit")
+    @classmethod
+    def angle_unit_degrees(cls, value: str) -> str:
+        if value != "degrees":
+            raise ValueError("angle_unit deve ser 'degrees'.")
+        return value
+
+    @field_validator("points")
+    @classmethod
+    def points_must_be_four_xy_pairs(
+        cls, value: Optional[List[List[float]]]
+    ) -> Optional[List[List[float]]]:
+        if value is None:
+            return value
+        if len(value) != 4 or any(len(point) != 2 for point in value):
+            raise ValueError("points deve conter exatamente 4 pares [x, y].")
+        return value
+
+
 class Annotation(BaseModel):
     id: int
     image_id: int
     category_id: int
     bbox: List[float]
+    obb: Optional[OBBGeometry] = None
     track_id: Optional[int] = None
     source: str = "manual"
 
@@ -185,6 +221,7 @@ class ClassItem(BaseModel):
 class AnnotationUpsert(BaseModel):
     category_id: int
     bbox: List[float]
+    obb: Optional[OBBGeometry] = None
     track_id: Optional[int] = None
     source: str = "manual"
 
@@ -205,3 +242,74 @@ class AnnotationUpsert(BaseModel):
                 f"bbox deve ter exatamente 4 elementos [x, y, w, h], recebeu {len(value)}."
             )
         return value
+
+
+class ClassificationUpsert(BaseModel):
+    category_id: int
+    move_file: bool = False
+
+    @field_validator("category_id")
+    @classmethod
+    def category_id_non_negative(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError(
+                f"category_id deve ser >= 0 (indice da classe), recebeu {value}."
+            )
+        return value
+
+
+class ClassificationResult(BaseModel):
+    image_id: int
+    filename: str
+    top1_class_id: int
+    top1_class_name: str
+    top1_confidence: Optional[float] = None
+    top_k: List[dict] = Field(default_factory=list)
+    destination_path: str
+    operation: str
+
+
+class TrackingInferenceRequest(BaseModel):
+    session_id: Optional[str] = None
+    frame_indices: Optional[List[int]] = None
+    save_annotations: bool = True
+    frame_rate: int = 30
+    confidence_threshold: Optional[float] = None
+
+    @field_validator("frame_rate")
+    @classmethod
+    def frame_rate_positive(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("frame_rate deve ser maior que zero.")
+        return value
+
+    @field_validator("confidence_threshold")
+    @classmethod
+    def optional_confidence_threshold_in_range(
+        cls, value: Optional[float]
+    ) -> Optional[float]:
+        if value is not None and not (0.0 <= value <= 1.0):
+            raise ValueError("confidence_threshold deve estar entre 0.0 e 1.0.")
+        return value
+
+
+class TrackingDetectionResult(BaseModel):
+    bbox: List[float]
+    class_id: int
+    class_name: str
+    confidence: float
+    track_id: int
+
+
+class TrackingFrameResult(BaseModel):
+    frame_index: int
+    timestamp: float
+    detections: List[TrackingDetectionResult] = Field(default_factory=list)
+
+
+class TrackingInferenceResponse(BaseModel):
+    mode: str = "tracking"
+    session_id: str
+    processed_frames: int
+    saved_annotations: bool
+    frames: List[TrackingFrameResult] = Field(default_factory=list)

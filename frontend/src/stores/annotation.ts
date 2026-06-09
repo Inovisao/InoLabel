@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { api } from "../api/client";
-import type { Annotation, ClassItem, FrameResponse } from "../api/types";
+import type { Annotation, ClassItem, ClassificationResult, FrameResponse } from "../api/types";
 
 interface AnnotationState {
   frame: FrameResponse | null;
   classes: ClassItem[];
+  classificationResult: ClassificationResult | null;
   selectedClassId: number;
   loading: boolean;
   error: string | null;
@@ -14,6 +15,7 @@ interface AnnotationState {
   fetchClasses: () => Promise<void>;
   setSelectedClass: (id: number) => void;
   addAnnotation: (bbox: [number, number, number, number]) => Promise<void>;
+  classifyFrame: (categoryId: number) => Promise<ClassificationResult | null>;
   removeAnnotation: (annId: number) => Promise<void>;
   clearError: () => void;
 }
@@ -21,6 +23,7 @@ interface AnnotationState {
 export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   frame: null,
   classes: [],
+  classificationResult: null,
   selectedClassId: 0,
   loading: false,
   error: null,
@@ -29,7 +32,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     set({ loading: true });
     try {
       const frame = await api.get<FrameResponse>("/frames/current");
-      set({ frame, loading: false });
+      set({ frame, classificationResult: null, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
     }
@@ -39,7 +42,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     set({ loading: true });
     try {
       const frame = await api.post<FrameResponse>("/frames/next");
-      set({ frame, loading: false });
+      set({ frame, classificationResult: null, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
     }
@@ -49,7 +52,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     set({ loading: true });
     try {
       const frame = await api.post<FrameResponse>("/frames/prev");
-      set({ frame, loading: false });
+      set({ frame, classificationResult: null, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
     }
@@ -86,6 +89,22 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       }));
     } catch (e) {
       set({ error: `Erro ao salvar anotação: ${(e as Error).message}` });
+    }
+  },
+
+  classifyFrame: async (categoryId) => {
+    const { frame } = get();
+    if (!frame) return null;
+    try {
+      const result = await api.post<ClassificationResult>(
+        `/annotations/${frame.index}/classification`,
+        { category_id: categoryId }
+      );
+      set({ classificationResult: result });
+      return result;
+    } catch (e) {
+      set({ error: `Erro ao classificar imagem: ${(e as Error).message}` });
+      return null;
     }
   },
 

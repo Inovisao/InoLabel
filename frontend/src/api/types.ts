@@ -38,8 +38,19 @@ export interface Annotation {
   image_id: number;
   category_id: number;
   bbox: [number, number, number, number];
+  obb?: OBBGeometry | null;
   track_id?: number;
   source: string;
+}
+
+export interface OBBGeometry {
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  angle: number;
+  angle_unit: "degrees";
+  points?: [number, number][] | null;
 }
 
 export interface FrameResponse {
@@ -55,4 +66,15 @@ export interface ClassItem {
   id: number;
   name: string;
   color?: string;
+}
+
+export interface ClassificationResult {
+  image_id: number;
+  filename: string;
+  top1_class_id: number;
+  top1_class_name: string;
+  top1_confidence?: number | null;
+  top_k: Array<Record<string, unknown>>;
+  destination_path: string;
+  operation: string;
 }
