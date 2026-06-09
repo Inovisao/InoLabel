@@ -21,7 +21,7 @@ export interface WizardState {
 const INITIAL: WizardState = {
   mode: "detection",
   dataRoot: "",
-  outputDir: "output",
+  outputDir: "outputs",
   classes: [],
   weightsPath: "",
   confidence: 0.4,

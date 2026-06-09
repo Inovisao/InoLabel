@@ -20,6 +20,22 @@ from app.annotation.core.export.yolo_label_service import (
 )
 
 
+def _safe_resolve_within(root: Path, *parts: str) -> Path:
+    """Join parts to root, resolve and ensure the resulting path is within root.
+
+    Raises ValueError if resolution escapes the root (prevents path traversal).
+    """
+    dest = (root.joinpath(*parts)).resolve()
+    root_resolved = root.resolve()
+    try:
+        # On Windows compare case-insensitively by normalizing case
+        if str(dest).startswith(str(root_resolved)):
+            return dest
+        raise ValueError(f"Resolved path escapes allowed root: {dest}")
+    except Exception:
+        raise
+
+
 def _write_yolo_box_file(label_path: Path, boxes):
     label_path.write_text(format_yolo_boxes(boxes), encoding="utf-8")
 
@@ -120,12 +136,16 @@ def export_yolo_dataset(
         seen_names.add(file_name)
 
         split = split_assignments.get(image_id, "train")
-        source_image_path = source_images_dir / file_name
+        # Resolve source image path safely and prevent traversal outside source_images_dir
+        source_image_path = _safe_resolve_within(source_images_dir, file_name)
         if not source_image_path.exists():
             raise FileNotFoundError(f"Image not found for export: {source_image_path}")
 
-        target_image_path = dataset_root / "images" / split / file_name
-        target_label_path = dataset_root / "labels" / split / Path(file_name).with_suffix(".txt")
+        # Resolve target paths safely to prevent path traversal
+        target_images_root = dataset_root / "images" / split
+        target_labels_root = dataset_root / "labels" / split
+        target_image_path = _safe_resolve_within(target_images_root, file_name)
+        target_label_path = _safe_resolve_within(target_labels_root, Path(file_name).with_suffix(".txt").as_posix())
         target_image_path.parent.mkdir(parents=True, exist_ok=True)
         target_label_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_image_path, target_image_path)
@@ -143,7 +163,18 @@ def export_yolo_dataset(
             present_classes,
             target_label_path.name,
         )
-        _write_yolo_box_file(target_label_path, yolo_boxes)
+        # Write labels atomically to avoid partial files on error
+        try:
+            tmp_label = target_label_path.with_name(target_label_path.name + ".tmp")
+            tmp_label.write_text(format_yolo_boxes(yolo_boxes), encoding="utf-8")
+            tmp_label.replace(target_label_path)
+        except Exception:
+            # cleanup tmp if present then re-raise
+            try:
+                tmp_label.unlink(missing_ok=True)
+            except Exception:
+                pass
+            raise
         images_per_split[split] += 1
         labels_per_split[split] += len(yolo_boxes)
         done += 1
@@ -163,8 +194,11 @@ def export_yolo_dataset(
             images_per_split[split] += aug_images
             labels_per_split[split] += aug_labels
 
+    # Write data.yaml atomically
     data_yaml_path = dataset_root / "data.yaml"
-    data_yaml_path.write_text(format_yaml(dataset_root, names), encoding="utf-8")
+    tmp_data_yaml = data_yaml_path.with_name(data_yaml_path.name + ".tmp")
+    tmp_data_yaml.write_text(format_yaml(dataset_root, names), encoding="utf-8")
+    tmp_data_yaml.replace(data_yaml_path)
     return {
         "dataset_root": dataset_root.resolve(),
         "data_yaml": data_yaml_path.resolve(),
@@ -218,12 +252,16 @@ def export_yolo_no_split(
             raise ValueError(f"Duplicate image name found: {file_name}")
         seen_names.add(file_name)
 
-        source_image_path = source_images_dir / file_name
+        # Resolve source image path safely and prevent traversal outside source_images_dir
+        source_image_path = _safe_resolve_within(source_images_dir, file_name)
         if not source_image_path.exists():
             raise FileNotFoundError(f"Image not found for export: {source_image_path}")
 
-        target_image_path = dataset_root / "images" / "all" / file_name
-        target_label_path = dataset_root / "labels" / "all" / Path(file_name).with_suffix(".txt")
+        # Resolve target paths safely to prevent path traversal
+        target_images_root = dataset_root / "images" / "all"
+        target_labels_root = dataset_root / "labels" / "all"
+        target_image_path = _safe_resolve_within(target_images_root, file_name)
+        target_label_path = _safe_resolve_within(target_labels_root, Path(file_name).with_suffix(".txt").as_posix())
         target_image_path.parent.mkdir(parents=True, exist_ok=True)
         target_label_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_image_path, target_image_path)
@@ -240,7 +278,17 @@ def export_yolo_no_split(
             present_classes,
             target_label_path.name,
         )
-        _write_yolo_box_file(target_label_path, yolo_boxes)
+        # Write labels atomically to avoid partial files on error
+        try:
+            tmp_label = target_label_path.with_name(target_label_path.name + ".tmp")
+            tmp_label.write_text(format_yolo_boxes(yolo_boxes), encoding="utf-8")
+            tmp_label.replace(target_label_path)
+        except Exception:
+            try:
+                tmp_label.unlink(missing_ok=True)
+            except Exception:
+                pass
+            raise
         total_images += 1
         total_labels += len(yolo_boxes)
         done += 1
@@ -259,8 +307,11 @@ def export_yolo_no_split(
         total_images += aug_images
         total_labels += aug_labels
 
+    # Write data.yaml atomically
     data_yaml_path = dataset_root / "data.yaml"
-    data_yaml_path.write_text(format_yaml_no_split(dataset_root, names), encoding="utf-8")
+    tmp_data_yaml = data_yaml_path.with_name(data_yaml_path.name + ".tmp")
+    tmp_data_yaml.write_text(format_yaml_no_split(dataset_root, names), encoding="utf-8")
+    tmp_data_yaml.replace(data_yaml_path)
     return {
         "dataset_root": dataset_root.resolve(),
         "data_yaml": data_yaml_path.resolve(),

@@ -33,6 +33,13 @@ def _open_browser() -> None:
 
 if __name__ == "__main__":
     dev_mode = os.environ.get("INOLABEL_ENV", "production") == "development"
+
+    # When running as a packaged .exe, set CWD to the exe's directory so that
+    # relative paths like "outputs/" always resolve correctly regardless of how
+    # the user launched the application.
+    if not dev_mode and getattr(sys, "frozen", False):
+        os.chdir(os.path.dirname(sys.executable))
+
     threading.Thread(target=_open_browser, daemon=True).start()
     if dev_mode:
         # String reference required for --reload to work

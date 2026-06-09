@@ -35,9 +35,8 @@ Write-Host ""
 Write-Step "Checking prerequisites..."
 if (-not (Test-Path "main.py")) { Write-Fail "main.py not found. Run build.ps1 from project root." }
 if (-not (Test-Path "requirements.txt")) { Write-Fail "requirements.txt not found." }
-if (-not (Test-Path "frontend\dist")) { Write-Fail "frontend\dist not found. Run npm run build inside frontend/." }
+if (-not (Test-Path "frontend\src")) { Write-Fail "frontend\src not found. Check repository structure." }
 Write-Ok "Project root validated"
-Write-Ok "frontend\dist found"
 
 $aplicativoExe  = Join-Path $APLICATIVO_DIR "InoLabel\InoLabel.exe"
 $bundleComplete = (Test-Path $aplicativoExe) -and (
@@ -60,6 +59,9 @@ if ($bundleComplete) {
     } while ($choice -notin @("1", "2"))
 
     if ($choice -eq "1") {
+        Write-Info "Encerrando InoLabel.exe se estiver rodando..."
+        Get-Process -Name "InoLabel" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
         Write-Info "Removendo build anterior..."
         Remove-Item -Recurse -Force $DIST_TEMP -ErrorAction SilentlyContinue
         Remove-Item -Recurse -Force (Join-Path $APLICATIVO_DIR "InoLabel") -ErrorAction SilentlyContinue
@@ -75,6 +77,8 @@ if ($bundleComplete) {
     Write-Warn "Build parcial detectado em: $APLICATIVO_DIR\InoLabel"
     $answer = Read-Host "  Limpar e reconstruir? [y/n]"
     if ($answer -match "^[yY]") {
+        Get-Process -Name "InoLabel" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
         Remove-Item -Recurse -Force $DIST_TEMP -ErrorAction SilentlyContinue
         Remove-Item -Recurse -Force (Join-Path $APLICATIVO_DIR "InoLabel") -ErrorAction SilentlyContinue
         Remove-Item -Recurse -Force "build\InoLabel" -ErrorAction SilentlyContinue
@@ -187,6 +191,28 @@ if ($failedImports.Count -gt 0) {
         }
     }
 }
+
+Write-Step "Building frontend (npm run build)..."
+$npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+if (-not $npmCmd) { Write-Fail "npm not found. Install Node.js 18+ and try again." }
+Write-Ok "npm: $(& npm --version 2>&1)"
+
+Push-Location "frontend"
+try {
+    Write-Info "Running npm install..."
+    & npm install --prefer-offline 2>&1 | Tee-Object -Variable npmOut | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Fail "npm install failed. Check network or node_modules." }
+    Write-Ok "npm install OK"
+
+    Write-Info "Running npm run build..."
+    & npm run build
+    if ($LASTEXITCODE -ne 0) { Write-Fail "npm run build failed. Fix TypeScript/Vite errors above." }
+    Write-Ok "Frontend built -> frontend\dist"
+} finally {
+    Pop-Location
+}
+
+if (-not (Test-Path "frontend\dist")) { Write-Fail "frontend\dist not created after build. Check Vite output." }
 
 Write-Step "Building executable with PyInstaller..."
 Write-Host "  (slowest step - about 5 to 15 minutes)"

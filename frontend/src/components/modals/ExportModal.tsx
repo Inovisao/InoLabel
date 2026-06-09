@@ -23,9 +23,67 @@ const FORMATS: { id: ExportFormat; label: string; desc: string; soon?: boolean }
     id: "coco",
     label: "COCO JSON",
     desc: "Arquivo annotations.json no formato MS COCO. Compatível com torchvision.",
-    soon: true,
   },
 ];
+
+interface SplitValues {
+  train: number;
+  val: number;
+  test: number;
+}
+
+const DEFAULT_SPLIT: SplitValues = { train: 70, val: 20, test: 10 };
+
+function SplitRow({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <span
+        style={{
+          width: 36,
+          fontSize: 12,
+          fontWeight: 600,
+          color: "var(--color-muted)",
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+      >
+        {label}
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ flex: 1, accentColor: "var(--color-primary)", cursor: disabled ? "not-allowed" : "pointer" }}
+      />
+      <span
+        style={{
+          width: 38,
+          fontSize: 12,
+          fontWeight: 600,
+          color: "var(--color-text)",
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+      >
+        {value}%
+      </span>
+    </div>
+  );
+}
 
 export default function ExportModal({ open, onClose, totalFrames }: Props) {
   const { sessionId } = useSessionStore();
@@ -35,15 +93,42 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
   const [name, setName] = useState("dataset_export");
   const [exportState, setExportState] = useState<ExportState>("idle");
   const [progress, setProgress] = useState(0);
+  const [currentFile, setCurrentFile] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [useSplit, setUseSplit] = useState(false);
+  const [split, setSplit] = useState<SplitValues>(DEFAULT_SPLIT);
 
   useEffect(() => {
     if (!open) {
       setExportState("idle");
       setProgress(0);
+      setCurrentFile("");
       setErrorMsg("");
     }
   }, [open]);
+
+  const splitTotal = split.train + split.val + split.test;
+  const splitValid = Math.abs(splitTotal - 100) <= 1;
+
+  const adjustSplit = (key: keyof SplitValues, value: number) => {
+    setSplit((prev) => {
+      const next = { ...prev, [key]: value };
+      const others = (["train", "val", "test"] as (keyof SplitValues)[]).filter((k) => k !== key);
+      const remaining = 100 - value;
+      const prevOthersTotal = others.reduce((s, k) => s + prev[k], 0);
+      if (prevOthersTotal === 0) {
+        const each = Math.round(remaining / 2);
+        others.forEach((k, i) => { next[k] = i === 0 ? each : remaining - each; });
+      } else {
+        others.forEach((k) => {
+          next[k] = Math.round((prev[k] / prevOthersTotal) * remaining);
+        });
+        const diff = 100 - Object.values(next).reduce((s, v) => s + v, 0);
+        next[others[0]] += diff;
+      }
+      return next;
+    });
+  };
 
   const browseDestination = async () => {
     try {
@@ -56,6 +141,11 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
     if (!sessionId || !destination) return;
     setExportState("running");
     setProgress(0);
+    setCurrentFile("");
+
+    const splitPayload = useSplit
+      ? { train: split.train / 100, val: split.val / 100, test: split.test / 100 }
+      : { train: 1.0, val: 0.0, test: 0.0 };
 
     try {
       const { export_id } = await api.post<{ export_id: string }>("/export", {
@@ -63,7 +153,8 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
         destination,
         name,
         formats: [format],
-        split: { train: 1.0, val: 0.0, test: 0.0 },
+        use_split: useSplit,
+        split: splitPayload,
       });
 
       const poll = setInterval(async () => {
@@ -72,6 +163,7 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
             `/export/${export_id}/progress`
           );
           setProgress(prog.progress);
+          if (prog.current_file) setCurrentFile(prog.current_file);
           if (prog.status === "done") {
             clearInterval(poll);
             setExportState("done");
@@ -92,7 +184,12 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
     }
   };
 
-  const canExport = !!sessionId && !!destination.trim() && !!name.trim() && exportState === "idle";
+  const canExport =
+    !!sessionId &&
+    !!destination.trim() &&
+    !!name.trim() &&
+    exportState === "idle" &&
+    (!useSplit || splitValid);
 
   return (
     <Dialog.Root open={open} onOpenChange={(v) => !v && exportState !== "running" && onClose()}>
@@ -203,8 +300,17 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
             {/* Progress bar */}
             {exportState === "running" && (
               <div>
-                <div style={{ fontSize: 13, color: "var(--color-muted)", marginBottom: 8 }}>
-                  Exportando… {Math.round(progress * 100)}%
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 12,
+                    color: "var(--color-muted)",
+                    marginBottom: 6,
+                  }}
+                >
+                  <span>{currentFile || "Exportando…"}</span>
+                  <span>{Math.round(progress * 100)}%</span>
                 </div>
                 <div
                   style={{
@@ -332,6 +438,73 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                     disabled={exportState === "running"}
                     onChange={(e) => setName(e.target.value)}
                   />
+                </div>
+
+                {/* Split config */}
+                <div>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: exportState === "running" ? "not-allowed" : "pointer",
+                      userSelect: "none",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={useSplit}
+                      disabled={exportState === "running"}
+                      onChange={(e) => setUseSplit(e.target.checked)}
+                      style={{ accentColor: "var(--color-primary)", width: 14, height: 14, cursor: "inherit" }}
+                    />
+                    <span className="text-label">Dividir em train / val / test</span>
+                  </label>
+
+                  {useSplit && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: "14px 16px",
+                        background: "var(--color-bg)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: "var(--radius-md)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 10,
+                      }}
+                    >
+                      <SplitRow
+                        label="Train"
+                        value={split.train}
+                        onChange={(v) => adjustSplit("train", v)}
+                        disabled={exportState === "running"}
+                      />
+                      <SplitRow
+                        label="Val"
+                        value={split.val}
+                        onChange={(v) => adjustSplit("val", v)}
+                        disabled={exportState === "running"}
+                      />
+                      <SplitRow
+                        label="Test"
+                        value={split.test}
+                        onChange={(v) => adjustSplit("test", v)}
+                        disabled={exportState === "running"}
+                      />
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          fontSize: 11,
+                          color: splitValid ? "var(--color-muted)" : "var(--color-danger)",
+                          marginTop: 2,
+                        }}
+                      >
+                        Total: {splitTotal}% {!splitValid && "— deve somar 100%"}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}

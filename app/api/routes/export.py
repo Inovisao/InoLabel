@@ -48,6 +48,29 @@ async def _run_export(export_id: str) -> None:
         frame_paths = _state.frame_paths
         frame_dims = _state.frame_dims
 
+        # Eagerly populate annotation_store from disk for frames that have
+        # saved .txt labels but were not yet viewed in this session.
+        # This ensures frames annotated in previous sessions are included.
+        labels_dir = session.output_path / "labels"
+        if labels_dir.exists():
+            from app.api.routes.annotations import _load_frame_from_txt
+            stem_to_idx: dict[str, int] = {p.stem: i for i, p in enumerate(frame_paths)}
+            for txt_path in sorted(labels_dir.glob("*.txt")):
+                frame_idx = stem_to_idx.get(txt_path.stem)
+                if frame_idx is None or frame_idx in _state.annotation_store:
+                    continue
+                dims = frame_dims.get(frame_idx)
+                if dims is None:
+                    img = cv2.imread(str(frame_paths[frame_idx]))
+                    if img is None:
+                        continue
+                    h, w = img.shape[:2]
+                    dims = (w, h)
+                    _state.frame_dims[frame_idx] = dims
+                _load_frame_from_txt(
+                    frame_idx, frame_paths[frame_idx], dims[0], dims[1], session.output_path
+                )
+
         # Collect annotated frames and deduplicate staged file names
         frame_entries: list[tuple[int, Path, str, list]] = []
         used_names: set[str] = set()
@@ -70,7 +93,7 @@ async def _run_export(export_id: str) -> None:
         coco_images: list[dict] = []
         coco_annotations: list[dict] = []
         ann_id = 1
-        staged: dict[int, tuple[Path, str]] = {}
+        staged_files: dict[int, tuple[Path, str]] = {}
 
         for frame_idx, path, staged_name, ann_list in frame_entries:
             dims = frame_dims.get(frame_idx)
@@ -83,7 +106,7 @@ async def _run_export(export_id: str) -> None:
                 _state.frame_dims[frame_idx] = dims
 
             img_w, img_h = dims
-            staged[frame_idx] = (path, staged_name)
+            staged_files[frame_idx] = (path, staged_name)
             coco_images.append({
                 "id": frame_idx,
                 "file_name": staged_name,
@@ -113,37 +136,93 @@ async def _run_export(export_id: str) -> None:
         }
 
         total = len(coco_images)
-        # Build sorted name → original filename lookup to match export_yolo_dataset's sort order
-        sorted_staged_names = sorted(img["file_name"] for img in coco_images)
-        staged_to_original = {staged_name: path.name for _, path, staged_name, _ in frame_entries}
-
-        def _on_progress(done: int, _total: int) -> None:
-            job.progress = done / max(total, 1)
-            if 0 < done <= len(sorted_staged_names):
-                staged = sorted_staged_names[done - 1]
-                job.current_file = staged_to_original.get(staged, staged)
-
         out = job.output_path
+
         with tempfile.TemporaryDirectory() as staging_dir:
             staging_path = Path(staging_dir)
-            for _idx, (src_path, staged_name) in staged.items():
-                _shutil.copy2(src_path, staging_path / staged_name)
+            for _idx, (src_path, sname) in staged_files.items():
+                _shutil.copy2(src_path, staging_path / sname)
 
-            if job.use_split:
-                export_yolo_dataset(
-                    payload,
-                    source_images_dir=staging_path,
-                    dataset_root=out,
-                    split_ratios=job.split_ratios,
-                    on_progress=_on_progress,
-                )
-            else:
-                export_yolo_no_split(
-                    payload,
-                    source_images_dir=staging_path,
-                    dataset_root=out,
-                    on_progress=_on_progress,
-                )
+            if "yolo" in job.formats:
+                sorted_staged_names = sorted(img["file_name"] for img in coco_images)
+                staged_to_original = {sname: path.name for _, path, sname, _ in frame_entries}
+
+                def _on_yolo_progress(done: int, _total: int) -> None:
+                    job.progress = done / max(total, 1)
+                    if 0 < done <= len(sorted_staged_names):
+                        current = sorted_staged_names[done - 1]
+                        job.current_file = staged_to_original.get(current, current)
+
+                if job.use_split:
+                    export_yolo_dataset(
+                        payload,
+                        source_images_dir=staging_path,
+                        dataset_root=out,
+                        split_ratios=job.split_ratios,
+                        on_progress=_on_yolo_progress,
+                    )
+                else:
+                    export_yolo_no_split(
+                        payload,
+                        source_images_dir=staging_path,
+                        dataset_root=out,
+                        on_progress=_on_yolo_progress,
+                    )
+
+            if "coco" in job.formats:
+                from app.annotation.infrastructure.export.coco_exporter import export_detection_coco_json
+                from app.annotation.core.export.split_service import assign_splits, normalize_split_ratios
+
+                if job.use_split:
+                    ratios = normalize_split_ratios(job.split_ratios)
+                    assignments = assign_splits(coco_images, ratios)
+                    imgs_by_split: dict[str, list[dict]] = {"train": [], "val": [], "test": []}
+                    for img in coco_images:
+                        imgs_by_split[assignments.get(img["id"], "train")].append(img)
+
+                    running = [0]
+                    for split_name in ("train", "val", "test"):
+                        split_imgs = imgs_by_split[split_name]
+                        if not split_imgs:
+                            continue
+                        split_img_ids = {img["id"] for img in split_imgs}
+                        split_anns = [ann for ann in coco_annotations if ann["image_id"] in split_img_ids]
+                        split_payload = {"images": split_imgs, "annotations": split_anns, "categories": categories}
+                        split_out = out / split_name / "annotations.json"
+                        offset = running[0]
+                        names_snapshot = [img["file_name"] for img in split_imgs]
+
+                        def _on_coco_split_progress(
+                            done: int, _total: int,
+                            _offset: int = offset,
+                            _names: list = names_snapshot,
+                        ) -> None:
+                            job.progress = (_offset + done) / max(total, 1)
+                            if 0 < done <= len(_names):
+                                job.current_file = _names[done - 1]
+
+                        export_detection_coco_json(
+                            split_payload,
+                            output_path=split_out,
+                            source_images_dir=staging_path,
+                            on_progress=_on_coco_split_progress,
+                        )
+                        running[0] += len(split_imgs)
+                else:
+                    out_json = out / "annotations.json"
+                    img_names = [img["file_name"] for img in coco_images]
+
+                    def _on_coco_progress(done: int, _total: int) -> None:
+                        job.progress = done / max(total, 1)
+                        if 0 < done <= len(img_names):
+                            job.current_file = img_names[done - 1]
+
+                    export_detection_coco_json(
+                        payload,
+                        output_path=out_json,
+                        source_images_dir=staging_path,
+                        on_progress=_on_coco_progress,
+                    )
 
         job.progress = 1.0
         job.current_file = ""
