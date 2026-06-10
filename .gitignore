@@ -15,7 +15,9 @@ model.pt
 # ── Build e distribuição ──────────────────────────────────────────────────────
 dist/
 build/
-APLICATIVO/
+APLICATIVO/*
+!APLICATIVO/.gitignore
+!APLICATIVO/README.md
 *.spec
 
 # ── Python ────────────────────────────────────────────────────────────────────

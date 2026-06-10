@@ -200,12 +200,12 @@ Write-Ok "npm: $(& npm --version 2>&1)"
 Push-Location "frontend"
 try {
     Write-Info "Running npm install..."
-    & npm install --prefer-offline 2>&1 | Tee-Object -Variable npmOut | Out-Null
+    npm install --prefer-offline --no-audit --no-fund --legacy-peer-deps
     if ($LASTEXITCODE -ne 0) { Write-Fail "npm install failed. Check network or node_modules." }
     Write-Ok "npm install OK"
 
     Write-Info "Running npm run build..."
-    & npm run build
+    npm run build
     if ($LASTEXITCODE -ne 0) { Write-Fail "npm run build failed. Fix TypeScript/Vite errors above." }
     Write-Ok "Frontend built -> frontend\dist"
 } finally {
@@ -272,8 +272,13 @@ $pyiArgs = @(
     "main.py"
 )
 
+$oldErrorAction = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 & $pythonPath -m PyInstaller @pyiArgs
-if ($LASTEXITCODE -ne 0) { Write-Fail "PyInstaller failed. Check log output above." }
+$pyiExitCode = $LASTEXITCODE
+$ErrorActionPreference = $oldErrorAction
+
+if ($pyiExitCode -ne 0) { Write-Fail "PyInstaller failed. Check log output above." }
 
 Write-Step "Verifying build..."
 $finalExe = Join-Path $APLICATIVO_DIR "InoLabel\InoLabel.exe"
