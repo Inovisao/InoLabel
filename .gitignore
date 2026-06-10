@@ -1,5 +1,6 @@
 # ── Dados e modelos (nunca versionar) ────────────────────────────────────────
 outputs/
+output/
 output_dataset/
 saved_data_states/
 dataset/
@@ -14,6 +15,7 @@ model.pt
 # ── Build e distribuição ──────────────────────────────────────────────────────
 dist/
 build/
+APLICATIVO/
 *.spec
 
 # ── Python ────────────────────────────────────────────────────────────────────

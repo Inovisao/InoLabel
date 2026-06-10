@@ -14,12 +14,17 @@ def _client() -> TestClient:
 
 
 def test_api_import_does_not_load_tkinter():
+    original_tkinter = sys.modules.get("tkinter")
     sys.modules.pop("app.api.main", None)
     sys.modules.pop("tkinter", None)
 
-    importlib.import_module("app.api.main")
+    try:
+        importlib.import_module("app.api.main")
 
-    assert "tkinter" not in sys.modules
+        assert "tkinter" not in sys.modules
+    finally:
+        if original_tkinter is not None:
+            sys.modules["tkinter"] = original_tkinter
 
 
 def test_api_package_does_not_import_ui_modules():
