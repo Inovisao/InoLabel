@@ -241,7 +241,7 @@ export default function AnnotationCanvas() {
                       closed
                       stroke={clsColor}
                       strokeWidth={2}
-                      fill={`${clsColor}18`}
+                      fill="transparent"
                       listening={true}
                     />
                     <Rect
@@ -277,7 +277,7 @@ export default function AnnotationCanvas() {
                     height={sh}
                     stroke={clsColor}
                     strokeWidth={2}
-                    fill={`${clsColor}18`}
+                    fill="transparent"
                     listening={true}
                   />
                   {/* Label background */}

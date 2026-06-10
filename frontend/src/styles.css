@@ -2,17 +2,19 @@
 
 @theme {
   /* Core palette */
-  --color-primary:        #4F46E5;
-  --color-primary-hover:  #4338CA;
-  --color-primary-light:  #EEF2FF;
-  --color-hero-bg:        #F0EFFE;
-  --color-bg:             #F8F9FC;
-  --color-panel:          #FFFFFF;
-  --color-panel-alt:      #EEF2FF;
-  --color-border:         #E5E7EB;
-  --color-border-hover:   #D1D5DB;
-  --color-text:           #111827;
-  --color-muted:          #6B7280;
+  --color-primary: #1560BD;
+  --color-primary-hover: #0D47A1;
+  --color-primary-active: #0D47A1;
+  --color-primary-light: #E6F0FC;
+  --color-accent: #F07820;
+  --color-hero-bg: #EEF3FB;
+  --color-bg: #F0F4FA;
+  --color-panel: #FFFFFF;
+  --color-panel-alt: #EEF3FB;
+  --color-border: #C2D0E8;
+  --color-border-hover: #A9BAD8;
+  --color-text: #152040;
+  --color-muted: #526A88;
   --color-sidebar-text:   #374151;
   --color-fg-light:       #FFFFFF;
   --color-text-inverse:   #FFFFFF;
@@ -21,7 +23,7 @@
   --color-neutral-active: #F3F4F6;
   --color-input-bg:       #FFFFFF;
   --color-placeholder:    #9CA3AF;
-  --color-canvas-bg:      #16130f;
+  --color-canvas-bg: #16130f;
 
   /* Semantic states */
   --color-success:        #16A34A;
@@ -62,8 +64,8 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  --font-sans: Helvetica, Arial, sans-serif;
+  --font-mono: Courier, monospace;
 }
 
 :root {

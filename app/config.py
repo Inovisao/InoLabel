@@ -24,8 +24,8 @@ WEIGHTS_PATH = _EXE_DIR / "model.pt"
 OUTPUT_BASE = Path(os.environ.get("INOLABEL_OUTPUT_BASE", _EXE_DIR / "outputs"))
 ASSETS_DIR = Path(os.environ.get("INOLABEL_ASSETS_DIR", BASE_DIR / "assets"))
 LOCAL_DIR = Path(os.environ.get("INOLABEL_LOCAL_DIR", _EXE_DIR / ".local"))
-OUTPUT_DATASET_PREFIX = str(_EXE_DIR / "output_dataset")
-SAVED_STATES_SUBDIR = str(_EXE_DIR / "saved_data_states")
+OUTPUT_DATASET_PREFIX = "output_dataset"
+SAVED_STATES_SUBDIR = "saved_data_states"
 CONF_THRESHOLD = float(os.environ.get("CONF_THRESHOLD", "0.40"))
 TARGET_CLASSES = []
 SAVE_RECTIFIED_FRAMES = os.environ.get("SAVE_RECTIFIED_FRAMES", "false").lower() == "true"

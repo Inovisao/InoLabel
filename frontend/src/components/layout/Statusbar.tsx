@@ -16,7 +16,7 @@ export default function Statusbar() {
   return (
     <footer
       style={{
-        height: 36,
+        height: 40,
         background: "var(--color-panel)",
         borderTop: "1px solid var(--color-border)",
         display: "flex",
