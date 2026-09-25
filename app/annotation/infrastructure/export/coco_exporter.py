@@ -18,6 +18,24 @@ def _flat_name(file_name: str) -> str:
     return stem + Path(parts[-1]).suffix
 
 
+def _unique_flat_names(file_names: Sequence[str]) -> Dict[str, str]:
+    """Maps each relative file name to a distinct flat name for a single images/ folder."""
+    mapping: Dict[str, str] = {}
+    used: Set[str] = set()
+    for file_name in file_names:
+        if file_name in mapping:
+            continue
+        flat = _flat_name(file_name)
+        stem, suffix = Path(flat).stem, Path(flat).suffix
+        counter = 2
+        while flat in used:
+            flat = f"{stem}_{counter}{suffix}"
+            counter += 1
+        used.add(flat)
+        mapping[file_name] = flat
+    return mapping
+
+
 def normalize_categories(categories: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return [
         {
@@ -94,24 +112,38 @@ def export_detection_coco_json(
     source_images_dir: Optional[Path] = None,
     on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> Dict[str, Any]:
-    converted = convert_tracking_to_detection(payload, only_annotated_images=only_annotated_images)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(converted, f, indent=2, ensure_ascii=False)
+    """Writes a COCO detection JSON.
 
+    With ``source_images_dir``, every image is copied into a single flat ``images/``
+    folder next to the JSON (``sub/a.jpg`` -> ``sub_a.jpg``) and ``file_name`` is
+    rewritten to match the copied file, so the exported JSON always resolves.
+    """
+    converted = convert_tracking_to_detection(payload, only_annotated_images=only_annotated_images)
+    imgs = converted.get("images", [])
+
+    copies: List[tuple] = []
     if source_images_dir is not None:
-        imgs = converted.get("images", [])
-        total = len(imgs)
-        images_dest = output_path.parent / "images"
-        images_dest.mkdir(parents=True, exist_ok=True)
-        for done, img in enumerate(imgs, 1):
+        flat_names = _unique_flat_names([str(img.get("file_name", "")).strip() for img in imgs])
+        for img in imgs:
             file_name = str(img.get("file_name", "")).strip()
             if not file_name:
                 continue
             src = source_images_dir / file_name
             if not src.exists():
-                continue
-            shutil.copy2(src, images_dest / _flat_name(file_name))
+                raise FileNotFoundError(f"Image not found for export: {src}")
+            img["file_name"] = flat_names[file_name]
+            copies.append((src, img["file_name"]))
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(converted, f, indent=2, ensure_ascii=False)
+
+    if source_images_dir is not None:
+        images_dest = output_path.parent / "images"
+        images_dest.mkdir(parents=True, exist_ok=True)
+        total = len(copies)
+        for done, (src, flat_name) in enumerate(copies, 1):
+            shutil.copy2(src, images_dest / flat_name)
             if on_progress:
                 on_progress(done, total)
 
