@@ -213,7 +213,7 @@ O **data augmentation** transforma também os keypoints (flip, rotação, etc., 
 `utils/fix_keypoint_coco.py` repara um COCO Keypoints inconsistente: preenche `categories[].keypoints`, remove ponto de fechamento duplicado e recalcula `bbox`/`num_keypoints`. Por **padrão**, instâncias de 4 pontos são ordenadas em **TL → TR → BR → BL** (ideal para documentos); use `--no-sort-corners` para preservar a ordem original.
 
 ```bash
-python utils/fix_keypoint_coco.py outputs/.../annotations_keypoints.coco.json
+python utils/fix_keypoint_coco.py <projeto>/saved_data_states/annotations_keypoints.coco.json
 ```
 
 ---
@@ -229,7 +229,7 @@ A maioria dos atalhos é **remapeável** pelo editor visual (botão **Atalhos** 
 | `→` / `←` | Navegar entre frames salvos (perfil `arrows`) |
 | `D` / `A` | Navegar entre frames salvos (perfil `wasd`) |
 | `K` | Liga/desliga anotação manual |
-| `S` | Modo de seleção de anotação |
+| `S` | Modo de seleção de anotação (sem tecla padrão no perfil `wasd`) |
 | `H` | Liga/desliga modo mover imagem (pan) |
 | `R` | Redefinir ROI |
 | `E` | Editar ID de tracking (apenas modo tracking) |
@@ -237,7 +237,7 @@ A maioria dos atalhos é **remapeável** pelo editor visual (botão **Atalhos** 
 | `Ctrl+0` | Ajustar imagem na tela |
 | `1–9` | Trocar classe ativa |
 | `Scroll` | Zoom centrado no cursor |
-| `Esc` | Sair |
+| `Esc` | Sair (no modo keypoint apenas cancela a operação atual) |
 
 ### Editor de atalhos
 
@@ -285,20 +285,25 @@ A exportação roda em **background** — a interface permanece responsiva. Uma 
 
 ## Saídas geradas
 
+Cada sessão cria uma pasta de projeto dentro da pasta-pai escolhida no wizard (padrão: `state_saved/`). Se o nome já existir, é adicionado um sufixo (`_001`, `_002`, ...).
+
 ```
-outputs/<tarefa>_<DD.MM.HH-MM>/   (ex: detecção_25.05.14-30)
-├── images/                         # frames salvos (originais ou retificados)
-├── annotations.coco.json           # COCO com track_id (tracking) ou bbox simples
-├── annotations_obb.coco.json       # COCO OBB (modo OBB)
-├── annotations_keypoints.coco.json # COCO Keypoints (modo keypoint)
-├── annotations_detection.coco.json # COCO detecção padrão exportado pelo botão
-├── yolo_dataset/                   # dataset YOLO exportado pelo botão
-│   ├── data.yaml
-│   └── images/ labels/ {train,val,test}/
-└── homography.json                 # homografias por fonte (tracking/detecção)
+state_saved/<nome-do-projeto>/
+├── images/                              # frames salvos (originais ou retificados)
+├── saved_data_states/                   # estado da sessão (usado para retomar)
+│   ├── annotations.coco.json            # tracking (com track_id) / detecção
+│   ├── annotations_obb.coco.json        # modo OBB
+│   ├── annotations_keypoints.coco.json  # modo keypoint
+│   └── homography.json                  # homografias por fonte (ROI)
+├── annotations_detection.coco.json      # COCO de detecção exportado pelo botão
+└── yolo_dataset/                        # dataset YOLO exportado pelo botão
+    ├── data.yaml
+    └── images/ labels/ {train,val,test}/
 ```
 
-Exportação manual via botão cria uma pasta separada (nunca sobrescreve `outputs/`):
+No modo **classificação**, o estado fica em `classification_state.json` e as imagens são copiadas (ou movidas) para uma subpasta por classe.
+
+A exportação manual pela tela de exportação cria uma pasta separada no destino escolhido, sem sobrescrever o projeto:
 
 ```
 <destino>/<nome>/
@@ -314,24 +319,32 @@ Exportação manual via botão cria uma pasta separada (nunca sobrescreve `outpu
 ### Converter COCO → YOLO
 
 ```bash
-python utils/convert_coco_to_yolo_dataset.py outputs/.../annotations.coco.json \
-    --image-root outputs/.../images \
-    --output-root outputs/.../yolo_dataset \
+python utils/convert_coco_to_yolo_dataset.py <projeto>/saved_data_states/annotations.coco.json \
+    --image-root <projeto>/images \
+    --output-root <projeto>/yolo_dataset \
     --train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1
 ```
 
 ### Consolidar splits YOLO em train único
 
 ```bash
-python utils/merge_yolo_splits.py outputs/.../yolo_dataset \
-    --output-root outputs/.../yolo_dataset_train_only
+python utils/merge_yolo_splits.py <projeto>/yolo_dataset \
+    --output-root <projeto>/yolo_dataset_train_only
 ```
 
 ### Converter anotações de tracking → detecção
 
 ```bash
-python utils/convert_coco_tracking_to_detection.py outputs/.../annotations.coco.json
+python utils/convert_coco_tracking_to_detection.py <projeto>/saved_data_states/annotations.coco.json
 ```
+
+### Data augmentation de um dataset de saída
+
+```bash
+python utils/augment_output_dataset.py --help
+```
+
+> `utils/annotation_tool_bytetracked.py` é a ferramenta monolítica antiga, mantida apenas como referência.
 
 ---
 
