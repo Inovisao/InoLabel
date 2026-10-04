@@ -221,7 +221,10 @@ class WorkflowActionsTest(unittest.TestCase):
             def write_annotations(self, *, blocking: bool = False):
                 self.write_calls += 1
 
-            def append_saved_record(self, detections, image_id, file_name):
+            def existing_record_for_current_frame(self):
+                return None
+
+            def remember_saved_record(self, detections, image_id, file_name):
                 self.saved_records.append(
                     {"detections": list(detections), "image_id": image_id, "file_name": file_name}
                 )

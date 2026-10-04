@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 
+from app.annotation.core.export.yolo_label_service import clip_coco_bbox
+
 
 def _flat_name(file_name: str) -> str:
     """Flattens a relative path to a single filename by replacing separators with '_'."""
@@ -54,21 +56,47 @@ def convert_tracking_to_detection(
     annotations = payload.get("annotations", [])
     categories = payload.get("categories", [])
 
+    image_sizes = {
+        int(img.get("id")): (int(img.get("width", 0) or 0), int(img.get("height", 0) or 0))
+        for img in images
+    }
+
     image_ids_with_annotations: Set[int] = set()
     out_annotations: List[Dict[str, Any]] = []
+    clipped_count = 0
+    dropped_count = 0
     for ann in annotations:
         image_id = int(ann.get("image_id"))
+        bbox = ann.get("bbox", [0, 0, 0, 0])
+        area = float(ann.get("area", 0.0))
+        width, height = image_sizes.get(image_id, (0, 0))
+        if width > 0 and height > 0:
+            # Nunca exportar caixa fora da resolucao declarada da imagem.
+            clipped = clip_coco_bbox(bbox, width, height)
+            if clipped is None:
+                dropped_count += 1
+                continue
+            if list(clipped) != [float(v) for v in bbox]:
+                clipped_count += 1
+                area = clipped[2] * clipped[3]
+            bbox = list(clipped)
         image_ids_with_annotations.add(image_id)
         out_annotations.append(
             {
                 "id": int(ann.get("id")),
                 "image_id": image_id,
                 "category_id": int(ann.get("category_id")),
-                "bbox": ann.get("bbox", [0, 0, 0, 0]),
-                "area": float(ann.get("area", 0.0)),
+                "bbox": bbox,
+                "area": area,
                 "segmentation": ann.get("segmentation", []),
                 "iscrowd": int(ann.get("iscrowd", 0)),
             }
+        )
+
+    if clipped_count or dropped_count:
+        print(
+            f"[AVISO] Export COCO: {clipped_count} bboxes recortadas aos limites da imagem, "
+            f"{dropped_count} descartadas por ficarem sem area."
         )
 
     out_images: List[Dict[str, Any]] = []

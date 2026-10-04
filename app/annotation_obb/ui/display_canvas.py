@@ -4,7 +4,7 @@ from app.annotation.ui.rotation_utils import apply_frame_rotation
 
 class OBBDisplayCanvasMixin:
     def update_display(self, *, refresh_status: bool = False):
-        if self.current_frame is None:
+        if self.current_frame is None or not self._canvas_alive():
             return
         annotated = self.current_frame.copy()
         annotated = self._draw_roi_overlay_on_frame(annotated)

@@ -2,9 +2,10 @@
 
 from app.annotation.shared import *
 from app.annotation.infrastructure.persistence.async_writer import AnnotationsAsyncWriterMixin
+from app.annotation.sources.source_identity import SourceIdentityMixin
 
 
-class CocoStorageMixin(AnnotationsAsyncWriterMixin):
+class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
     # ── Index caches — invalidated whenever self.images or self.annotations changes ──
     _image_index: Optional[Dict[str, dict]] = None          # file_name → image record
     _annotation_index: Optional[Dict[int, List[dict]]] = None  # image_id → annotations
@@ -45,6 +46,11 @@ class CocoStorageMixin(AnnotationsAsyncWriterMixin):
             self._image_index = self._build_image_index()
         return self._image_index.get(file_name)
 
+    def existing_record_for_current_frame(self) -> Optional[dict]:
+        """Registro ja salvo para o frame em tela (fluxo live), ou None se e um frame novo."""
+        file_name = self.current_frame_file_name()
+        return self.find_image_record_by_file_name(file_name) if file_name else None
+
     def _source_image_output_name(self, source_path: Path) -> str:
         try:
             return source_path.resolve().relative_to(self.data_root.resolve()).as_posix()
@@ -61,8 +67,28 @@ class CocoStorageMixin(AnnotationsAsyncWriterMixin):
         if not new_frame and existing_file_name is not None:
             return existing_file_name
         if self.current_source_type == "images" and self.current_source_image_path is not None:
-            return self._source_image_output_name(self.current_source_image_path)
-        return f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
+            base_name = self._source_image_output_name(self.current_source_image_path)
+        else:
+            base_name = f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
+        return self._resolve_source_unique_name(base_name)
+
+    def _resolve_source_unique_name(self, base_name: str) -> str:
+        """Garante que o nome nao aponte para um registro de outra fonte.
+
+        Deterministico: o mesmo frame sempre resolve para o mesmo nome, entao a
+        retomada e o autosave reencontram o registro qualificado.
+        """
+        if len(getattr(self, "video_files", None) or []) < 2:
+            return base_name  # fonte unica: nao ha com quem colidir
+        qualified = self._qualified_output_file_name(base_name)
+        if qualified == base_name:
+            return base_name
+        if self.find_image_record_by_file_name(qualified) is not None:
+            return qualified
+        record = self.find_image_record_by_file_name(base_name)
+        if record is not None and self._is_foreign_record(record):
+            return qualified
+        return base_name
 
     def update_annotation_state(self):
         if self.current_frame is None:
@@ -135,12 +161,15 @@ class CocoStorageMixin(AnnotationsAsyncWriterMixin):
             x1, y1, x2, y2 = chosen_bbox
             w = x2 - x1
             h = y2 - y1
+            if w <= 0 or h <= 0:
+                # Caixa inteiramente fora do frame: sem area apos o recorte.
+                continue
             annotation = {
                 "id": self.annotation_id,
                 "image_id": image_id,
                 "category_id": det.category_id,
                 "bbox": [float(x1), float(y1), float(w), float(h)],
-                "area": float(max(w, 0.0) * max(h, 0.0)),
+                "area": float(w * h),
                 "iscrowd": 0,
                 "segmentation": [],
                 "score": float(det.confidence),
@@ -170,7 +199,7 @@ class CocoStorageMixin(AnnotationsAsyncWriterMixin):
         data = self.build_coco_payload()
         self.annotations_path.parent.mkdir(parents=True, exist_ok=True)
         if blocking:
-            self._flush_annotations(data)
+            self._write_annotations_now(data)
             return
         self._queue_annotations_write(data)
 
