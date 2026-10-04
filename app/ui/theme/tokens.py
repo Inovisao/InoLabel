@@ -27,14 +27,46 @@ COLORS: dict[str, str] = {
     # Actions — neutral (gray)
     "neutral":        "#DDE5F0",
     "neutral_active": "#C8D4E8",
-    # Actions — accent (orange)
+    # Actions — accent (orange). Texto branco sobre o laranja da marca fica em ~2,8:1
+    # (reprova WCAG AA); por isso o texto sobre accent e escuro.
     "accent":         "#F07820",
     "accent_active":  "#D96A10",
+    "accent_fg":      "#152040",
+    # Superficies suaves — estado ligado de toggles e hovers de botoes contornados
+    "primary_soft":   "#E3EDFA",
+    "danger_soft":    "#FBE9E9",
     # Inputs
     "input_bg":       "#F8FBFF",
     # Canvas
     "canvas_bg":      "#16130f",
+    # Overlays desenhados sobre a imagem (fundo escuro): precisam de brilho, nao de marca
+    "overlay_roi":       "#4C8DFF",
+    "overlay_roi_point": "#F07820",
+    "overlay_draft":     "#FFC94D",
+    "overlay_fallback":  "#22C55E",
 }
+
+# Pares (texto, fundo) que aparecem na UI e precisam de contraste WCAG AA (>= 4,5:1).
+# tests/test_theme.py verifica todos — ao criar um par novo, registre aqui.
+TEXT_CONTRAST_PAIRS: tuple[tuple[str, str], ...] = (
+    ("text", "bg"),
+    ("text", "panel"),
+    ("text", "panel_alt"),
+    ("muted", "panel"),
+    ("muted", "panel_alt"),
+    ("muted", "bg"),
+    ("fg_light", "primary"),
+    ("fg_light", "primary_active"),
+    ("fg_light", "danger"),
+    ("fg_light", "danger_active"),
+    ("text", "neutral"),
+    ("text", "neutral_active"),
+    ("accent_fg", "accent"),
+    ("accent_fg", "accent_active"),
+    ("primary", "primary_soft"),
+    ("danger", "panel"),
+    ("danger", "danger_soft"),
+)
 
 FONTS: dict[str, tuple] = {
     "title":   ("Helvetica", 22, "bold"),
@@ -45,6 +77,8 @@ FONTS: dict[str, tuple] = {
     "label":   ("Helvetica", 12, "bold"),
     "caption": ("Helvetica", 11),
     "tag":     ("Helvetica", 11, "bold"),
+    "hint":    ("Helvetica", 10),
+    "brand":   ("Helvetica", 14, "bold"),
     "status":  ("Helvetica", 11),
     "mono":    ("Courier", 11),
 }
@@ -68,6 +102,7 @@ SIZES: dict[str, int] = {
     "btn_pad_y":       10,
     "btn_h":           44,
     "btn_h_sm":        36,
+    "brand_h":         28,
     "input_pad":        8,
     "content_max_w": 1080,
     "content_min_w":  760,

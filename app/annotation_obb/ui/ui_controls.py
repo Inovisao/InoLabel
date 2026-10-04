@@ -1,4 +1,5 @@
 from app.annotation_obb.shared import *
+from app.ui.theme.tokens import COLORS
 from app.annotation.keybinds.keybind_mixin import KeybindMixin
 
 
@@ -21,7 +22,7 @@ class OBBUIControlsMixin(KeybindMixin):
         action()
 
     def _build_canvas(self):
-        self.canvas = tk.Canvas(self.window, bg="black", highlightthickness=0)
+        self.canvas = tk.Canvas(self.window, bg=COLORS["canvas_bg"], highlightthickness=0)
         self.canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=5)
         self._bind_canvas_events()
 
@@ -68,25 +69,17 @@ class OBBUIControlsMixin(KeybindMixin):
                 button.config(state=tk.DISABLED)
 
     def update_pan_button(self):
-        if hasattr(self, "pan_button"):
-            text = "Mover imagem  ON  (H)" if self.pan_mode else "Mover imagem  OFF  (H)"
-            self.pan_button.config(text=text)
+        self.sync_tool_toggle("pan_button", self.pan_mode)
 
     def update_annotation_button(self):
-        if hasattr(self, "annotation_button"):
-            estado = "ON" if self.annotation_mode else "OFF"
-            self._config_if_changed(self.annotation_button, text=f"Modo anotacao {estado} (K)")
+        self.sync_tool_toggle("annotation_button", self.annotation_mode)
 
     def update_remove_button(self):
-        if hasattr(self, "remove_button"):
-            estado = "ON" if self.remove_mode else "OFF"
-            self._config_if_changed(self.remove_button, text=f"Remover anotacao {estado}")
+        self.sync_tool_toggle("remove_button", self.remove_mode)
 
     def update_selection_button(self):
-        if hasattr(self, "selection_button"):
-            estado = "ON" if self.selection_mode else "OFF"
-            self._config_if_changed(self.selection_button, text=f"Selecionar anotacao {estado} (S)")
+        self.sync_tool_toggle("selection_button", self.selection_mode)
 
     def update_edit_id_button(self):
-        if hasattr(self, "edit_id_button"):
-            self._config_if_changed(self.edit_id_button, text="Editar ID indisponivel")
+        # OBB nao tem tracking: o botao fica sempre desabilitado.
+        self.sync_tool_toggle("edit_id_button", False)

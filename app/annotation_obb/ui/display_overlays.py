@@ -1,4 +1,5 @@
 from app.annotation_obb.shared import *
+from app.ui.theme.tokens import COLORS
 
 
 class OBBDisplayOverlaysMixin:
@@ -15,7 +16,7 @@ class OBBDisplayOverlaysMixin:
         category_color_by_id = self.category_color_by_id()
         selected = self.selected_obb
         for idx, det in enumerate(detections):
-            color = self.hex_to_bgr(category_color_by_id.get(det.category_id, "#22c55e"))
+            color = self.hex_to_bgr(category_color_by_id.get(det.category_id, COLORS["overlay_fallback"]))
             if selected == (source, idx):
                 color = (0, 255, 255)
             points = obb_to_points(det.cx, det.cy, det.width, det.height, det.angle).astype(np.int32)
@@ -56,7 +57,7 @@ class OBBDisplayOverlaysMixin:
                     shifted[i][1],
                     shifted[i + 1][0],
                     shifted[i + 1][1],
-                    fill="blue",
+                    fill=COLORS["overlay_roi"],
                     width=2,
                 )
             if len(shifted) == 4:
@@ -65,11 +66,11 @@ class OBBDisplayOverlaysMixin:
                     shifted[-1][1],
                     shifted[0][0],
                     shifted[0][1],
-                    fill="blue",
+                    fill=COLORS["overlay_roi"],
                     width=2,
                 )
         for sx, sy in shifted:
-            self.canvas.create_oval(sx - 3, sy - 3, sx + 3, sy + 3, fill="red", outline="")
+            self.canvas.create_oval(sx - 3, sy - 3, sx + 3, sy + 3, fill=COLORS["overlay_roi_point"], outline="")
 
     def _draw_active_manual_rectangle(self):
         if self.drawing_start is None or self.drawing_rect_id is None:

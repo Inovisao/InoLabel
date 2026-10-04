@@ -31,6 +31,9 @@ from app.annotation_keypoint.ui.mode_toggles import KPModeTogglesMixin
 from app.annotation_keypoint.ui.ui_controls import KPUIControlsMixin
 
 
+from app.annotation.presentation.labels import ButtonLabel
+
+
 class KeypointAnnotationTool(
     CoreInitMixin,
     KPRuntimeStateMixin,
@@ -62,4 +65,6 @@ class KeypointAnnotationTool(
     KPModeTogglesMixin,
 ):
     """Keypoint detection tool isolated from the other annotation flows."""
-    pass
+
+    # O botao "Editar ID" da sidebar compartilhada alterna a visibilidade do ponto aqui.
+    sidebar_label_overrides = {"edit_id_button": ButtonLabel("Visível/oculto", fixed_key="C")}

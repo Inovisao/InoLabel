@@ -1,5 +1,6 @@
 from app.annotation.shared import *
 from app.ui.layout.responsive_window import apply_responsive_geometry
+from app.ui.components import set_window_icon
 from app.ui.theme import COLORS, FONTS, SIZES, SPACING, install_scaled_theme
 
 
@@ -11,6 +12,7 @@ class MainWindowMixin:
         self.window.protocol("WM_DELETE_WINDOW", self.on_quit)
         self.ui = install_scaled_theme(self.window)
         self.window.configure(bg=COLORS["bg"])
+        set_window_icon(self.window)
         apply_responsive_geometry(self.window, width_ratio=0.92, height_ratio=0.90)
 
         self._initialize_ui_variables()
@@ -34,10 +36,6 @@ class MainWindowMixin:
         )
 
     def _on_window_resize(self, _event):
-        if hasattr(self, "info_label"):
-            available = max(320, self.window.winfo_width() - SIZES["sidebar_w"] - 240)
-            if int(float(self.info_label.cget("wraplength") or 0)) != available:
-                self.info_label.configure(wraplength=available)
         if self.current_frame is not None and not getattr(self, "export_screen_active", False):
             pending = getattr(self, "_resize_after_id", None)
             if pending is not None:

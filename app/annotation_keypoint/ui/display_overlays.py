@@ -1,4 +1,5 @@
 from app.annotation_keypoint.shared import *
+from app.ui.theme.tokens import COLORS
 
 _SEL_COLOR = "#FFD400"
 _WIP_COLOR = "#22D3EE"
@@ -31,7 +32,7 @@ class KPDisplayOverlaysMixin:
             self._overlay_wip_preview(color_by_id)
 
     def _overlay_instance(self, inst, color_by_id, *, selected, sel_kp, closed):
-        color = _SEL_COLOR if selected else color_by_id.get(inst.category_id, "#22c55e")
+        color = _SEL_COLOR if selected else color_by_id.get(inst.category_id, COLORS["overlay_fallback"])
         names = self.keypoint_names_for_category(inst.category_id)
         canvas_pts = [
             self.image_to_canvas_coords(kp[0], kp[1]) if kp[2] > 0 else None
@@ -89,8 +90,8 @@ class KPDisplayOverlaysMixin:
             return
         shifted = [self.image_to_canvas_coords(x, y) for (x, y) in self.roi_points]
         for i in range(len(shifted) - 1):
-            self.canvas.create_line(*shifted[i], *shifted[i + 1], fill="blue", width=2)
+            self.canvas.create_line(*shifted[i], *shifted[i + 1], fill=COLORS["overlay_roi"], width=2)
         if len(shifted) == 4:
-            self.canvas.create_line(*shifted[-1], *shifted[0], fill="blue", width=2)
+            self.canvas.create_line(*shifted[-1], *shifted[0], fill=COLORS["overlay_roi"], width=2)
         for sx, sy in shifted:
-            self.canvas.create_oval(sx - 3, sy - 3, sx + 3, sy + 3, fill="red", outline="")
+            self.canvas.create_oval(sx - 3, sy - 3, sx + 3, sy + 3, fill=COLORS["overlay_roi_point"], outline="")

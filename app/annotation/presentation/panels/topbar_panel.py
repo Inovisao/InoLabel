@@ -1,5 +1,5 @@
 from app.annotation.shared import *
-from app.ui.components import make_badge, make_btn
+from app.ui.components import make_badge, make_brand_mark, make_btn
 from app.ui.theme.tokens import COLORS, FONTS, SPACING
 
 
@@ -17,7 +17,11 @@ class TopbarPanelMixin:
         inner = tk.Frame(bar, bg=COLORS["panel"])
         inner.pack(fill=tk.X, padx=SPACING["md"], pady=SPACING["sm"])
 
-        # Mode badge — blue for tracking/detection/obb, orange for classification
+        # ── esquerda: marca do laboratorio + modo ─────────────────
+        self.brand_mark = make_brand_mark(inner)
+        self.brand_mark.pack(side=tk.LEFT, padx=(0, SPACING["md"]))
+        tk.Frame(inner, width=1, bg=COLORS["border"]).pack(side=tk.LEFT, fill=tk.Y, padx=(0, SPACING["md"]))
+
         badge_color = (
             COLORS["accent"]
             if self.task_mode.value == "classification"
@@ -27,17 +31,25 @@ class TopbarPanelMixin:
             side=tk.LEFT, padx=(0, SPACING["md"])
         )
 
-        self.info_label = tk.Label(
-            inner,
-            textvariable=self.info_var,
-            font=FONTS["body"],
-            bg=COLORS["panel"],
-            fg=COLORS["text"],
-            wraplength=max(320, self.window.winfo_width() - 540),
-            justify=tk.LEFT,
-            anchor="w",
+        # ── direita: arquivo atual e acoes (empacotadas da direita p/ esquerda) ──
+        self.delete_image_button = make_btn(
+            inner, "Deletar", self.on_delete_image, variant="danger_outline", size="sm", state=tk.DISABLED
         )
-        self.info_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, SPACING["md"]))
+        self.delete_image_button.pack(side=tk.RIGHT)
+
+        self.open_folder_button = make_btn(
+            inner, "Abrir pasta", self.on_open_in_folder, variant="ghost", size="sm", state=tk.DISABLED
+        )
+        self.open_folder_button.pack(side=tk.RIGHT, padx=(0, SPACING["xs"]))
+
+        self.key_mapping_button = make_btn(
+            inner, "Atalhos", self.open_keybind_editor, variant="ghost", size="sm"
+        )
+        self.key_mapping_button.pack(side=tk.RIGHT, padx=(0, SPACING["xs"]))
+
+        self.help_button = make_btn(inner, "Ajuda", lambda: None, variant="ghost", size="sm")
+        self.help_button.pack(side=tk.RIGHT, padx=(0, SPACING["xs"]))
+        self._attach_help_tooltip(self.help_button)
 
         self.image_name_label = tk.Label(
             inner,
@@ -46,26 +58,27 @@ class TopbarPanelMixin:
             bg=COLORS["panel"],
             fg=COLORS["muted"],
         )
-        self.image_name_label.pack(side=tk.LEFT, padx=(0, SPACING["sm"]))
+        self.image_name_label.pack(side=tk.RIGHT, padx=(SPACING["md"], SPACING["sm"]))
 
-        self.help_button = make_btn(inner, "Ajuda", lambda: None, variant="ghost", size="sm")
-        self.help_button.pack(side=tk.LEFT, padx=(0, SPACING["xs"]))
-        self._attach_help_tooltip(self.help_button)
-
-        self.key_mapping_button = make_btn(
-            inner, "Atalhos: arrows", self.open_keybind_editor, variant="ghost", size="sm"
+        # ── centro: mensagem de status ocupa o que sobrar ────────
+        self.info_label = tk.Label(
+            inner,
+            textvariable=self.info_var,
+            font=FONTS["body"],
+            bg=COLORS["panel"],
+            fg=COLORS["text"],
+            wraplength=320,
+            justify=tk.LEFT,
+            anchor="w",
         )
-        self.key_mapping_button.pack(side=tk.LEFT, padx=(0, SPACING["xs"]))
+        self.info_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        # Quebra na largura que sobrou de fato — estimar pela janela errava com a marca e os botoes.
+        self.info_label.bind("<Configure>", self._on_info_label_resize)
 
-        self.open_folder_button = make_btn(
-            inner, "Ver em folder", self.on_open_in_folder, variant="ghost", size="sm", state=tk.DISABLED
-        )
-        self.open_folder_button.pack(side=tk.LEFT, padx=(0, SPACING["xs"]))
-
-        self.delete_image_button = make_btn(
-            inner, "Deletar", self.on_delete_image, variant="danger", size="sm", state=tk.DISABLED
-        )
-        self.delete_image_button.pack(side=tk.LEFT)
+    def _on_info_label_resize(self, event):
+        wrap = max(120, int(event.width) - SPACING["xs"])
+        if int(float(self.info_label.cget("wraplength") or 0)) != wrap:
+            self.info_label.configure(wraplength=wrap)
 
     # ── help tooltip ──────────────────────────────────────────────
 

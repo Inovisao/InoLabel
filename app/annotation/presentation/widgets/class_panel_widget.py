@@ -1,5 +1,6 @@
 from app.annotation.shared import *
 from app.ui.components import make_btn, make_entry
+from app.ui.components.badge import readable_fg
 from app.ui.theme.tokens import COLORS, FONTS, SIZES, SPACING
 
 
@@ -72,13 +73,13 @@ class ClassPanelWidgetMixin:
             is_active = class_name == active_name
             count = frame_counts.get(category_id, 0)
             tag_bg = color if is_active else COLORS["input_bg"]
-            tag_fg = COLORS["fg_light"] if is_active else COLORS["text"]
+            tag_fg = readable_fg(color) if is_active else COLORS["text"]
             self._config_if_changed(widgets["tag"], bg=tag_bg)
             self._config_if_changed(widgets["name_btn"], text=f"{idx + 1}  {class_name}  ({count})", bg=tag_bg, fg=tag_fg)
 
     def _build_class_tag(self, panel, idx: int, class_name: str, color: str, is_active: bool, count: int):
         tag_bg = color if is_active else COLORS["input_bg"]
-        tag_fg = COLORS["fg_light"] if is_active else COLORS["text"]
+        tag_fg = readable_fg(color) if is_active else COLORS["text"]
 
         tag = tk.Frame(
             panel,
@@ -108,7 +109,7 @@ class ClassPanelWidgetMixin:
             padx=SPACING["sm"], pady=SPACING["sm"],
             bd=0, relief=tk.FLAT, cursor="hand2",
             bg=tag_bg, fg=tag_fg,
-            activebackground=color, activeforeground=COLORS["fg_light"],
+            activebackground=color, activeforeground=readable_fg(color),
             highlightthickness=0,
             anchor="w",
             command=lambda n=class_name: self.set_active_class(n),
