@@ -31,7 +31,7 @@ class LifecycleMixin:
             self.write_annotations()
             self.update_manual_memory_after_accept(detections)
             self.remember_saved_record(detections, image_id, saved_file)
-            msg = f"Autosave concluido: {saved_file}"
+            msg = f"Autosave concluido: image_id={image_id}"
             if reason:
                 msg += f" ({reason})"
             print(f"[INFO] {msg}")

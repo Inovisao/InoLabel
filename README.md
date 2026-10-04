@@ -279,7 +279,14 @@ Clique em **Exportar dataset** na barra lateral para abrir a tela de exportaçã
 | **Split train/val/test** | Divide as imagens em proporções configuráveis |
 | **Data augmentation** | Gera cópias aumentadas por imagem (flip, brilho, ruído, etc.) |
 
-A exportação roda em **background** — a interface permanece responsiva. Uma barra de progresso exibe o avanço imagem por imagem; ao concluir, ela some automaticamente.
+A exportação roda em **background** — a interface permanece responsiva. Uma barra de progresso exibe o avanço imagem por imagem; ao concluir, ela some automaticamente. Enquanto a tela de exportação está aberta, os atalhos de anotação ficam desativados.
+
+**Proteções do destino:**
+
+- A exportação só apaga e recria pastas criadas por ela mesma (marcadas com o arquivo oculto `.inolabel_export`) ou vazias.
+- Se o nome escolhido já existe e não é uma exportação do InoLabel, a saída vai para `<nome>_<data>` e a pasta existente não é tocada.
+- São recusados como destino: a pasta do projeto e qualquer pasta acima dela, o dataset de origem (dentro, igual ou acima), a pasta pessoal e a raiz do disco, além de nomes como `.` e `..`.
+- Só entram no dataset imagens com registro no estado. Imagens soltas em `images/` sem registro (por exemplo, após uma queda) são ignoradas e contadas na mensagem final, para não virarem falsos negativos.
 
 ---
 
@@ -349,13 +356,24 @@ python utils/fetch_openimages.py --classes hat glasses --splits validation test 
 
 O Open Images não tem classe de máscara.
 
+> **LGPD:** este utilitário baixa fotos de rosto de pessoas reais. A licença CC BY 2.0 cobre direitos autorais, não a proteção de dados pessoais. Antes de usar, registre a finalidade, a base legal e o prazo de retenção do material; mantenha `openimages_candidates/` fora do git (já está no `.gitignore`) e apague as candidatas descartadas. O utilitário não faz parte do executável distribuído.
+
 ### Data augmentation de um dataset de saída
 
 ```bash
-python utils/augment_output_dataset.py --help
+python utils/augment_output_dataset.py --annotations <projeto>/saved_data_states/annotations.coco.json \
+    --images-dir <projeto>/images --rotate90
 ```
 
-> `utils/annotation_tool_bytetracked.py` é a ferramenta monolítica antiga, mantida apenas como referência.
+> `utils/annotation_tool_bytetracked.py` é a ferramenta monolítica antiga, **obsoleta**: tem bugs já corrigidos no app (ex.: recorte de caixas) e não deve ser usada para anotar.
+
+---
+
+## Privacidade e segurança
+
+- **Logs sem nomes de arquivo:** mensagens no terminal identificam imagens e vídeos por `image_id` ou por uma referência anônima (`<arquivo 3f2a91c0>`), nunca pelo nome — nomes de arquivo em datasets de pessoas podem conter dados pessoais. A interface continua mostrando o nome ao próprio usuário.
+- **Pesos de modelo:** arquivos `.pt` usam pickle e executam código ao serem carregados. Abra apenas pesos de origem confiável.
+- **Estado ilegível:** se o `annotations.coco.json` não puder ser lido, a sessão não abre e o arquivo não é alterado. Restaure o `.bak` ao lado dele (gerado ao abrir cada sessão) ou corrija o JSON.
 
 ---
 

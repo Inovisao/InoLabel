@@ -285,6 +285,13 @@ class ExportScreenMixin:
         if not config.destination_parent or not config.folder_name or not config.formats:
             self.info_var.set("Informe destino, pasta e ao menos um formato.")
             return
+        # Autosave e leitura do estado aqui, na thread da UI: no worker eles
+        # concorreriam com a interface sobre images/annotations/image_id.
+        try:
+            payload = self.load_export_payload_from_state()
+        except Exception as exc:  # pylint: disable=broad-except
+            self.set_export_error(f"Falha ao preparar a exportacao: {exc}")
+            return
         self._export_status_var.set("Exportando...")
         self._export_status_label.config(fg=COLORS["muted"])
         self._export_confirm_btn.config(state=tk.DISABLED)
@@ -298,7 +305,7 @@ class ExportScreenMixin:
         self.window.after(50, self._drain_export_queue)
         self._export_thread = threading.Thread(
             target=self._run_export_thread,
-            args=(config,),
+            args=(config, payload),
             daemon=True,
         )
         self._export_thread.start()
@@ -326,10 +333,10 @@ class ExportScreenMixin:
         else:
             self.show_annotation_screen()
 
-    def _run_export_thread(self, config):
+    def _run_export_thread(self, config, payload=None):
         cancel_event = getattr(self, "_export_cancel_event", None)
         try:
-            self.perform_dataset_export(config, cancel_event=cancel_event)
+            self.perform_dataset_export(config, cancel_event=cancel_event, payload=payload)
         except Exception as exc:  # pylint: disable=broad-except
             msg = f"Falha ao exportar: {exc}"
             print(f"[ERRO] {msg}")

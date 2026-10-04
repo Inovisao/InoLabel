@@ -8,6 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Callable, List, Optional
 
+from app import __version__ as APP_VERSION
 from app.classification.dataset import (
     STATE_FILE_NAME as CLASSIFICATION_STATE_FILE_NAME,
     discover_images,
@@ -48,7 +49,7 @@ class StartupWizard:
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("InoLabel — Configuração")
+        self.root.title(f"InoLabel {APP_VERSION} — Configuração")
         self.ui = install_scaled_theme(self.root)
         self.colors = self.ui["colors"]
         self.fonts = self.ui["fonts"]

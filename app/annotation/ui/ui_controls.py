@@ -19,6 +19,10 @@ class UIControlsMixin(KeybindMixin):
     def _run_shortcut(self, event, action):
         if self._shortcut_is_text_input(event):
             return
+        # Na tela de exportacao a anotacao esta suspensa: Enter/setas validariam ou
+        # trocariam de frame enquanto o dataset e exportado.
+        if getattr(self, "export_screen_active", False):
+            return
         action()
 
     def _build_canvas(self):

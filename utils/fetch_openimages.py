@@ -9,6 +9,10 @@ Filtro de "selfie": exatamente um rosto (Human face) sem IsGroupOf, rosto ocupan
 --min-face-area da imagem, e ao menos uma caixa da classe alvo encostando no rosto.
 
 Imagens com licenca CC BY 2.0: ao usar, mantenha a atribuicao (autor + link) do candidates.csv.
+
+LGPD: as imagens sao fotos de rosto de pessoas reais (dado pessoal; pode ser biometrico).
+A licenca cobre direito autoral, nao protecao de dados. Registre finalidade, base legal e
+prazo de retencao antes de usar, nao versione a pasta de saida e apague o que descartar.
 """
 
 from __future__ import annotations

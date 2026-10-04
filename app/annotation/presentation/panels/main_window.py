@@ -1,4 +1,5 @@
 from app.annotation.shared import *
+from app import __version__ as APP_VERSION
 from app.ui.layout.responsive_window import apply_responsive_geometry
 from app.ui.components import set_window_icon
 from app.ui.theme import COLORS, FONTS, SIZES, SPACING, install_scaled_theme
@@ -8,7 +9,7 @@ class MainWindowMixin:
     def _build_ui(self):
         self.window = tk.Tk()
         self.window.withdraw()  # hidden until the first frame is ready
-        self.window.title(f"InoLabel — {self.task_mode.label}")
+        self.window.title(f"InoLabel {APP_VERSION} — {self.task_mode.label}")
         self.window.protocol("WM_DELETE_WINDOW", self.on_quit)
         self.ui = install_scaled_theme(self.window)
         self.window.configure(bg=COLORS["bg"])

@@ -353,9 +353,15 @@ class ExportOutputDatasetPathTest(unittest.TestCase):
 
             self.assertTrue(actions.write_called)
             self.assertEqual(actions.autosave_reason, "exportar dataset")
-            self.assertEqual(len(payload["images"]), 3)
+            # Imagens em disco sem registro no estado (orfas) nao viram negativas no dataset.
+            self.assertEqual([image["file_name"] for image in payload["images"]], ["img_001.jpg"])
+            self.assertEqual(actions.last_export_orphan_count, 2)
+
+            with_orphans = actions.reconcile_export_payload_with_state_files(
+                persisted_payload, include_orphans=True
+            )
             self.assertEqual(
-                sorted(image["file_name"] for image in payload["images"]),
+                sorted(image["file_name"] for image in with_orphans["images"]),
                 ["img_001.jpg", "img_002.jpg", "img_003.jpg"],
             )
 
