@@ -1,7 +1,8 @@
 from app.annotation_keypoint.shared import *
+from app.annotation.sources.source_identity import SourceIdentityMixin
 
 
-class KPSourceHelpersMixin:
+class KPSourceHelpersMixin(SourceIdentityMixin):
     def _reset_open_source(self):
         if self.cap is not None:
             self.cap.release()
@@ -121,7 +122,9 @@ class KPSourceHelpersMixin:
         if not target_name:
             return self.frame_index
         for idx, image_path in enumerate(self.current_image_paths):
-            if self._source_image_output_name(image_path) == target_name:
+            name = self._source_image_output_name(image_path)
+            # O nome salvo pode ter sido qualificado pela fonte (ver _resolve_source_unique_name).
+            if target_name in (name, self._qualified_output_file_name(name)):
                 return idx
         return None
 

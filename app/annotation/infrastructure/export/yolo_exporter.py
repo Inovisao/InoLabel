@@ -18,6 +18,7 @@ from app.annotation.core.export.yolo_label_service import (
     format_yaml_no_split,
     format_yolo_boxes,
 )
+from app.annotation.infrastructure.export.export_dir import reset_export_dir
 
 
 def _write_yolo_box_file(label_path: Path, boxes):
@@ -89,8 +90,7 @@ def export_yolo_dataset(
     on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> Dict[str, Any]:
     normalized_ratios = _normalized_split_ratios(split_ratios)
-    if dataset_root.exists():
-        shutil.rmtree(dataset_root)
+    reset_export_dir(dataset_root)  # so recria pastas vazias ou criadas pelo InoLabel
 
     images = payload.get("images", [])
     class_mapping, names = build_zero_based_category_mapping(payload.get("categories", []))
@@ -191,8 +191,7 @@ def export_yolo_no_split(
     augmentation_preset: Optional[AugmentationPreset] = None,
     on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> Dict[str, Any]:
-    if dataset_root.exists():
-        shutil.rmtree(dataset_root)
+    reset_export_dir(dataset_root)  # so recria pastas vazias ou criadas pelo InoLabel
 
     images = payload.get("images", [])
     class_mapping, names = build_zero_based_category_mapping(payload.get("categories", []))
