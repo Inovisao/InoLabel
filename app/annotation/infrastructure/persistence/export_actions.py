@@ -99,12 +99,20 @@ class ExportActionsMixin:
             raise RuntimeError("No images saved in the current state to export.")
         return payload
 
-    def reconcile_export_payload_with_state_files(self, payload: dict) -> dict:
+    def reconcile_export_payload_with_state_files(self, payload: dict, *, include_orphans: bool = False) -> dict:
+        """Confere as imagens em output/images contra o estado.
+
+        Imagens sem registro (orfas: queda entre gravar o JPG e o estado, colisao de
+        nomes de versoes antigas) nao tem anotacoes conhecidas. Exporta-las as tornaria
+        negativas ("nenhum objeto") e criaria falsos negativos no treino, entao por
+        padrao ficam de fora e so sao contadas em `self.last_export_orphan_count`.
+        """
         payload = dict(payload)
         images = [dict(image) for image in payload.get("images", [])]
         known_files = {str(image.get("file_name", "")).strip() for image in images}
         known_ids = [int(image.get("id", 0) or 0) for image in images]
         next_image_id = max(known_ids, default=0) + 1
+        self.last_export_orphan_count = 0
 
         if not self.output_images_dir.exists():
             payload["images"] = images
@@ -116,6 +124,9 @@ class ExportActionsMixin:
                 continue
             file_name = image_path.relative_to(self.output_images_dir).as_posix()
             if file_name in known_files:
+                continue
+            self.last_export_orphan_count += 1
+            if not include_orphans:
                 continue
 
             frame = cv2.imread(str(image_path))
@@ -175,12 +186,19 @@ class ExportActionsMixin:
         )
         return f"COCO: {len(converted['images'])} imagens", f"COCO imgs={len(converted['images'])}"
 
-    def perform_dataset_export(self, config, cancel_event=None):
+    def perform_dataset_export(self, config, cancel_event=None, payload=None):
+        """Roda no worker de exportacao.
+
+        `payload` deve vir pronto da thread da UI (load_export_payload_from_state faz
+        autosave e mexe no estado em memoria). Sem ele, carrega aqui — so para chamadas
+        sincronas fora da tela de exportacao.
+        """
         multi_format = len(config.formats) > 1
         try:
             export_root = self.resolve_user_export_root(config.destination_parent, config.folder_name)
             ensure_export_dir(export_root)
-            payload = self.load_export_payload_from_state()
+            if payload is None:
+                payload = self.load_export_payload_from_state()
             exported_parts: list = []
             yolo_summary = ""
             coco_summary = ""
@@ -216,6 +234,9 @@ class ExportActionsMixin:
                 exported_parts.append(part)
 
             summary_lines = [line for line in (yolo_summary, coco_summary) if line]
+            orphans = getattr(self, "last_export_orphan_count", 0)
+            if orphans:
+                summary_lines.append(f"{orphans} imagem(ns) sem registro no estado ignorada(s)")
             message = f"Dataset exportado com sucesso em: {export_root}"
             if summary_lines:
                 message += " | " + " | ".join(summary_lines)

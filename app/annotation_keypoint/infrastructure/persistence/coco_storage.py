@@ -1,4 +1,6 @@
 from app.annotation_keypoint.shared import *
+from app.annotation.infrastructure.persistence.safe_paths import contained_path
+from app import __version__ as APP_VERSION
 from app.annotation.infrastructure.persistence.state_file import read_annotation_state
 from app.annotation.infrastructure.persistence.async_writer import AnnotationsAsyncWriterMixin
 from app.annotation.sources.source_identity import SourceIdentityMixin
@@ -105,6 +107,7 @@ class KPCocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
             "info": {
                 "description": "COCO keypoints annotation",
                 "version": "1.0",
+                "app_version": APP_VERSION,
                 "task_mode": self.task_mode.value,
                 "data_root": str(self.data_root),
                 "video_sources": [str(v) for v in self.video_files],
@@ -230,8 +233,8 @@ class KPCocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
         return removed
 
     def remove_image_file(self, file_name: str) -> bool:
-        image_path = self.output_images_dir / file_name
-        if not image_path.exists():
+        image_path = contained_path(self.output_images_dir, file_name)
+        if image_path is None or not image_path.is_file():
             return False
         image_path.unlink()
         return True

@@ -1,4 +1,5 @@
 from app.annotation_obb.shared import *
+from app.log_privacy import log_ref
 from app.annotation.sources.source_identity import SourceIdentityMixin
 
 
@@ -96,7 +97,7 @@ class OBBSourceHelpersMixin(SourceIdentityMixin):
         self.current_source_image_path = None
         self.cap = cv2.VideoCapture(str(self.video_path))
         if not self.cap.isOpened():
-            print(f"[ERRO] Falha ao abrir video: {self.video_path}")
+            print(f"[ERRO] Falha ao abrir video: {log_ref(self.video_path)}")
             return None
         fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.frame_rate = int(fps) if fps and fps > 1 else 30
@@ -107,7 +108,7 @@ class OBBSourceHelpersMixin(SourceIdentityMixin):
                 pass
         ret, first_frame = self.cap.read()
         if not ret or first_frame is None:
-            print(f"[ERRO] Falha ao ler o primeiro frame: {self.video_path}")
+            print(f"[ERRO] Falha ao ler o primeiro frame: {log_ref(self.video_path)}")
             return None
         return first_frame
 
@@ -124,11 +125,11 @@ class OBBSourceHelpersMixin(SourceIdentityMixin):
         self.current_image_cursor = resume_cursor
         self.frame_rate = 30
         if not self.current_image_paths:
-            print(f"[ERRO] Nenhuma imagem valida encontrada para: {self.video_path}")
+            print(f"[ERRO] Nenhuma imagem valida encontrada para: {log_ref(self.video_path)}")
             return None
         first_frame = self.read_next_image_frame()
         if first_frame is None:
-            print(f"[ERRO] Falha ao ler imagens da fonte: {self.video_path}")
+            print(f"[ERRO] Falha ao ler imagens da fonte: {log_ref(self.video_path)}")
             return None
         return first_frame
 

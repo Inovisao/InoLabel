@@ -1,4 +1,6 @@
 """Read/write operations for the COCO payload in memory and on disk."""
+from app.annotation.infrastructure.persistence.safe_paths import contained_path
+from app import __version__ as APP_VERSION
 
 from app.annotation.shared import *
 from app.annotation.infrastructure.persistence.async_writer import AnnotationsAsyncWriterMixin
@@ -85,6 +87,7 @@ class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
             "info": {
                 "description": "Validacao manual de deteccoes com ROI e homografia",
                 "version": "1.0",
+                "app_version": APP_VERSION,
                 "task_mode": self.task_mode.value,
                 "data_root": str(self.data_root),
                 "video_sources": [str(v) for v in self.video_files],
@@ -197,18 +200,17 @@ class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
         return removed
 
     def remove_image_file(self, file_name: str) -> bool:
-        image_path = self.output_images_dir / file_name
-        if not image_path.exists():
+        image_path = contained_path(self.output_images_dir, file_name)
+        if image_path is None or not image_path.is_file():
             return False
         image_path.unlink()
         return True
 
     def remove_exported_dataset_files(self, file_name: str):
-        label_name = Path(file_name).with_suffix(".txt")
+        label_name = Path(file_name).with_suffix(".txt").as_posix()
         for split in ("train", "val", "test"):
-            image_path = self.yolo_dataset_dir / "images" / split / file_name
-            label_path = self.yolo_dataset_dir / "labels" / split / label_name
-            if image_path.exists():
-                image_path.unlink()
-            if label_path.exists():
-                label_path.unlink()
+            image_path = contained_path(self.yolo_dataset_dir / "images" / split, file_name)
+            label_path = contained_path(self.yolo_dataset_dir / "labels" / split, label_name)
+            for path in (image_path, label_path):
+                if path is not None and path.is_file():
+                    path.unlink()

@@ -1,7 +1,13 @@
-ultralytics
-opencv-python
-Pillow
-numpy
-scipy
-lap
-cython-bbox
+# Versoes validadas no ambiente conda "inolabel" (Python 3.9) para a release 2.0.
+# Atualize de proposito e rode a suite de testes antes de mudar qualquer pino.
+ultralytics==8.4.57
+opencv-python==4.13.0.92
+Pillow==11.3.0
+numpy==2.0.2
+scipy==1.13.1
+lap==0.5.13
+cython-bbox==0.1.5
+# Dependencias do ultralytics fixadas por reprodutibilidade. Para GPU, instale a
+# variante CUDA destas mesmas versoes pelo indice do PyTorch.
+torch==2.8.0
+torchvision==0.23.0

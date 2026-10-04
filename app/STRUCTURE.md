@@ -3,6 +3,8 @@
 ## Entrada
 
 - `main.py` — ponto de entrada da aplicação.
+- `app/__init__.py` — `__version__` da aplicação (exibido no título da janela e no `info.app_version` do COCO).
+- `app/log_privacy.py` — `log_ref`: referência anônima para nomes de arquivo em logs (LGPD).
 - `app/runner.py` — desativa o input method do X (ibus) antes do Tk conectar, exibe o splash, abre o wizard, cria a sessão e escolhe a ferramenta pelo modo:
 
 | `AnnotationTaskMode` | Ferramenta | Pacote |
@@ -70,12 +72,15 @@ Implementações concretas de I/O: leitura/escrita de arquivos, chamadas a bibli
 
 - `app/annotation/infrastructure/persistence/coco_storage.py` — operações COCO em memória e disco: `store_annotations`, `write_annotations`, `build_coco_payload`, `delete_image_annotations`, índices de lookup por imagem, etc.
 - `app/annotation/infrastructure/persistence/async_writer.py` — escritor em background do arquivo de estado; o autosave não bloqueia a UI.
+- `app/annotation/infrastructure/persistence/state_file.py` — leitura do estado ao retomar; JSON ilegível interrompe a abertura (`AnnotationStateUnreadableError`) em vez de virar sessão vazia.
+- `app/annotation/infrastructure/persistence/safe_paths.py` — `contained_path`: caminhos vindos do JSON nunca saem da pasta esperada ao remover arquivos.
 - `app/annotation/infrastructure/persistence/export_actions.py` — ações de exportação disparadas pela UI: salvar `.coco.json`, salvar `.yaml`, exportar dataset completo.
 
 #### Exportação
 
 - `app/annotation/infrastructure/export/coco_exporter.py` — conversão e escrita COCO.
 - `app/annotation/infrastructure/export/yolo_exporter.py` — escrita YOLO, cópia de imagens, labels e cópias aumentadas.
+- `app/annotation/infrastructure/export/export_dir.py` — guarda das pastas de exportação: só recria pastas vazias ou marcadas com `.inolabel_export`.
 
 ---
 
@@ -96,7 +101,8 @@ Construção de widgets e painéis Tkinter. Nenhuma regra de negócio aqui.
 - `app/annotation/presentation/panels/main_window.py` — orquestração da janela: chama `_build_topbar`, `_build_statusbar`, `_build_body`, `_bind_shortcuts`. Define tema e variáveis UI.
 - `app/annotation/presentation/panels/topbar_panel.py` — barra superior (badge de modo, label de info, botões de ação), tooltip de ajuda e diálogo de mapeamento de teclas.
 - `app/annotation/presentation/panels/statusbar_panel.py` — barra de status inferior com os cinco blocos informativos.
-- `app/annotation/presentation/panels/sidebar_panel.py` — sidebar rolável com todas as seções de botões (Anotação, ID Manual, Classes, Exportar, Sair).
+- `app/annotation/presentation/panels/sidebar_panel.py` — sidebar rolável em cartões (Decisão, Ferramentas, Vista, ID manual, Classes, Exportar).
+- `app/annotation/presentation/labels.py` — rótulos da sidebar; a tecla exibida vem do perfil de atalhos ativo.
 - `app/annotation/presentation/panels/canvas_panel.py` — área do canvas e bind dos eventos de mouse.
 
 #### Widgets
@@ -115,6 +121,7 @@ Construção de widgets e painéis Tkinter. Nenhuma regra de negócio aqui.
 - `app/annotation/sources/source_discovery.py` — descobre vídeos, pastas de imagens e listas de imagens.
 - `app/annotation/sources/source_loading.py` — carrega fontes, registra handlers de sinal, navega entre fontes.
 - `app/annotation/sources/source_helpers.py` — reset de estado, retomada de posição, leitura do primeiro frame.
+- `app/annotation/sources/source_identity.py` — identidade da fonte e nomes de arquivo únicos entre fontes (compartilhado por detecção, OBB e keypoint).
 
 ---
 
@@ -241,7 +248,7 @@ Mesma organização de `app/annotation/`; só contém o que difere para caixas r
 - `theme/palette.py` — paleta de cores das classes de anotação (`CLASS_COLORS`).
 - `theme/__init__.py` — re-exporta tokens e paleta; `from app.ui.theme import COLORS` continua funcionando.
 - `theme.py` — shim legado; o pacote `theme/` tem precedência no import, então este arquivo não é carregado.
-- `components/` — widgets reutilizáveis: `badge`, `button` (com hover), `card`, `canvas`, `divider`, `entry`, `loading` (tela de carregamento sobreposta).
+- `components/` — widgets reutilizáveis: `badge`, `button` (com hover), `toggle` (modos com estado visível), `brand` (logo do laboratório), `card`, `canvas`, `divider`, `entry`, `loading` (tela de carregamento sobreposta).
 - `layout/scale.py` — fator de escala da UI a partir da altura do monitor e DPI.
 - `layout/responsive_window.py` — helpers de janela responsiva.
 - `layout/scrollable_frame.py` — frame vertical rolável.
@@ -255,7 +262,7 @@ Mesma organização de `app/annotation/`; só contém o que difere para caixas r
 ## Fora de `app/`
 
 - `tracker/` — BYTETracker (Kalman filter, matching) de FoundationVision/ByteTrack.
-- `utils/` — scripts CLI: conversão COCO → YOLO, merge de splits, tracking → detecção, augmentation de dataset, conserto de COCO Keypoints. `annotation_tool_bytetracked.py` é a ferramenta monolítica antiga, mantida só como referência.
+- `utils/` — scripts CLI: conversão COCO → YOLO, merge de splits, tracking → detecção, augmentation de dataset, conserto de COCO Keypoints. `annotation_tool_bytetracked.py` é a ferramenta monolítica antiga, **obsoleta** (bugs já corrigidos no app), mantida só como referência.
 - `build.sh` / `InoLabel.spec` — build com PyInstaller.
 
 ---
