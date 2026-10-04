@@ -4,7 +4,7 @@ from app.annotation.ui.rotation_utils import apply_frame_rotation
 
 class KPDisplayCanvasMixin:
     def update_display(self, *, refresh_status: bool = False):
-        if self.current_frame is None:
+        if self.current_frame is None or not self._canvas_alive():
             return
         # Re-rasterize the base image only when frame/zoom/pan/rotation changes.
         # Annotation edits keep the same signature → only the vector overlay is

@@ -207,7 +207,7 @@ class KPCocoStorageMixin(AnnotationsAsyncWriterMixin):
         data = self.build_coco_payload()
         self.annotations_path.parent.mkdir(parents=True, exist_ok=True)
         if blocking:
-            self._flush_annotations(data)
+            self._write_annotations_now(data)
             return
         self._queue_annotations_write(data)
 

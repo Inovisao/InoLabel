@@ -26,10 +26,11 @@ def destination_size(ordered_pts: np.ndarray) -> Tuple[int, int]:
 
 
 def clip_bbox(x1: float, y1: float, x2: float, y2: float, width: int, height: int) -> np.ndarray:
-    x1_c = max(0.0, min(float(width - 1), x1))
-    y1_c = max(0.0, min(float(height - 1), y1))
-    x2_c = max(0.0, min(float(width - 1), x2))
-    y2_c = max(0.0, min(float(height - 1), y2))
+    # Coordenadas de borda de pixel (COCO): a imagem inteira e [0, 0, width, height].
+    x1_c = max(0.0, min(float(width), x1))
+    y1_c = max(0.0, min(float(height), y1))
+    x2_c = max(0.0, min(float(width), x2))
+    y2_c = max(0.0, min(float(height), y2))
     return np.array([x1_c, y1_c, x2_c, y2_c], dtype=np.float32)
 
 
@@ -58,6 +59,9 @@ def bbox_center(bbox: np.ndarray) -> Tuple[float, float]:
 
 def parse_frame_number_from_name(file_name: str, video_stem: str) -> Optional[int]:
     prefix = f"{video_stem}_frame_"
+    # Nomes qualificados por fonte ("cam2/video/video_frame_00001.jpg") guardam o
+    # frame no ultimo componente.
+    file_name = file_name.rsplit("/", 1)[-1]
     if not file_name.startswith(prefix):
         return None
     try:

@@ -8,6 +8,23 @@ from app.annotation.ui.rotation_utils import (
 
 
 class DisplayCanvasMixin:
+    def _canvas_alive(self) -> bool:
+        """False while the canvas is torn down (export screen).
+
+        Deferred redraws (e.g. model inference finishing after the user opened the
+        export screen) must not touch a destroyed widget; the annotation screen
+        redraws itself when it is rebuilt.
+        """
+        if getattr(self, "export_screen_active", False):
+            return False
+        canvas = getattr(self, "canvas", None)
+        if canvas is None:
+            return False
+        try:
+            return bool(canvas.winfo_exists())
+        except tk.TclError:
+            return False
+
     def image_to_canvas_coords(self, x: float, y: float) -> Tuple[int, int]:
         rotation = getattr(self, "frame_rotation", 0)
         if rotation and self.current_frame is not None:
@@ -68,7 +85,7 @@ class DisplayCanvasMixin:
             self.zoom_pan_y = int(np.clip(self.zoom_pan_y, min_pan_y, max_pan_y))
 
     def update_display(self, *, refresh_status: bool = False):
-        if self.current_frame is None:
+        if self.current_frame is None or not self._canvas_alive():
             return
 
         annotated = self.current_frame.copy()

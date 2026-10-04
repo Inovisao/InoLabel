@@ -7,6 +7,7 @@ models/
 videos/
 imagens/
 dataset_original/
+openimages_candidates/
 
 # ── Build e distribuição ──────────────────────────────────────────────────────
 dist/

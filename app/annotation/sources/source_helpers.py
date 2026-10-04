@@ -1,7 +1,8 @@
 from app.annotation.shared import *
+from app.annotation.sources.source_identity import SourceIdentityMixin
 
 
-class SourceHelpersMixin:
+class SourceHelpersMixin(SourceIdentityMixin):
     def _init_trackers(self):
         from tracker.byte_tracker import BYTETracker  # deferred: pulls torch (~4s)
         from app.tracking import MultiClassByteTracker
@@ -152,7 +153,9 @@ class SourceHelpersMixin:
         if not target_name:
             return self.frame_index
         for idx, image_path in enumerate(self.current_image_paths):
-            if self._source_image_output_name(image_path) == target_name:
+            name = self._source_image_output_name(image_path)
+            # O nome salvo pode ter sido qualificado pela fonte (ver _resolve_source_unique_name).
+            if target_name in (name, self._qualified_output_file_name(name)):
                 return idx
         return None
 

@@ -338,6 +338,17 @@ python utils/merge_yolo_splits.py <projeto>/yolo_dataset \
 python utils/convert_coco_tracking_to_detection.py <projeto>/saved_data_states/annotations.coco.json
 ```
 
+### Baixar candidatas do Open Images para revisão
+
+Baixa selfies com acessório (um rosto grande com a classe encostando nele) para `openimages_candidates/<classe>/`, sem tocar no dataset. Revise, apague o que não servir e mova as aprovadas para o dataset. O `candidates.csv` de cada pasta guarda a licença (CC BY 2.0: mantenha a atribuição), o autor e as caixas originais.
+
+```bash
+python utils/fetch_openimages.py --classes hat --limit 150
+python utils/fetch_openimages.py --classes hat glasses --splits validation test train  # train: CSV de 2,2 GB lido em streaming
+```
+
+O Open Images não tem classe de máscara.
+
 ### Data augmentation de um dataset de saída
 
 ```bash
