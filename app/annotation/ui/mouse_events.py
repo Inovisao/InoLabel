@@ -1,4 +1,5 @@
 from app.annotation.shared import *
+from app.ui.theme.tokens import COLORS
 from app.annotation.ui.rotation_utils import rotated_dims, rotated_to_image
 
 
@@ -33,7 +34,7 @@ class MouseEventsMixin:
             event.y,
             event.x,
             event.y,
-            outline="yellow",
+            outline=COLORS["overlay_draft"],
             width=2,
             dash=(4, 2),
         )
@@ -52,7 +53,7 @@ class MouseEventsMixin:
                 start_cy,
                 event.x,
                 event.y,
-                outline="yellow",
+                outline=COLORS["overlay_draft"],
                 width=2,
                 dash=(4, 2),
             )

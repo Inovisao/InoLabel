@@ -1,4 +1,5 @@
 from app.annotation_obb.shared import *
+from app.ui.theme.tokens import COLORS
 from app.annotation.ui.rotation_utils import rotated_dims, rotated_to_image
 
 
@@ -47,7 +48,7 @@ class OBBMouseEventsMixin:
         self.obb_interaction_mode = "draw"
         self.drawing_start = (x, y)
         self.drag_start = (x, y)
-        self.drawing_rect_id = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, outline="yellow", width=2, dash=(4, 2))
+        self.drawing_rect_id = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, outline=COLORS["overlay_draft"], width=2, dash=(4, 2))
 
     def on_mouse_drag(self, event):
         if self.pan_mode:
