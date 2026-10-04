@@ -1,8 +1,10 @@
 from app.annotation_keypoint.shared import *
+from app.annotation.infrastructure.persistence.state_file import read_annotation_state
 from app.annotation.infrastructure.persistence.async_writer import AnnotationsAsyncWriterMixin
+from app.annotation.sources.source_identity import SourceIdentityMixin
 
 
-class KPCocoStorageMixin(AnnotationsAsyncWriterMixin):
+class KPCocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
     _annotations_log_label = "Anotacoes keypoint"
 
     def ensure_keypoint_metadata(self):
@@ -78,8 +80,11 @@ class KPCocoStorageMixin(AnnotationsAsyncWriterMixin):
         if not new_frame and existing_file_name is not None:
             return existing_file_name
         if self.current_source_type == "images" and self.current_source_image_path is not None:
-            return self._source_image_output_name(self.current_source_image_path)
-        return f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
+            base_name = self._source_image_output_name(self.current_source_image_path)
+        else:
+            base_name = f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
+        # Fontes com mesmo nome (cam1/video.mp4, cam2/video.mp4) nao podem compartilhar file_name.
+        return self._resolve_source_unique_name(base_name)
 
     def update_annotation_state(self):
         if self.current_frame is None:
@@ -232,14 +237,9 @@ class KPCocoStorageMixin(AnnotationsAsyncWriterMixin):
         return True
 
     def load_existing_annotations(self):
-        annotations_path = getattr(self, "annotations_path", None)
-        if annotations_path is None or not annotations_path.exists():
-            return
-        try:
-            with open(annotations_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception as exc:  # pylint: disable=broad-except
-            print(f"[AVISO] Falha ao ler anotacoes keypoint existentes: {exc}")
+        # Ilegivel -> AnnotationStateUnreadableError: nunca seguir com sessao vazia.
+        data = read_annotation_state(getattr(self, "annotations_path", None))
+        if data is None:
             return
         self.images = data.get("images", [])
         self.annotations = data.get("annotations", [])

@@ -46,11 +46,6 @@ class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
             self._image_index = self._build_image_index()
         return self._image_index.get(file_name)
 
-    def existing_record_for_current_frame(self) -> Optional[dict]:
-        """Registro ja salvo para o frame em tela (fluxo live), ou None se e um frame novo."""
-        file_name = self.current_frame_file_name()
-        return self.find_image_record_by_file_name(file_name) if file_name else None
-
     def _source_image_output_name(self, source_path: Path) -> str:
         try:
             return source_path.resolve().relative_to(self.data_root.resolve()).as_posix()
@@ -71,24 +66,6 @@ class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
         else:
             base_name = f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
         return self._resolve_source_unique_name(base_name)
-
-    def _resolve_source_unique_name(self, base_name: str) -> str:
-        """Garante que o nome nao aponte para um registro de outra fonte.
-
-        Deterministico: o mesmo frame sempre resolve para o mesmo nome, entao a
-        retomada e o autosave reencontram o registro qualificado.
-        """
-        if len(getattr(self, "video_files", None) or []) < 2:
-            return base_name  # fonte unica: nao ha com quem colidir
-        qualified = self._qualified_output_file_name(base_name)
-        if qualified == base_name:
-            return base_name
-        if self.find_image_record_by_file_name(qualified) is not None:
-            return qualified
-        record = self.find_image_record_by_file_name(base_name)
-        if record is not None and self._is_foreign_record(record):
-            return qualified
-        return base_name
 
     def update_annotation_state(self):
         if self.current_frame is None:

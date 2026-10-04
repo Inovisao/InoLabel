@@ -10,6 +10,7 @@ from app.annotation.core.augmentation.augmentation_types import AugmentationPres
 from app.annotation.core.export.split_service import assign_splits
 from app.annotation.core.export.yolo_label_service import build_zero_based_category_mapping
 from app.annotation_keypoint.core.augmentation.pose_augmentation import augment_pose
+from app.annotation.infrastructure.export.export_dir import reset_export_dir
 
 PoseInstance = Tuple[int, List[List[float]]]
 
@@ -115,8 +116,7 @@ def export_yolo_pose_dataset(
     on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> dict:
     output_dir = Path(output_dir)
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
+    reset_export_dir(output_dir)  # so recria pastas vazias ou criadas pelo InoLabel
 
     class_mapping, names = build_zero_based_category_mapping(payload.get("categories", []))
     if not names:

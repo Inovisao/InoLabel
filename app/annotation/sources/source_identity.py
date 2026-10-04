@@ -9,6 +9,8 @@ from app.annotation.shared import *
 
 
 class SourceIdentityMixin:
+    """Requer do storage: find_image_record_by_file_name e current_frame_file_name."""
+
     def _source_identity(self, source: Path) -> Tuple[str, ...]:
         """Partes do caminho da fonte relativas ao data_root (ou so o nome)."""
         cache = self.__dict__.setdefault("_source_identity_cache", {})
@@ -51,3 +53,25 @@ class SourceIdentityMixin:
         source_key = Path(*self._source_identity(self.video_path)).with_suffix("").as_posix()
         return f"{source_key}/{base_name}"
 
+    def _resolve_source_unique_name(self, base_name: str) -> str:
+        """Garante que o nome nao aponte para um registro de outra fonte.
+
+        Deterministico: o mesmo frame sempre resolve para o mesmo nome, entao a
+        retomada e o autosave reencontram o registro qualificado.
+        """
+        if len(getattr(self, "video_files", None) or []) < 2:
+            return base_name  # fonte unica: nao ha com quem colidir
+        qualified = self._qualified_output_file_name(base_name)
+        if qualified == base_name:
+            return base_name
+        if self.find_image_record_by_file_name(qualified) is not None:
+            return qualified
+        record = self.find_image_record_by_file_name(base_name)
+        if record is not None and self._is_foreign_record(record):
+            return qualified
+        return base_name
+
+    def existing_record_for_current_frame(self) -> Optional[dict]:
+        """Registro ja salvo para o frame em tela (fluxo live), ou None se e um frame novo."""
+        file_name = self.current_frame_file_name()
+        return self.find_image_record_by_file_name(file_name) if file_name else None
