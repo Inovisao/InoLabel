@@ -1,13 +1,19 @@
 from app.annotation.shared import *
-from app.annotation.infrastructure.persistence.state_file import read_annotation_state
 
 
 class SourceLoadingMixin:
     def load_existing_annotations(self):
         """Loads existing annotations to resume from where it left off."""
-        # Ilegivel -> AnnotationStateUnreadableError: nunca seguir com sessao vazia.
-        data = read_annotation_state(getattr(self, "annotations_path", None))
-        if data is None:
+        annotations_path = getattr(self, "annotations_path", None)
+        if annotations_path is None:
+            return
+        if not annotations_path.exists():
+            return
+        try:
+            with open(annotations_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[AVISO] Falha ao ler anotacoes existentes: {exc}")
             return
         self.images = data.get("images", [])
         self.annotations = data.get("annotations", [])

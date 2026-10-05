@@ -34,15 +34,7 @@ _VARIANTS: dict[str, dict] = {
         "bg":        lambda: COLORS["accent"],
         "hover_bg":  lambda: COLORS["accent_active"],
         "active_bg": lambda: COLORS["accent_active"],
-        "fg":        lambda: COLORS["accent_fg"],
-    },
-    # Acao destrutiva secundaria: contorno vermelho, sem preenchimento
-    "danger_outline": {
-        "bg":        lambda: COLORS["panel"],
-        "hover_bg":  lambda: COLORS["danger_soft"],
-        "active_bg": lambda: COLORS["danger_soft"],
-        "fg":        lambda: COLORS["danger"],
-        "border":    lambda: COLORS["danger"],
+        "fg":        lambda: COLORS["fg_light"],
     },
     "ghost": {
         "bg":        lambda: COLORS["panel"],
@@ -54,35 +46,27 @@ _VARIANTS: dict[str, dict] = {
 
 # Slight opacity shift for "border" on ghost/neutral to give depth
 _HOVER_BORDER: Dict[str, Optional[str]] = {
+    "primary": None,
+    "danger":  None,
     "neutral": COLORS["border"],
+    "accent":  None,
     "ghost":   COLORS["border"],
 }
 
 
 def _attach_hover(btn: tk.Button, v: dict, variant: str) -> None:
-    """Bind Enter/Leave for a smooth hover effect.
-
-    A cor de repouso e lida do proprio widget na entrada do mouse, nao capturada na
-    criacao: quem reconfigurar o bg depois (ex.: estado ligado) nao e desfeito no
-    <Leave>. Botao desabilitado nao reage.
-    """
-    hover_bg = v["hover_bg"]()
-    border   = _HOVER_BORDER.get(variant)
+    """Bind Enter/Leave for a smooth hover effect."""
+    base_bg   = v["bg"]()
+    hover_bg  = v["hover_bg"]()
+    border    = _HOVER_BORDER.get(variant)
 
     def on_enter(_event):
-        if str(btn.cget("state")) == tk.DISABLED:
-            return
-        btn._rest_bg = btn.cget("bg")
         btn.configure(bg=hover_bg)
         if border:
             btn.configure(highlightbackground=border, highlightthickness=1)
 
     def on_leave(_event):
-        rest_bg = getattr(btn, "_rest_bg", None)
-        if rest_bg is None:
-            return
-        btn._rest_bg = None
-        btn.configure(bg=rest_bg)
+        btn.configure(bg=base_bg)
         if border:
             btn.configure(highlightthickness=0)
 
@@ -105,7 +89,7 @@ def make_btn(
 
     Parameters
     ----------
-    variant : "primary" | "danger" | "danger_outline" | "neutral" | "accent" | "ghost"
+    variant : "primary" | "danger" | "neutral" | "accent" | "ghost"
     size    : "md" (default, 12pt bold) | "sm" (11pt caption, compact padding)
     """
     v    = _VARIANTS.get(variant, _VARIANTS["neutral"])
@@ -134,13 +118,7 @@ def make_btn(
     if width is not None:
         kw["width"] = width
 
-    if "border" in v:
-        kw["highlightthickness"] = 1
-        kw["highlightbackground"] = v["border"]()
-        kw["highlightcolor"] = v["border"]()
-
     btn = tk.Button(parent, **kw)
-    # Sempre liga o hover: botoes criados desabilitados (a maioria da sidebar) sao
-    # habilitados depois e antes ficavam sem hover.
-    _attach_hover(btn, v, variant)
+    if state == tk.NORMAL:
+        _attach_hover(btn, v, variant)
     return btn

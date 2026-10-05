@@ -58,7 +58,4 @@ class KeybindMixin:
             label = self._keybind_service.get_active_profile_name()
         else:
             label = getattr(self, "key_mapping_mode", "arrows")
-        self.key_mapping_button.config(text=f"Atalhos · {label}")
-        refresh = getattr(self, "refresh_sidebar_labels", None)
-        if refresh is not None:
-            refresh()
+        self.key_mapping_button.config(text=f"Atalhos: {label}")

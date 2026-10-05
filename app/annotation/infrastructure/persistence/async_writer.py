@@ -11,37 +11,23 @@ Shared by the detection, OBB and keypoint storage mixins.
 import json
 import os
 import threading
-from typing import Optional, Tuple
+from typing import Optional
 
 
 class AnnotationsAsyncWriterMixin:
     _annotations_writer_lock = None
     _annotations_writer_wakeup = None
     _annotations_writer_thread = None
-    _annotations_pending_payload: Optional[Tuple[int, dict]] = None
-    _annotations_flush_lock = None
-    _annotations_next_seq: int = 0
-    _annotations_written_seq: int = 0
+    _annotations_pending_payload: Optional[dict] = None
     _annotations_writer_stop: bool = False
     _annotations_log_label: str = "Anotacoes"
 
-    def _flush_annotations(self, data: dict, seq: Optional[int] = None):
-        """Serialize and write atomically, so a crash mid-write never truncates the state.
-
-        Writes are serialized: the background writer and a blocking write (export,
-        shutdown) share the same temp file. `seq` orders snapshots, so an older one
-        that finishes late never overwrites a newer state already on disk.
-        """
-        self._ensure_annotations_writer_state()
-        with self._annotations_flush_lock:
-            if seq is not None:
-                if seq <= self._annotations_written_seq:
-                    return
-                self._annotations_written_seq = seq
-            tmp_path = self.annotations_path.with_name(f"{self.annotations_path.name}.tmp")
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-            os.replace(tmp_path, self.annotations_path)
+    def _flush_annotations(self, data: dict):
+        """Serialize and write atomically, so a crash mid-write never truncates the state."""
+        tmp_path = self.annotations_path.with_name(f"{self.annotations_path.name}.tmp")
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp_path, self.annotations_path)
         print(f"[INFO] {self._annotations_log_label} atualizadas em {self.annotations_path}")
 
     def _ensure_annotations_writer_state(self):
@@ -51,22 +37,6 @@ class AnnotationsAsyncWriterMixin:
             self._annotations_pending_payload = None
             self._annotations_writer_thread = None
             self._annotations_writer_stop = False
-            self._annotations_flush_lock = threading.Lock()
-            self._annotations_next_seq = 0
-            self._annotations_written_seq = 0
-
-    def _next_annotations_seq(self) -> int:
-        """Caller must hold _annotations_writer_lock."""
-        self._annotations_next_seq += 1
-        return self._annotations_next_seq
-
-    def _write_annotations_now(self, data: dict):
-        """Blocking write of the newest snapshot; supersedes any queued (older) payload."""
-        self._ensure_annotations_writer_state()
-        with self._annotations_writer_lock:
-            self._annotations_pending_payload = None
-            seq = self._next_annotations_seq()
-        self._flush_annotations(data, seq)
 
     def _queue_annotations_write(self, data: dict):
         """Hand the payload to the writer thread, collapsing pending writes.
@@ -76,7 +46,7 @@ class AnnotationsAsyncWriterMixin:
         """
         self._ensure_annotations_writer_state()
         with self._annotations_writer_lock:
-            self._annotations_pending_payload = (self._next_annotations_seq(), data)
+            self._annotations_pending_payload = data
             thread = self._annotations_writer_thread
             if thread is None or not thread.is_alive():
                 self._annotations_writer_stop = False
@@ -105,7 +75,7 @@ class AnnotationsAsyncWriterMixin:
                 self._annotations_writer_wakeup.wait()
                 continue
             try:
-                self._flush_annotations(payload[1], payload[0])
+                self._flush_annotations(payload)
             except Exception as exc:  # pylint: disable=broad-except
                 print(f"[ERRO] Falha ao gravar anotacoes em background: {exc}")
 
@@ -126,6 +96,6 @@ class AnnotationsAsyncWriterMixin:
             self._annotations_pending_payload = None
         if payload is not None:
             try:
-                self._flush_annotations(payload[1], payload[0])
+                self._flush_annotations(payload)
             except Exception as exc:  # pylint: disable=broad-except
                 print(f"[ERRO] Falha ao gravar anotacoes pendentes: {exc}")

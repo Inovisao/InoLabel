@@ -1,7 +1,3 @@
-# OBSOLETO — nao use para anotar.
-# Ferramenta monolitica anterior a 2.0, mantida so como referencia historica. Tem bugs
-# ja corrigidos no app (ex.: recorte de caixas em W-1, nomes de frame colidindo entre
-# fontes). Use `python main.py`.
 """Ferramenta interativa para validar detecoes YOLO e gerar anotacoes COCO."""
 
 import json

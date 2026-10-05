@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 """Consolida um dataset YOLO com train/val/test em um unico split train."""
 
-import sys
 import argparse
 import shutil
 from pathlib import Path
 from typing import Dict, List, Tuple
-
-# Rodado como script (python utils/x.py), a raiz do projeto nao esta no sys.path.
-if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from app.annotation.infrastructure.export.export_dir import reset_export_dir
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -72,7 +65,8 @@ def merge_yolo_splits(input_root: Path, output_root: Path) -> Dict[str, object]:
     if not names:
         raise ValueError(f"Nenhuma classe encontrada em {data_yaml_path}")
 
-    reset_export_dir(output_root)  # so recria pastas vazias ou criadas pelo InoLabel
+    if output_root.exists():
+        shutil.rmtree(output_root)
 
     target_images_dir = output_root / "images" / "train"
     target_labels_dir = output_root / "labels" / "train"

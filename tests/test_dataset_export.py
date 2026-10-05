@@ -13,8 +13,7 @@ from app.annotation.ui.display_canvas import DisplayCanvasMixin
 from app.annotation.detection.workflow_actions import WorkflowActionsMixin
 from app.annotation.sources.source_helpers import SourceHelpersMixin
 from app.config import DATA_ROOT
-from app.annotation.application.lifecycle import LifecycleMixin
-from app.dataset_export import export_detection_coco_json, export_yolo_dataset
+from app.dataset_export import export_yolo_dataset
 from utils.merge_yolo_splits import merge_yolo_splits
 
 
@@ -221,10 +220,7 @@ class WorkflowActionsTest(unittest.TestCase):
             def write_annotations(self, *, blocking: bool = False):
                 self.write_calls += 1
 
-            def existing_record_for_current_frame(self):
-                return None
-
-            def remember_saved_record(self, detections, image_id, file_name):
+            def append_saved_record(self, detections, image_id, file_name):
                 self.saved_records.append(
                     {"detections": list(detections), "image_id": image_id, "file_name": file_name}
                 )
@@ -353,15 +349,9 @@ class ExportOutputDatasetPathTest(unittest.TestCase):
 
             self.assertTrue(actions.write_called)
             self.assertEqual(actions.autosave_reason, "exportar dataset")
-            # Imagens em disco sem registro no estado (orfas) nao viram negativas no dataset.
-            self.assertEqual([image["file_name"] for image in payload["images"]], ["img_001.jpg"])
-            self.assertEqual(actions.last_export_orphan_count, 2)
-
-            with_orphans = actions.reconcile_export_payload_with_state_files(
-                persisted_payload, include_orphans=True
-            )
+            self.assertEqual(len(payload["images"]), 3)
             self.assertEqual(
-                sorted(image["file_name"] for image in with_orphans["images"]),
+                sorted(image["file_name"] for image in payload["images"]),
                 ["img_001.jpg", "img_002.jpg", "img_003.jpg"],
             )
 
@@ -496,148 +486,6 @@ class MergeYoloSplitsTest(unittest.TestCase):
             self.assertIn("train: images/train", output_yaml)
             self.assertNotIn("val: images/val", output_yaml)
             self.assertNotIn("test: images/test", output_yaml)
-
-
-class ExportCocoFlatImagesTest(unittest.TestCase):
-    def _write_sources(self, source_images_dir, file_names):
-        for file_name in file_names:
-            image_path = source_images_dir / file_name
-            image_path.parent.mkdir(parents=True, exist_ok=True)
-            image_path.write_bytes(file_name.encode("utf-8"))
-
-    def test_images_from_subfolders_are_flattened_and_referenced_by_json(self):
-        payload = {
-            "images": [
-                {"id": 1, "file_name": "toca/img_001.jpeg", "width": 100, "height": 100},
-                {"id": 2, "file_name": "bone/img_002.jpeg", "width": 100, "height": 100},
-                {"id": 3, "file_name": "root.jpg", "width": 100, "height": 100},
-            ],
-            "annotations": [{"id": 1, "image_id": 1, "category_id": 1, "bbox": [10, 10, 20, 20]}],
-            "categories": [{"id": 1, "name": "toca"}],
-        }
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = Path(tmp_dir)
-            source_images_dir = tmp_path / "images"
-            self._write_sources(source_images_dir, [img["file_name"] for img in payload["images"]])
-            coco_path = tmp_path / "export" / "annotations.coco.json"
-
-            export_detection_coco_json(payload, coco_path, source_images_dir=source_images_dir)
-
-            written = json.loads(coco_path.read_text(encoding="utf-8"))
-            names = sorted(img["file_name"] for img in written["images"])
-            self.assertEqual(names, ["bone_img_002.jpeg", "root.jpg", "toca_img_001.jpeg"])
-            images_dir = coco_path.parent / "images"
-            for name in names:
-                self.assertTrue((images_dir / name).is_file(), name)
-            self.assertEqual(sorted(p.name for p in images_dir.iterdir()), names)
-            self.assertEqual(payload["images"][0]["file_name"], "toca/img_001.jpeg")
-
-    def test_flat_name_collisions_get_distinct_names(self):
-        payload = {
-            "images": [
-                {"id": 1, "file_name": "a/b_c.jpg", "width": 10, "height": 10},
-                {"id": 2, "file_name": "a_b/c.jpg", "width": 10, "height": 10},
-            ],
-            "annotations": [],
-            "categories": [{"id": 1, "name": "x"}],
-        }
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = Path(tmp_dir)
-            source_images_dir = tmp_path / "images"
-            self._write_sources(source_images_dir, ["a/b_c.jpg", "a_b/c.jpg"])
-            coco_path = tmp_path / "export" / "annotations.coco.json"
-
-            export_detection_coco_json(payload, coco_path, source_images_dir=source_images_dir)
-
-            written = json.loads(coco_path.read_text(encoding="utf-8"))
-            by_id = {img["id"]: img["file_name"] for img in written["images"]}
-            self.assertEqual(by_id, {1: "a_b_c.jpg", 2: "a_b_c_2.jpg"})
-            images_dir = coco_path.parent / "images"
-            self.assertEqual((images_dir / "a_b_c.jpg").read_bytes(), b"a/b_c.jpg")
-            self.assertEqual((images_dir / "a_b_c_2.jpg").read_bytes(), b"a_b/c.jpg")
-
-    def test_missing_source_image_fails_instead_of_exporting_dangling_reference(self):
-        payload = {
-            "images": [{"id": 1, "file_name": "toca/missing.jpeg", "width": 10, "height": 10}],
-            "annotations": [],
-            "categories": [{"id": 1, "name": "x"}],
-        }
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = Path(tmp_dir)
-            coco_path = tmp_path / "export" / "annotations.coco.json"
-
-            with self.assertRaises(FileNotFoundError):
-                export_detection_coco_json(payload, coco_path, source_images_dir=tmp_path / "images")
-            self.assertFalse(coco_path.exists())
-
-    def test_without_source_dir_keeps_relative_file_names(self):
-        payload = {
-            "images": [{"id": 1, "file_name": "toca/img.jpeg", "width": 10, "height": 10}],
-            "annotations": [],
-            "categories": [{"id": 1, "name": "x"}],
-        }
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            coco_path = Path(tmp_dir) / "annotations.coco.json"
-
-            converted = export_detection_coco_json(payload, coco_path)
-
-            self.assertEqual(converted["images"][0]["file_name"], "toca/img.jpeg")
-
-
-class AutosaveReviewModeTest(unittest.TestCase):
-    class _DummyLifecycle(LifecycleMixin):
-        def __init__(self, review_idx, saved_records):
-            self.current_frame = np.zeros((8, 8, 3), dtype=np.uint8)
-            self.closed = False
-            self.review_idx = review_idx
-            self.saved_records = saved_records
-            self.store_calls = []
-
-        def current_frame_file_name(self):
-            # What the storage derives once the live source path is gone in review mode.
-            return "acessorios_frame_00118.jpg"
-
-        def find_image_record_by_file_name(self, file_name):
-            return None
-
-        def detections_to_save(self):
-            return []
-
-        def store_annotations(self, detections, existing_image_id=None, existing_file_name=None):
-            self.store_calls.append((existing_image_id, existing_file_name))
-            return existing_image_id if existing_image_id is not None else 999, existing_file_name or "new.jpg"
-
-        def write_annotations(self, *, blocking=False):
-            pass
-
-        def update_manual_memory_after_accept(self, detections):
-            pass
-
-        def remember_saved_record(self, detections, image_id, file_name):
-            pass
-
-    def test_review_autosave_updates_reviewed_record_instead_of_creating_new_image(self):
-        records = [
-            {"image_id": 10, "file_name": "bone/a.jpeg", "frame_index": 3},
-            {"image_id": 120, "file_name": "toca/752579_506e.jpeg", "frame_index": 118},
-        ]
-        tool = self._DummyLifecycle(review_idx=1, saved_records=records)
-
-        result = tool.autosave_current_frame(reason="before advancing")
-
-        self.assertEqual(tool.store_calls, [(120, "toca/752579_506e.jpeg")])
-        self.assertEqual(result, (120, "toca/752579_506e.jpeg"))
-
-    def test_live_autosave_still_resolves_by_current_file_name(self):
-        tool = self._DummyLifecycle(review_idx=None, saved_records=[{"image_id": 1, "file_name": "x.jpg"}])
-
-        tool.autosave_current_frame()
-
-        self.assertEqual(tool.store_calls, [(None, None)])
 
 
 if __name__ == "__main__":

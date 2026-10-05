@@ -9,17 +9,10 @@ class LifecycleMixin:
             return None
         if getattr(self, "_autosaving", False):
             return None
-        review_record = self._autosave_review_record()
-        if review_record is not None:
-            # In review the live source path no longer describes the frame on screen:
-            # deriving the name from it would store the frame again under a new name.
-            existing_id = int(review_record["image_id"])
-            existing_file = str(review_record["file_name"])
-        else:
-            file_name = self.current_frame_file_name()
-            existing = self.find_image_record_by_file_name(file_name) if file_name else None
-            existing_id = int(existing["id"]) if existing is not None else None
-            existing_file = str(existing["file_name"]) if existing is not None else None
+        file_name = self.current_frame_file_name()
+        existing = self.find_image_record_by_file_name(file_name) if file_name else None
+        existing_id = int(existing["id"]) if existing is not None else None
+        existing_file = str(existing["file_name"]) if existing is not None else None
         try:
             self._autosaving = True
             detections = self.detections_to_save()
@@ -31,7 +24,7 @@ class LifecycleMixin:
             self.write_annotations()
             self.update_manual_memory_after_accept(detections)
             self.remember_saved_record(detections, image_id, saved_file)
-            msg = f"Autosave concluido: image_id={image_id}"
+            msg = f"Autosave concluido: {saved_file}"
             if reason:
                 msg += f" ({reason})"
             print(f"[INFO] {msg}")
@@ -41,17 +34,6 @@ class LifecycleMixin:
             return None
         finally:
             self._autosaving = False
-
-    def _autosave_review_record(self) -> Optional[dict]:
-        """Returns the saved record on screen while in review mode, else None."""
-        review_idx = getattr(self, "review_idx", None)
-        records = getattr(self, "saved_records", None) or []
-        if review_idx is None or not 0 <= review_idx < len(records):
-            return None
-        record = records[review_idx]
-        if record.get("image_id") is None or not str(record.get("file_name", "")).strip():
-            return None
-        return record
 
     def finish_processing(self, message: str):
         if self.closed:

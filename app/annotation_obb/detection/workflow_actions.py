@@ -17,16 +17,9 @@ class OBBWorkflowActionsMixin:
             self.write_annotations()
             self.advance_after_review_accept()
             return
-        # Frame ja salvo (voltou com <-, retomou a sessao): reaproveita o registro em vez
-        # de criar outro image_id com o mesmo file_name.
-        existing = self.existing_record_for_current_frame()
-        image_id, file_name = self.store_annotations(
-            detections_to_save,
-            existing_image_id=int(existing["id"]) if existing is not None else None,
-            existing_file_name=str(existing["file_name"]) if existing is not None else None,
-        )
+        image_id, file_name = self.store_annotations(detections_to_save)
         self.write_annotations()
-        self.remember_saved_record(detections_to_save, image_id, file_name)
+        self.append_saved_record(detections_to_save, image_id, file_name)
         self.load_next_frame()
 
     def on_reject(self):

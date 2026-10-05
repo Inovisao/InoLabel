@@ -28,41 +28,19 @@ def normalize_yolo_bbox(
 ) -> Optional[Tuple[float, float, float, float]]:
     if len(bbox) != 4 or image_width <= 0 or image_height <= 0:
         return None
-    clipped = clip_coco_bbox(bbox, image_width, image_height)
-    if clipped is None:
+    x, y, width, height = (float(value) for value in bbox)
+    if width <= 0 or height <= 0:
         return None
-    x, y, width, height = clipped
 
     x_center = (x + (width / 2.0)) / float(image_width)
     y_center = (y + (height / 2.0)) / float(image_height)
     norm_width = width / float(image_width)
     norm_height = height / float(image_height)
-    return x_center, y_center, norm_width, norm_height
+    values = (x_center, y_center, norm_width, norm_height)
 
-
-def clip_coco_bbox(
-    bbox: Sequence[Any], image_width: int, image_height: int
-) -> Optional[Tuple[float, float, float, float]]:
-    """Recorta um bbox COCO [x, y, w, h] aos limites da imagem.
-
-    Retorna None quando o bbox e invalido ou fica sem area depois do recorte
-    (totalmente fora da imagem).
-    """
-    if len(bbox) != 4 or image_width <= 0 or image_height <= 0:
+    if any(value < 0.0 or value > 1.0 for value in values):
         return None
-    try:
-        x, y, width, height = (float(value) for value in bbox)
-    except (TypeError, ValueError):
-        return None
-    if width <= 0 or height <= 0:
-        return None
-    x1 = min(max(x, 0.0), float(image_width))
-    y1 = min(max(y, 0.0), float(image_height))
-    x2 = min(max(x + width, 0.0), float(image_width))
-    y2 = min(max(y + height, 0.0), float(image_height))
-    if x2 <= x1 or y2 <= y1:
-        return None
-    return x1, y1, x2 - x1, y2 - y1
+    return values
 
 
 def annotations_to_yolo_bboxes(

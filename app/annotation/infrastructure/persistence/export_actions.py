@@ -3,55 +3,19 @@
 from datetime import datetime
 
 from app.annotation.shared import *
-from app.annotation.infrastructure.export.export_dir import (
-    UnsafeExportDirError,
-    ensure_export_dir,
-    is_inolabel_export,
-    mark_export_dir,
-)
 from app.dataset_export import export_detection_coco_json, export_yolo_dataset, export_yolo_no_split, load_json
 
 
 class ExportActionsMixin:
     def resolve_user_export_root(self, destination_parent: Path, folder_name: str) -> Path:
-        """Pasta onde a exportacao escrevera; nunca uma pasta que contenha dados do usuario.
-
-        - nome com separador, "." ou ".." e recusado (escaparia do destino escolhido);
-        - dentro do estado da sessao: vira a irma "<output>_export";
-        - a pasta do estado ou um ancestral dela, o dataset de origem (ou algo dentro
-          dele ou acima dele), a home ou a raiz do disco: recusado;
-        - pasta existente com conteudo que nao veio de uma exportacao: ganha sufixo de data.
-        """
-        name = str(folder_name).strip()
-        if not name or name in (".", "..") or "/" in name or "\\" in name:
-            raise UnsafeExportDirError(f"Nome de pasta de exportacao invalido: {folder_name!r}")
-
-        requested = (Path(destination_parent).expanduser() / name).resolve()
+        requested = (Path(destination_parent).expanduser() / folder_name).resolve()
         output_dir = self.output_dir.resolve()
         if requested == output_dir or output_dir in requested.parents:
-            requested = output_dir.with_name(f"{output_dir.name}_export")
-
-        if requested == output_dir or requested in output_dir.parents:
-            raise UnsafeExportDirError(
-                f"Destino de exportacao invalido: {requested} contem o estado desta sessao."
-            )
-        data_root = getattr(self, "data_root", None)
-        if data_root is not None:
-            data_root = Path(data_root).resolve()
-            # Dentro do dataset, as imagens exportadas virariam fontes na proxima sessao.
-            if requested == data_root or requested in data_root.parents or data_root in requested.parents:
-                raise UnsafeExportDirError(
-                    f"Destino de exportacao invalido: {requested} fica no dataset de origem."
-                )
-        if requested == Path.home().resolve() or requested.parent == requested:
-            raise UnsafeExportDirError(f"Destino de exportacao invalido: {requested}")
-
-        occupied = requested.exists() and (
-            not requested.is_dir() or (any(requested.iterdir()) and not is_inolabel_export(requested))
-        )
-        if occupied:
+            candidate = output_dir.with_name(f"{output_dir.name}_export")
+            if not candidate.exists():
+                return candidate
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            requested = requested.with_name(f"{requested.name}_{stamp}")
+            return candidate.with_name(f"{candidate.name}_{stamp}")
         return requested
 
     def resolve_export_dataset_path(self, selected_dir: Path) -> Path:
@@ -76,8 +40,6 @@ class ExportActionsMixin:
         if self.coco_detection_export_path.exists():
             export_detection_coco_json(self.build_coco_payload(), self.coco_detection_export_path)
         if (self.yolo_dataset_dir / "data.yaml").exists():
-            # Pasta interna do estado, criada por versoes sem marcador: e nossa, pode ser recriada.
-            mark_export_dir(self.yolo_dataset_dir)
             export_yolo_dataset(
                 self.build_coco_payload(),
                 source_images_dir=self.output_images_dir,
@@ -99,20 +61,12 @@ class ExportActionsMixin:
             raise RuntimeError("No images saved in the current state to export.")
         return payload
 
-    def reconcile_export_payload_with_state_files(self, payload: dict, *, include_orphans: bool = False) -> dict:
-        """Confere as imagens em output/images contra o estado.
-
-        Imagens sem registro (orfas: queda entre gravar o JPG e o estado, colisao de
-        nomes de versoes antigas) nao tem anotacoes conhecidas. Exporta-las as tornaria
-        negativas ("nenhum objeto") e criaria falsos negativos no treino, entao por
-        padrao ficam de fora e so sao contadas em `self.last_export_orphan_count`.
-        """
+    def reconcile_export_payload_with_state_files(self, payload: dict) -> dict:
         payload = dict(payload)
         images = [dict(image) for image in payload.get("images", [])]
         known_files = {str(image.get("file_name", "")).strip() for image in images}
         known_ids = [int(image.get("id", 0) or 0) for image in images]
         next_image_id = max(known_ids, default=0) + 1
-        self.last_export_orphan_count = 0
 
         if not self.output_images_dir.exists():
             payload["images"] = images
@@ -124,9 +78,6 @@ class ExportActionsMixin:
                 continue
             file_name = image_path.relative_to(self.output_images_dir).as_posix()
             if file_name in known_files:
-                continue
-            self.last_export_orphan_count += 1
-            if not include_orphans:
                 continue
 
             frame = cv2.imread(str(image_path))
@@ -186,19 +137,11 @@ class ExportActionsMixin:
         )
         return f"COCO: {len(converted['images'])} imagens", f"COCO imgs={len(converted['images'])}"
 
-    def perform_dataset_export(self, config, cancel_event=None, payload=None):
-        """Roda no worker de exportacao.
-
-        `payload` deve vir pronto da thread da UI (load_export_payload_from_state faz
-        autosave e mexe no estado em memoria). Sem ele, carrega aqui — so para chamadas
-        sincronas fora da tela de exportacao.
-        """
+    def perform_dataset_export(self, config, cancel_event=None):
         multi_format = len(config.formats) > 1
+        export_root = self.resolve_user_export_root(config.destination_parent, config.folder_name)
         try:
-            export_root = self.resolve_user_export_root(config.destination_parent, config.folder_name)
-            ensure_export_dir(export_root)
-            if payload is None:
-                payload = self.load_export_payload_from_state()
+            payload = self.load_export_payload_from_state()
             exported_parts: list = []
             yolo_summary = ""
             coco_summary = ""
@@ -234,9 +177,6 @@ class ExportActionsMixin:
                 exported_parts.append(part)
 
             summary_lines = [line for line in (yolo_summary, coco_summary) if line]
-            orphans = getattr(self, "last_export_orphan_count", 0)
-            if orphans:
-                summary_lines.append(f"{orphans} imagem(ns) sem registro no estado ignorada(s)")
             message = f"Dataset exportado com sucesso em: {export_root}"
             if summary_lines:
                 message += " | " + " | ".join(summary_lines)

@@ -1,13 +1,10 @@
 """Read/write operations for the COCO payload in memory and on disk."""
-from app.annotation.infrastructure.persistence.safe_paths import contained_path
-from app import __version__ as APP_VERSION
 
 from app.annotation.shared import *
 from app.annotation.infrastructure.persistence.async_writer import AnnotationsAsyncWriterMixin
-from app.annotation.sources.source_identity import SourceIdentityMixin
 
 
-class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
+class CocoStorageMixin(AnnotationsAsyncWriterMixin):
     # ── Index caches — invalidated whenever self.images or self.annotations changes ──
     _image_index: Optional[Dict[str, dict]] = None          # file_name → image record
     _annotation_index: Optional[Dict[int, List[dict]]] = None  # image_id → annotations
@@ -64,10 +61,8 @@ class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
         if not new_frame and existing_file_name is not None:
             return existing_file_name
         if self.current_source_type == "images" and self.current_source_image_path is not None:
-            base_name = self._source_image_output_name(self.current_source_image_path)
-        else:
-            base_name = f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
-        return self._resolve_source_unique_name(base_name)
+            return self._source_image_output_name(self.current_source_image_path)
+        return f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
 
     def update_annotation_state(self):
         if self.current_frame is None:
@@ -87,7 +82,6 @@ class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
             "info": {
                 "description": "Validacao manual de deteccoes com ROI e homografia",
                 "version": "1.0",
-                "app_version": APP_VERSION,
                 "task_mode": self.task_mode.value,
                 "data_root": str(self.data_root),
                 "video_sources": [str(v) for v in self.video_files],
@@ -141,15 +135,12 @@ class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
             x1, y1, x2, y2 = chosen_bbox
             w = x2 - x1
             h = y2 - y1
-            if w <= 0 or h <= 0:
-                # Caixa inteiramente fora do frame: sem area apos o recorte.
-                continue
             annotation = {
                 "id": self.annotation_id,
                 "image_id": image_id,
                 "category_id": det.category_id,
                 "bbox": [float(x1), float(y1), float(w), float(h)],
-                "area": float(w * h),
+                "area": float(max(w, 0.0) * max(h, 0.0)),
                 "iscrowd": 0,
                 "segmentation": [],
                 "score": float(det.confidence),
@@ -179,7 +170,7 @@ class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
         data = self.build_coco_payload()
         self.annotations_path.parent.mkdir(parents=True, exist_ok=True)
         if blocking:
-            self._write_annotations_now(data)
+            self._flush_annotations(data)
             return
         self._queue_annotations_write(data)
 
@@ -200,17 +191,18 @@ class CocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
         return removed
 
     def remove_image_file(self, file_name: str) -> bool:
-        image_path = contained_path(self.output_images_dir, file_name)
-        if image_path is None or not image_path.is_file():
+        image_path = self.output_images_dir / file_name
+        if not image_path.exists():
             return False
         image_path.unlink()
         return True
 
     def remove_exported_dataset_files(self, file_name: str):
-        label_name = Path(file_name).with_suffix(".txt").as_posix()
+        label_name = Path(file_name).with_suffix(".txt")
         for split in ("train", "val", "test"):
-            image_path = contained_path(self.yolo_dataset_dir / "images" / split, file_name)
-            label_path = contained_path(self.yolo_dataset_dir / "labels" / split, label_name)
-            for path in (image_path, label_path):
-                if path is not None and path.is_file():
-                    path.unlink()
+            image_path = self.yolo_dataset_dir / "images" / split / file_name
+            label_path = self.yolo_dataset_dir / "labels" / split / label_name
+            if image_path.exists():
+                image_path.unlink()
+            if label_path.exists():
+                label_path.unlink()

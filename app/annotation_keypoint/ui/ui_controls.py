@@ -1,5 +1,4 @@
 from app.annotation_keypoint.shared import *
-from app.ui.theme.tokens import COLORS
 from app.annotation.keybinds.keybind_mixin import KeybindMixin
 
 
@@ -27,14 +26,10 @@ class KPUIControlsMixin(KeybindMixin):
     def _run_shortcut(self, event, action):
         if self._shortcut_is_text_input(event):
             return
-        # Na tela de exportacao a anotacao esta suspensa: Enter/setas validariam ou
-        # trocariam de frame enquanto o dataset e exportado.
-        if getattr(self, "export_screen_active", False):
-            return
         action()
 
     def _build_canvas(self):
-        self.canvas = tk.Canvas(self.window, bg=COLORS["canvas_bg"], highlightthickness=0)
+        self.canvas = tk.Canvas(self.window, bg="black", highlightthickness=0)
         self.canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=5)
         self._bind_canvas_events()
 
@@ -76,17 +71,25 @@ class KPUIControlsMixin(KeybindMixin):
                 button.config(state=tk.DISABLED)
 
     def update_pan_button(self):
-        self.sync_tool_toggle("pan_button", self.pan_mode)
+        if hasattr(self, "pan_button"):
+            text = "Mover imagem  ON  (H)" if self.pan_mode else "Mover imagem  OFF  (H)"
+            self.pan_button.config(text=text)
 
     def update_annotation_button(self):
-        self.sync_tool_toggle("annotation_button", self.annotation_mode)
+        if hasattr(self, "annotation_button"):
+            estado = "ON" if self.annotation_mode else "OFF"
+            self._config_if_changed(self.annotation_button, text=f"Modo anotacao {estado} (K)")
 
     def update_remove_button(self):
-        self.sync_tool_toggle("remove_button", self.remove_mode)
+        if hasattr(self, "remove_button"):
+            estado = "ON" if self.remove_mode else "OFF"
+            self._config_if_changed(self.remove_button, text=f"Remover anotacao {estado}")
 
     def update_selection_button(self):
-        self.sync_tool_toggle("selection_button", self.selection_mode)
+        if hasattr(self, "selection_button"):
+            estado = "ON" if self.selection_mode else "OFF"
+            self._config_if_changed(self.selection_button, text=f"Selecionar anotacao {estado} (S)")
 
     def update_edit_id_button(self):
-        # Botao reaproveitado como acao de visibilidade do ponto, nao como modo.
-        self.sync_tool_toggle("edit_id_button", False)
+        if hasattr(self, "edit_id_button"):
+            self._config_if_changed(self.edit_id_button, text="Visivel/Oculto do ponto  (C)")

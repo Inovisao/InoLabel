@@ -1,9 +1,7 @@
 from app.annotation.shared import *
-from app.log_privacy import log_ref
-from app.annotation.sources.source_identity import SourceIdentityMixin
 
 
-class SourceHelpersMixin(SourceIdentityMixin):
+class SourceHelpersMixin:
     def _init_trackers(self):
         from tracker.byte_tracker import BYTETracker  # deferred: pulls torch (~4s)
         from app.tracking import MultiClassByteTracker
@@ -110,7 +108,7 @@ class SourceHelpersMixin(SourceIdentityMixin):
         self.current_source_image_path = None
         self.cap = cv2.VideoCapture(str(self.video_path))
         if not self.cap.isOpened():
-            print(f"[ERRO] Falha ao abrir video: {log_ref(self.video_path)}")
+            print(f"[ERRO] Falha ao abrir video: {self.video_path}")
             return None
         fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.frame_rate = int(fps) if fps and fps > 1 else 30
@@ -122,7 +120,7 @@ class SourceHelpersMixin(SourceIdentityMixin):
                 pass
         ret, first_frame = self.cap.read()
         if not ret or first_frame is None:
-            print(f"[ERRO] Falha ao ler o primeiro frame: {log_ref(self.video_path)}")
+            print(f"[ERRO] Falha ao ler o primeiro frame: {self.video_path}")
             return None
         return first_frame
 
@@ -140,11 +138,11 @@ class SourceHelpersMixin(SourceIdentityMixin):
         self.frame_rate = 30
         self._init_trackers()
         if not self.current_image_paths:
-            print(f"[ERRO] Nenhuma imagem valida encontrada para: {log_ref(self.video_path)}")
+            print(f"[ERRO] Nenhuma imagem valida encontrada para: {self.video_path}")
             return None
         first_frame = self.read_next_image_frame()
         if first_frame is None:
-            print(f"[ERRO] Falha ao ler imagens da fonte: {log_ref(self.video_path)}")
+            print(f"[ERRO] Falha ao ler imagens da fonte: {self.video_path}")
             return None
         return first_frame
 
@@ -154,9 +152,7 @@ class SourceHelpersMixin(SourceIdentityMixin):
         if not target_name:
             return self.frame_index
         for idx, image_path in enumerate(self.current_image_paths):
-            name = self._source_image_output_name(image_path)
-            # O nome salvo pode ter sido qualificado pela fonte (ver _resolve_source_unique_name).
-            if target_name in (name, self._qualified_output_file_name(name)):
+            if self._source_image_output_name(image_path) == target_name:
                 return idx
         return None
 

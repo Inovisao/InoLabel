@@ -73,9 +73,8 @@ def _apply_entry(
         max_degrees = _float_param(params, "max_degrees", 10.0)
         angle = float(rng.uniform(-max_degrees, max_degrees))
         shear = math.tan(math.radians(angle))
-        height = image.shape[0]
-        # x' = x + shear * (y - h/2): cisalha em torno do centro vertical da imagem.
-        matrix = np.array([[1.0, shear, -shear * height / 2.0], [0.0, 1.0, 0.0]], dtype=np.float32)
+        height, width = image.shape[:2]
+        matrix = np.array([[1.0, shear, -shear * width / 2.0], [0.0, 1.0, 0.0]], dtype=np.float32)
         return _warp_with_matrix(image, boxes, matrix)
 
     if key == "crop":

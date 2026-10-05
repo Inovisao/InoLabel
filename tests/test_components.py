@@ -4,15 +4,11 @@ import unittest
 
 class TkTestCase(unittest.TestCase):
     def setUp(self):
-        try:
-            self.root = tk.Tk()
-        except tk.TclError as exc:
-            self.skipTest(f"Tkinter indisponivel neste ambiente: {exc}")
+        self.root = tk.Tk()
         self.root.withdraw()
 
     def tearDown(self):
-        if hasattr(self, "root"):
-            self.root.destroy()
+        self.root.destroy()
 
 
 class MakeBtnTest(TkTestCase):

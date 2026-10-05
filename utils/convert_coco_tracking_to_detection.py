@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 """Converte COCO de tracking para COCO de deteccao (formato padrao)."""
 
-import sys
 import argparse
 from pathlib import Path
-
-# Rodado como script (python utils/x.py), a raiz do projeto nao esta no sys.path.
-if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.dataset_export import export_detection_coco_json, load_json
 

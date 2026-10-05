@@ -38,10 +38,9 @@ class FramePipelineMixin:
         if render:
             self.update_display(refresh_status=True)
 
-        # Run model inference in background — UI stays responsive.
-        # frame_index sozinho nao identifica o frame (repete entre fontes e ao voltar),
-        # entao cada frame carregado recebe um token proprio.
-        frame_token = self.bump_frame_token()
+        # Run model inference in background — UI stays responsive
+        inference_frame = self.current_rectified_frame if self.current_rectified_frame is not None else frame
+        frame_index_snapshot = self.frame_index
 
         def _infer():
             try:
@@ -49,19 +48,14 @@ class FramePipelineMixin:
             except Exception as exc:  # pylint: disable=broad-except
                 print(f"[ERRO] Inferencia falhou: {exc}")
                 return
-            # Only apply if still on the same frame and nothing superseded the result
+            # Only apply if still on the same frame (user hasn't advanced)
             def _apply():
-                if self._frame_token == frame_token and self.review_idx is None:
+                if self.frame_index == frame_index_snapshot and self.review_idx is None:
                     self.current_detections = detections
                     self.update_display(refresh_status=True)
             self.window.after(0, _apply)
 
         threading.Thread(target=_infer, daemon=True).start()
-
-    def bump_frame_token(self) -> int:
-        """Invalida qualquer inferencia pendente e devolve o token do frame atual."""
-        self._frame_token = getattr(self, "_frame_token", 0) + 1
-        return self._frame_token
 
     def load_next_frame(self):
         if self.review_idx is not None:
@@ -97,12 +91,9 @@ class FramePipelineMixin:
         img_dims = (img_height, img_width)
 
         if not self.tracking_enabled:
-            total_dets = len(dets)
-            roi_filtered = 0
             for box, score, category_id in zip(dets, scores, det_category_ids):
                 original_box = clip_bbox(box[0], box[1], box[2], box[3], img_width, img_height)
                 if not self.is_inside_roi(original_box):
-                    roi_filtered += 1
                     continue
                 warp_box = None
                 if self.homography_matrix is not None and self.warp_size is not None:
@@ -120,15 +111,12 @@ class FramePipelineMixin:
                         internal_id=None,
                     )
                 )
-            if total_dets > 0:
-                print(f"[DETECÇÃO] Frame {self.frame_index}: {total_dets} detections → {len(detections)} após ROI (filtradas: {roi_filtered})")
             return detections
 
         if not dets:
             self.multiclass_tracker.update([], [], [], img_dims, img_dims)
             return detections
 
-        total_dets = len(dets)
         tracks = self.multiclass_tracker.update(dets, scores, det_category_ids, img_dims, img_dims)
 
         for category_id, track in tracks:
@@ -157,12 +145,5 @@ class FramePipelineMixin:
 
         frame_tracks = [{"id": det.track_id, "bbox": det.original_bbox.copy()} for det in detections]
         self.recent_tracks.append({"frame": self.frame_index, "tracks": frame_tracks})
-
-        roi_filtered_tracking = total_dets - len(tracks)
-        detected_tracks = len(detections)
-        print(f"[TRACKING] Frame {self.frame_index}: {total_dets} detections → {len(tracks)} tracks → {detected_tracks} após ROI (fragmentadas: {roi_filtered_tracking})")
-
-        if detected_tracks < len(tracks) * 0.3:
-            print(f"[AVISO] Possível fragmentação de tracks detectada no frame {self.frame_index}")
 
         return detections

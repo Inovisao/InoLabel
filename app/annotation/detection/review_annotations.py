@@ -38,6 +38,3 @@ class ReviewAnnotationsMixin:
         self.current_detections = [d for d in dets if d.source == "model"]
         self.manual_detections = [d for d in dets if d.source != "model"]
         self.selected_detection = None
-        # O frame ja foi revisado: a inferencia disparada ao carrega-lo nao pode
-        # sobrescrever as anotacoes salvas (edicoes, falsos positivos removidos).
-        self._frame_token = getattr(self, "_frame_token", 0) + 1  # ver FramePipelineMixin.bump_frame_token

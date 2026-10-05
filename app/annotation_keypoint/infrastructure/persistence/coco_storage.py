@@ -1,12 +1,8 @@
 from app.annotation_keypoint.shared import *
-from app.annotation.infrastructure.persistence.safe_paths import contained_path
-from app import __version__ as APP_VERSION
-from app.annotation.infrastructure.persistence.state_file import read_annotation_state
 from app.annotation.infrastructure.persistence.async_writer import AnnotationsAsyncWriterMixin
-from app.annotation.sources.source_identity import SourceIdentityMixin
 
 
-class KPCocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
+class KPCocoStorageMixin(AnnotationsAsyncWriterMixin):
     _annotations_log_label = "Anotacoes keypoint"
 
     def ensure_keypoint_metadata(self):
@@ -82,11 +78,8 @@ class KPCocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
         if not new_frame and existing_file_name is not None:
             return existing_file_name
         if self.current_source_type == "images" and self.current_source_image_path is not None:
-            base_name = self._source_image_output_name(self.current_source_image_path)
-        else:
-            base_name = f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
-        # Fontes com mesmo nome (cam1/video.mp4, cam2/video.mp4) nao podem compartilhar file_name.
-        return self._resolve_source_unique_name(base_name)
+            return self._source_image_output_name(self.current_source_image_path)
+        return f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
 
     def update_annotation_state(self):
         if self.current_frame is None:
@@ -107,7 +100,6 @@ class KPCocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
             "info": {
                 "description": "COCO keypoints annotation",
                 "version": "1.0",
-                "app_version": APP_VERSION,
                 "task_mode": self.task_mode.value,
                 "data_root": str(self.data_root),
                 "video_sources": [str(v) for v in self.video_files],
@@ -215,7 +207,7 @@ class KPCocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
         data = self.build_coco_payload()
         self.annotations_path.parent.mkdir(parents=True, exist_ok=True)
         if blocking:
-            self._write_annotations_now(data)
+            self._flush_annotations(data)
             return
         self._queue_annotations_write(data)
 
@@ -233,16 +225,21 @@ class KPCocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
         return removed
 
     def remove_image_file(self, file_name: str) -> bool:
-        image_path = contained_path(self.output_images_dir, file_name)
-        if image_path is None or not image_path.is_file():
+        image_path = self.output_images_dir / file_name
+        if not image_path.exists():
             return False
         image_path.unlink()
         return True
 
     def load_existing_annotations(self):
-        # Ilegivel -> AnnotationStateUnreadableError: nunca seguir com sessao vazia.
-        data = read_annotation_state(getattr(self, "annotations_path", None))
-        if data is None:
+        annotations_path = getattr(self, "annotations_path", None)
+        if annotations_path is None or not annotations_path.exists():
+            return
+        try:
+            with open(annotations_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[AVISO] Falha ao ler anotacoes keypoint existentes: {exc}")
             return
         self.images = data.get("images", [])
         self.annotations = data.get("annotations", [])

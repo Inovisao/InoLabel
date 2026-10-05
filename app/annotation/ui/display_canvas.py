@@ -1,5 +1,4 @@
 from app.annotation.shared import *
-from app.ui.theme.tokens import COLORS
 from app.annotation.ui.rotation_utils import (
     apply_frame_rotation,
     image_to_rotated,
@@ -8,28 +7,7 @@ from app.annotation.ui.rotation_utils import (
 )
 
 
-# Cor do poligono do ROI no frame (OpenCV usa BGR). Cores nao escalam, entao e constante.
-_ROI_BGR = tuple(int(COLORS["overlay_roi"][i:i + 2], 16) for i in (5, 3, 1))
-
-
 class DisplayCanvasMixin:
-    def _canvas_alive(self) -> bool:
-        """False while the canvas is torn down (export screen).
-
-        Deferred redraws (e.g. model inference finishing after the user opened the
-        export screen) must not touch a destroyed widget; the annotation screen
-        redraws itself when it is rebuilt.
-        """
-        if getattr(self, "export_screen_active", False):
-            return False
-        canvas = getattr(self, "canvas", None)
-        if canvas is None:
-            return False
-        try:
-            return bool(canvas.winfo_exists())
-        except tk.TclError:
-            return False
-
     def image_to_canvas_coords(self, x: float, y: float) -> Tuple[int, int]:
         rotation = getattr(self, "frame_rotation", 0)
         if rotation and self.current_frame is not None:
@@ -90,7 +68,7 @@ class DisplayCanvasMixin:
             self.zoom_pan_y = int(np.clip(self.zoom_pan_y, min_pan_y, max_pan_y))
 
     def update_display(self, *, refresh_status: bool = False):
-        if self.current_frame is None or not self._canvas_alive():
+        if self.current_frame is None:
             return
 
         annotated = self.current_frame.copy()
@@ -125,7 +103,7 @@ class DisplayCanvasMixin:
             return frame
         pts = np.array(self.roi_points, dtype=np.int32)
         is_closed = len(self.roi_points) == 4
-        cv2.polylines(frame, [pts], isClosed=is_closed, color=_ROI_BGR, thickness=2)
+        cv2.polylines(frame, [pts], isClosed=is_closed, color=(255, 0, 0), thickness=2)
         for idx, (x, y) in enumerate(self.roi_points):
             xi, yi = int(round(x)), int(round(y))
             cv2.circle(frame, (xi, yi), 4, (0, 0, 255), -1)
