@@ -45,6 +45,21 @@ annotation_store: dict[int, list] = {}
 next_ann_id: list[int] = [1]  # list so it's mutable from any module without 'global'
 
 
+# Cache de ambiguous_frame_stems(): (assinatura da lista de frames, stems repetidos)
+_ambiguous_stems_cache: list = [None, set()]
+
+
+def ambiguous_frame_stems() -> set[str]:
+    """Stems que se repetem entre os frames (ex.: lote_a/img.jpg e lote_b/img.jpg)."""
+    from app.core.label_paths import ambiguous_stems
+
+    signature = (len(frame_paths), frame_paths[0], frame_paths[-1]) if frame_paths else None
+    if _ambiguous_stems_cache[0] != signature:
+        _ambiguous_stems_cache[0] = signature
+        _ambiguous_stems_cache[1] = ambiguous_stems(frame_paths)
+    return _ambiguous_stems_cache[1]
+
+
 def active_session() -> Optional[SessionState]:
     global _active_session_id
     if _active_session_id is not None:
@@ -100,3 +115,5 @@ def reset_state() -> None:
     annotation_store.clear()
     next_ann_id[0] = 1
     _active_session_id = None
+    _ambiguous_stems_cache[0] = None
+    _ambiguous_stems_cache[1] = set()

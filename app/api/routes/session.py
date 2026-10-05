@@ -88,13 +88,15 @@ def list_projects(path: str = "output") -> list[ProjectEntry]:
 
         if labels_dir.exists():
             try:
-                with os.scandir(labels_dir) as it:
-                    for entry in it:
-                        if entry.name.endswith(".txt") and entry.is_file(follow_symlinks=False):
-                            st = entry.stat()
-                            mtimes.append(st.st_mtime)
-                            if st.st_size > 0:
-                                annotated_frames += 1
+                # os.walk: os labels acompanham as subpastas do dataset.
+                for dirpath, _dirnames, filenames in os.walk(labels_dir):
+                    for filename in filenames:
+                        if not filename.endswith(".txt"):
+                            continue
+                        st = os.stat(os.path.join(dirpath, filename))
+                        mtimes.append(st.st_mtime)
+                        if st.st_size > 0:
+                            annotated_frames += 1
             except PermissionError:
                 pass
 

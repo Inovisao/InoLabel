@@ -23,9 +23,9 @@ Três perdas de dado que isso causa hoje:
 
 1. **`track_id` não sobrevive a um reinício.** O `.txt` YOLO não tem campo para ele; ao recarregar, a anotação volta com `track_id` vazio e `source="file"`. No modo tracking, fechar e reabrir o projeto apaga as identidades.
 2. **`source` e `score` também se perdem** pelo mesmo motivo.
-3. **Colisão de nomes.** O `.txt` é nomeado só pelo `stem`. `lote_a/img_001.jpg` e `lote_b/img_001.jpg` gravam no mesmo `labels/img_001.txt`; o segundo sobrescreve o primeiro.
+3. **Colisão de nomes** — *corrigida em 2026-10-05, fora deste plano.* O `.txt` era nomeado só pelo `stem`, e `lote_a/img_001.jpg` e `lote_b/img_001.jpg` gravavam no mesmo `labels/img_001.txt`. O label agora acompanha a subpasta (`app/core/label_paths.py`).
 
-O COCO resolve as três, porque guarda `track_id`, `source`, `score` e o caminho relativo da imagem.
+O COCO resolve as duas primeiras, porque guarda `track_id`, `source`, `score` e o caminho relativo da imagem.
 
 ---
 
@@ -69,7 +69,7 @@ Regras que precisam ser preservadas:
 
 - **Gravação:** a cada mutação (criar, apagar, limpar frame), junto com o `.txt`. A montagem do payload acontece na hora; a escrita em disco vai para uma thread de fundo, atômica (`.tmp` + `replace`) e ordenada, para não travar a interface em projetos grandes. Ao parar a sessão ou encerrar o app, a gravação pendente é concluída antes de sair.
 - **Leitura ao retomar:** o COCO é a fonte principal. Se ele não existir (projeto criado antes desta mudança), o app lê os `.txt` como hoje e gera o COCO na primeira gravação.
-- **O `.txt` continua existindo** como espelho, porque o `AGENTS.md` trata o autosave em `.txt` como padrão a não quebrar e a página de projetos conta os arquivos de `labels/`. Passa a ser nomeado pelo caminho relativo (`labels/lote_a/img_001.txt`), com leitura retrocompatível do nome antigo.
+- **O `.txt` continua existindo** como espelho, porque o `AGENTS.md` trata o autosave em `.txt` como padrão a não quebrar e a página de projetos conta os arquivos de `labels/`. Já é nomeado pelo caminho relativo (`labels/lote_a/img_001.txt`), com leitura retrocompatível do nome antigo.
 - **Arquivo ilegível:** a sessão não abre e o arquivo não é alterado; a API devolve erro 422 com o caminho e a orientação de restaurar o `.bak`. Um `.bak` é feito ao abrir a sessão, antes da primeira gravação.
 - **Frame validado sem objetos:** entra em `images` sem anotações (negativo intencional). Frame nunca visitado não entra.
 
@@ -103,7 +103,7 @@ Ordem pedida pelo `AGENTS.md` para mudança de API: schema, depois rota, depois 
 1. `coco_state.build_payload`: formato exato, ids a partir de 1, `file_name` relativo, recorte, caixa sem área descartada.
 2. `coco_state.load_payload`: ida e volta sem perda de `track_id`, `source`, `score`; ids estáveis.
 3. Escritor de fundo: atomicidade, ordem (snapshot antigo não sobrescreve novo), conclusão no encerramento.
-4. Autosave grava COCO e `.txt` com caminho relativo; teste da colisão `lote_a/img_001` × `lote_b/img_001`.
+4. Autosave grava o COCO junto com o `.txt` (o caminho relativo do `.txt` já está feito).
 5. Retomada pelo COCO; fallback para `.txt`; teste de que `track_id` sobrevive a parar e reiniciar a sessão.
 6. Arquivo ilegível: 422, arquivo intacto, `.bak` criado ao abrir.
 7. Exportação usando o mesmo payload; testes de exportação existentes continuam passando.

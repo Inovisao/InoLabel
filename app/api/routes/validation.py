@@ -127,7 +127,7 @@ def list_projects(path: str = "") -> list:
         if has_labels:
             try:
                 annotated = sum(
-                    1 for f in labels_dir.glob("*.txt") if f.stat().st_size > 0
+                    1 for f in labels_dir.rglob("*.txt") if f.stat().st_size > 0
                 )
             except OSError:
                 pass

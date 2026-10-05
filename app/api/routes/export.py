@@ -63,21 +63,27 @@ def _run_export_blocking(export_id: str) -> None:
         labels_dir = session.output_path / "labels"
         if labels_dir.exists():
             from app.api.routes.annotations import _load_frame_from_txt
-            stem_to_idx: dict[str, int] = {p.stem: i for i, p in enumerate(frame_paths)}
-            for txt_path in sorted(labels_dir.glob("*.txt")):
-                frame_idx = stem_to_idx.get(txt_path.stem)
-                if frame_idx is None or frame_idx in _state.annotation_store:
+            from app.core.label_paths import find_label_file
+
+            # Parte de cada imagem para o seu label. O caminho inverso (do .txt para
+            # "a imagem com aquele stem") atribuía o label à imagem errada quando o
+            # nome se repetia em subpastas.
+            ambiguous = _state.ambiguous_frame_stems()
+            for frame_idx, frame_path in enumerate(frame_paths):
+                if frame_idx in _state.annotation_store:
+                    continue
+                if find_label_file(session.output_path, frame_path, session.data_path, ambiguous) is None:
                     continue
                 dims = frame_dims.get(frame_idx)
                 if dims is None:
                     # PIL reads only the image header — much faster than cv2.imread for dims.
-                    size = _read_image_size(frame_paths[frame_idx])
+                    size = _read_image_size(frame_path)
                     if size is None:
                         continue
                     dims = size  # already (width, height)
                     _state.frame_dims[frame_idx] = dims
                 _load_frame_from_txt(
-                    frame_idx, frame_paths[frame_idx], dims[0], dims[1], session.output_path
+                    frame_idx, frame_path, dims[0], dims[1], session.output_path
                 )
 
         # Collect annotated frames and deduplicate export names

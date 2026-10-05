@@ -8,6 +8,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 
 from app.api import state as _state
+from app.core.label_paths import find_label_file, label_path, legacy_label_path
 from app.api.schemas import (
     Annotation,
     AnnotationUpsert,
@@ -108,12 +109,13 @@ def _autosave(image_id: int) -> None:
         path = _state.frame_paths[image_id]
         annotations: List[Annotation] = _state.annotation_store.get(image_id, [])
 
-        labels_dir = session.output_path / "labels"
-        labels_key = str(labels_dir)
+        # O label acompanha a subpasta da imagem: nomeá-lo só pelo stem fazia imagens
+        # de mesmo nome em pastas diferentes sobrescreverem o label uma da outra.
+        txt_path = label_path(session.output_path, path, session.data_path)
+        labels_key = str(txt_path.parent)
         if labels_key not in _labels_dir_created:
-            labels_dir.mkdir(parents=True, exist_ok=True)
+            txt_path.parent.mkdir(parents=True, exist_ok=True)
             _labels_dir_created.add(labels_key)
-        txt_path = labels_dir / (path.stem + ".txt")
 
         lines: List[str] = []
         for ann in annotations:
@@ -142,6 +144,14 @@ def _autosave(image_id: int) -> None:
         txt_path.write_text("\n".join(lines) + ("\n" if lines else ""))
         log.debug("autosave: %d annotations → %s", len(lines), txt_path)
 
+        # Projeto gravado no formato antigo (labels/<stem>.txt): o conteúdo acabou de
+        # ser regravado no lugar novo, então a cópia velha sai para não divergir. Só
+        # quando o stem é único — com nomes repetidos o arquivo antigo pode ser de
+        # outra imagem.
+        legacy = legacy_label_path(session.output_path, path)
+        if legacy != txt_path and path.stem not in _state.ambiguous_frame_stems():
+            legacy.unlink(missing_ok=True)
+
     except Exception:
         log.exception("autosave failed for frame %d", image_id)
 
@@ -150,9 +160,12 @@ def _load_frame_from_txt(
     image_id: int, path: Path, img_w: int, img_h: int, output_path: Path
 ) -> None:
     """Load YOLO annotations from disk into annotation_store for a single frame."""
-    labels_dir = output_path / "labels"
-    txt_path = labels_dir / (path.stem + ".txt")
-    if not txt_path.exists():
+    session = _state.active_session()
+    txt_path = find_label_file(
+        output_path, path, session.data_path if session is not None else None,
+        _state.ambiguous_frame_stems(),
+    )
+    if txt_path is None:
         return
 
     anns: List[Annotation] = []
@@ -195,6 +208,32 @@ def _load_frame_from_txt(
     if anns:
         _state.annotation_store[image_id] = anns
         log.debug("loaded %d annotations from %s", len(anns), txt_path)
+
+
+def _ensure_loaded_from_disk(image_id: int) -> None:
+    """Carrega do disco as anotações do frame antes da primeira mutação.
+
+    Sem isso, anotar um frame ainda não exibido (API direta, inferência em lote)
+    regravava o label só com a anotação nova e apagava as que já estavam salvas.
+    """
+    from app.api.routes import frames as _frames
+
+    if image_id in _frames._loaded_from_disk or image_id in _state.annotation_store:
+        return
+    if image_id < 0 or image_id >= len(_state.frame_paths):
+        return
+    path = _state.frame_paths[image_id]
+    dims = _state.frame_dims.get(image_id)
+    if dims is None:
+        try:
+            from PIL import Image as _PIL
+
+            with _PIL.open(path) as im:
+                dims = im.size  # (width, height)
+        except Exception:
+            return
+        _state.frame_dims[image_id] = dims
+    _frames._lazy_load_from_disk(image_id, path, dims[0], dims[1])
 
 
 @router.get("/debug")
@@ -247,6 +286,7 @@ def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
         if obb.points is None:
             obb.points = _points_from_obb(obb)
 
+    _ensure_loaded_from_disk(image_id)
     ann = Annotation(
         id=_state.next_ann_id[0],
         image_id=image_id,
