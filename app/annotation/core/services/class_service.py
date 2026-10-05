@@ -332,6 +332,8 @@ class ClassServiceMixin:
         widget = self.window.focus_get()
         if isinstance(widget, (tk.Entry, tk.Text)):
             return
+        if getattr(self, "export_screen_active", False):
+            return
         key = getattr(event, "char", "")
         if not key.isdigit() or key == "0":
             return

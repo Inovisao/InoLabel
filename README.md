@@ -1,505 +1,408 @@
-# InoLabel 🏷️
+# InoLabel
 
-**Ferramenta desktop para anotar imagens e vídeos com bounding boxes, tracking, OBB e classificação.**
-
-Crie datasets de alta qualidade para computer vision em minutos. Roda 100% localmente — seus dados nunca saem da sua máquina.
-
-![Versão](https://img.shields.io/badge/versão-2.0.0-blue)
-![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
-![License](https://img.shields.io/badge/license-Inovisão-green)
+Ferramenta de anotação de imagens e vídeos desenvolvida pelo **Laboratório de Visão Computacional — Inovisão**.
+Suporta cinco modos de trabalho: tracking, detecção padrão, detecção orientada (OBB), keypoint detection (pose) e classificação de imagens.
 
 ---
 
-## ⚡ Comece em 5 minutos
+## Instalação — Linux (Ubuntu/Debian)
 
-> **Primeira vez?** Leia a [Seção 1](#1-pré-requisitos-o-que-você-precisa) linha por linha. Levará 10 minutos e você não terá dúvidas.
-
-### Resumido (se você já tem Git, Node.js e Miniconda)
-
-```powershell
-# Windows (PowerShell)
-git clone https://github.com/Inovisao/InoLabel.git
-cd InoLabel
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\build.ps1
-```
+### 1. Dependências do sistema
 
 ```bash
-# Linux
-git clone https://github.com/Inovisao/InoLabel.git
-cd InoLabel
-bash build.sh
-```
-
-Depois:
-- **Windows**: `.\APLICATIVO\InoLabel\InoLabel.exe`
-- **Linux**: `./dist/InoLabel-linux/InoLabel/InoLabel`
-
----
-
-## 📚 Guia Completo
-
-### 1. Pré-requisitos: O que você precisa
-
-Antes de começar, instale **exatamente nesta ordem**:
-
-#### **Windows 10/11**
-
-| Ferramenta | Versão | Para quê? |
-|-----------|--------|----------|
-| **Git** | 2.40+ | Baixar o código do GitHub |
-| **Node.js LTS** | 18+ | Gerar a interface (frontend) |
-| **Miniconda** | Latest | Gerenciar ambiente Python |
-| **Python** | 3.9, 3.10, 3.11 | Mecanismo de anotação |
-
-**Instalação passo a passo:**
-
-1. **Instale Git**
-   - Acesse: https://git-scm.com/download/win
-   - Clique em "Download for Windows"
-   - Execute e clique "Next" em tudo (padrão é fine)
-   - Após terminar, **feche o PowerShell** e abra um novo
-
-2. **Instale Node.js**
-   - Acesse: https://nodejs.org (botão verde "LTS")
-   - Execute o instalador e clique "Next" em tudo
-   - Após terminar, **feche o PowerShell** e abra um novo
-   - Valide: `npm --version` (deve mostrar um número)
-
-3. **Instale Miniconda**
-   - Acesse: https://docs.conda.io/en/latest/miniconda.html
-   - Escolha o arquivo **Windows 64-bit**
-   - Durante a instalação:
-     - ✅ Marque **"Add Miniconda3 to my PATH"**
-   - Após terminar, **feche o PowerShell** e abra um novo
-   - Valide: `conda --version` (deve mostrar um número)
-
-#### **Linux (Ubuntu / Debian)**
-
-```bash
-# Atualize os pacotes
 sudo apt-get update
-
-# Instale Git, Node.js, ferramentas de compilação e OpenGL
-sudo apt-get install -y git nodejs npm build-essential python3-dev cmake libgl1
-
-# Instale Miniconda
-curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
-bash miniconda.sh -b -p $HOME/miniconda3
-source $HOME/miniconda3/etc/profile.d/conda.sh
-conda init
-
-# Feche e abra o terminal
-# Valide: conda --version
+sudo apt-get install -y \
+    python3 python3-pip python3-tk \
+    build-essential python3-dev cmake \
+    git
 ```
 
----
+> `python3-tk` é obrigatório para a interface gráfica.
+> `build-essential`, `python3-dev` e `cmake` são necessários para compilar `lap` e `cython-bbox`.
 
-### 2. Clone o Repositório (apenas uma vez)
-
-Escolha uma pasta onde guardar seus projetos. Aqui usaremos `C:\Dev` no Windows ou `~/projects` no Linux.
-
-**Windows (PowerShell):**
-```powershell
-cd C:\Dev  # Ou qualquer pasta de sua escolha
-git clone https://github.com/Inovisao/InoLabel.git
-cd InoLabel
-```
-
-**Linux:**
-```bash
-mkdir -p ~/projects
-cd ~/projects
-git clone https://github.com/Inovisao/InoLabel.git
-cd InoLabel
-```
-
----
-
-### 3. Construir o Executável (5 a 15 minutos)
-
-#### **Windows**
-
-```powershell
-# Certifique-se de estar na pasta do projeto
-cd C:\Dev\InoLabel
-
-# Abra um novo PowerShell e execute:
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\build.ps1
-```
-
-**O que o script faz:**
-1. Verifica se você tem conda e Node instalados ✓
-2. Cria um ambiente Python isolado chamado `inolabel`
-3. Instala todas as dependências Python (~2 GB, leva 10-20 min)
-4. Constrói a interface (frontend)
-5. Gera o executável (etapa mais lenta)
-6. Cria automaticamente as pastas `dataset/` e `outputs/`
-
-**Não feche o PowerShell enquanto o build está rodando!**
-
-Se deu erro, veja a [seção Troubleshooting](#troubleshooting).
-
-#### **Linux**
+### 2. Instalar Miniconda (recomendado)
 
 ```bash
-cd ~/projects/InoLabel
-bash build.sh
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+# Feche e reabra o terminal após a instalação
 ```
 
----
-
-### 4. Onde fica o programa pronto
-
-Após o build completar, o programa está em:
-
-**Windows:**
-```
-APLICATIVO\InoLabel\
-├── InoLabel.exe          ← Clique aqui para rodar!
-├── _internal\            ← (ignorar)
-├── dataset\              ← Coloque suas imagens aqui
-├── outputs\              ← Anotações salvas aqui
-└── model.pt              ← (opcional) seu modelo YOLO
-```
-
-**Linux:**
-```
-dist/InoLabel-linux/InoLabel/
-├── InoLabel              ← Execute isto
-├── _internal/            ← (ignorar)
-├── dataset/              ← Coloque suas imagens aqui
-├── outputs/              ← Anotações salvas aqui
-└── model.pt              ← (opcional) seu modelo YOLO
-```
-
----
-
-### 5. Preparar seus Dados
-
-#### **Colocar imagens/vídeos**
-
-1. Reúna suas imagens ou vídeos
-2. Coloque tudo na pasta `dataset/`
-
-**Formatos aceitos:**
-- **Imagens**: .jpg, .jpeg, .png, .bmp, .tif, .tiff
-- **Vídeos**: .mp4, .avi, .mov, .mkv
-
-Exemplo (Windows):
-```
-APLICATIVO\InoLabel\dataset\
-├── gato_1.jpg
-├── gato_2.jpg
-├── cachorro_1.jpg
-└── video.mp4
-```
-
-#### **(Opcional) Usar um modelo YOLO pré-treinado**
-
-Se você tem um arquivo `model.pt` (de um treinamento anterior):
-
-1. Copie `model.pt` para a pasta principal:
-   - **Windows**: `APLICATIVO\InoLabel\model.pt`
-   - **Linux**: `dist/InoLabel-linux/InoLabel/model.pt`
-
-2. O programa detectará automaticamente
-
----
-
-### 6. Rodar o Programa
-
-#### **Windows**
-
-```powershell
-cd C:\Dev\InoLabel\APLICATIVO\InoLabel
-.\InoLabel.exe
-```
-
-#### **Linux**
+### 3. Criar ambiente Python
 
 ```bash
-cd ~/projects/InoLabel/dist/InoLabel-linux/InoLabel
-./InoLabel
+conda create -n inolabel python=3.9 -y
+conda activate inolabel
 ```
 
-**Espere 10-30 segundos.** O navegador deve abrir automaticamente em `http://127.0.0.1:8765`.
-
-Se não abrir:
-- Aguarde mais 30 segundos
-- Digite manualmente no navegador: `http://127.0.0.1:8765`
-
----
-
-### 7. Usar o InoLabel
-
-#### **Na tela inicial (Setup Wizard)**
-
-Você verá uma tela com 4 campos:
-
-1. **Modo de anotação** — escolha um:
-   - 🔲 **Detecção** — bounding boxes simples
-   - 🟢 **Rastreamento** — identidade dos objetos entre frames
-   - ◇ **OBB** — caixas rotacionadas (para objetos em ângulo)
-   - 🏷️ **Classificação** — organizar imagens em categorias
-
-2. **Pasta de dados** — caminho absoluto para suas imagens
-   - Exemplo Windows: `C:\Dev\InoLabel\APLICATIVO\InoLabel\dataset`
-   - Exemplo Linux: `/home/seu_usuario/projects/InoLabel/dist/InoLabel-linux/InoLabel/dataset`
-
-3. **Pasta de saída** — onde salvar as anotações
-   - Exemplo Windows: `C:\Dev\InoLabel\APLICATIVO\InoLabel\outputs`
-   - Exemplo Linux: `/home/seu_usuario/projects/InoLabel/dist/InoLabel-linux/InoLabel/outputs`
-
-4. **Modelo (opcional)** — deixe em branco ou aponte para `model.pt` se tiver
-
-5. **Classes** — as categorias que você vai anotar
-   - Exemplo: `gato`, `cachorro`, `pessoa`
-   - Clique "+" para adicionar
-   - Clique a cor para escolher a cor de cada classe
-
-#### **Na tela de anotação**
-
-- **Desenhar caixa** — clique e arraste na imagem
-- **Selecionar caixa** — clique em uma caixa existente
-- **Deletar caixa** — selecione e pressione `Delete` ou `X`
-- **Próximo frame** — Espaço ou seta →
-- **Frame anterior** — seta ←
-- **Exportar dataset** — Menu → Exportar
-
----
-
-### 8. Exportar seu Dataset
-
-Após anotar os frames:
-
-1. Clique em **"Exportar Dataset"** no menu lateral
-2. Escolha o formato:
-   - **YOLO** — padrão para treinar modelos
-   - **COCO** — JSON estruturado
-3. Escolha o **split** (divisão treino/validação):
-   - 70% treino, 30% validação (padrão)
-4. (Opcional) Aplique **data augmentation**
-5. Clique **"Exportar"**
-
-O dataset fica em `outputs/` pronto para usar com YOLOv8, YOLOv5, etc.
-
----
-
-### 9. Parar o Programa
-
-**Windows (no PowerShell onde está rodando):**
-```powershell
-Ctrl+C
-```
-
-**Linux (no terminal):**
-```bash
-Ctrl+C
-```
-
-Ou use o Gerenciador de Tarefas / Activity Monitor.
-
----
-
-## 🛠️ Modo Desenvolvimento (sem build, rápido)
-
-Se você quer testar rapidamente **sem gerar o executável** (útil para desenvolvedores):
+### 4. Instalar dependências do projeto
 
 ```bash
-# Na pasta do projeto
+git clone <url-do-repositorio>
+cd tracking-anotator
 pip install -r requirements.txt
+```
 
-# Gere o frontend (primeira vez)
-cd frontend && npm install && npm run build && cd ..
+### 5. Rodar
 
-# Rode o servidor
+```bash
 python main.py
 ```
 
-Acesse: `http://127.0.0.1:8765`
+---
+
+## Instalação — Windows 11
+
+### 1. Instalar Python 3.9
+
+1. Acesse [python.org/downloads](https://www.python.org/downloads/) e baixe o Python **3.9.x** (64-bit)
+2. No instalador, marque **"Add Python to PATH"** antes de clicar em Install
+3. Após instalar, abra o **Prompt de Comando** e confirme:
+   ```cmd
+   python --version
+   ```
+
+### 2. Instalar Visual C++ Build Tools
+
+Necessário para compilar `lap` e `cython-bbox`.
+
+1. Acesse [visualstudio.microsoft.com/visual-cpp-build-tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+2. Baixe e execute o instalador
+3. Selecione **"Desenvolvimento para desktop com C++"** e clique em Instalar
+4. Aguarde (pode demorar alguns minutos)
+
+### 3. Instalar CMake
+
+1. Acesse [cmake.org/download](https://cmake.org/download/) e baixe o instalador `.msi`
+2. Durante a instalação, selecione **"Add CMake to the system PATH"**
+
+### 4. Instalar Git (opcional, para clonar o repositório)
+
+1. Acesse [git-scm.com](https://git-scm.com/) e instale com as opções padrão
+
+### 5. Clonar e instalar o projeto
+
+Abra o **Prompt de Comando** ou **PowerShell**:
+
+```cmd
+git clone <url-do-repositorio>
+cd tracking-anotator
+pip install -r requirements.txt
+```
+
+### 6. Rodar
+
+```cmd
+python main.py
+```
+
+> **Problema com Tkinter no WSL?** Configure um X server (VcXsrv ou X410) e a variável `DISPLAY`. Em ambiente Windows nativo (sem WSL) o Tkinter funciona sem configuração adicional.
 
 ---
 
-## ⚙️ Variáveis de Ambiente
+## Gerar executável (build)
 
-Você pode customizar o local onde o programa salva os dados:
+O script `build.sh` detecta o sistema operacional automaticamente e gera uma pasta autocontida com o executável.
 
-**Windows (PowerShell):**
-```powershell
-$env:INOLABEL_OUTPUT_BASE = "C:\meus_dados\anotacoes"
-.\InoLabel.exe
-```
+### Linux
 
-**Linux:**
 ```bash
-INOLABEL_OUTPUT_BASE="/home/seu_usuario/dados" ./InoLabel
+bash build.sh
 ```
 
----
+### Windows (Git Bash ou WSL)
 
-## 🐛 Troubleshooting
-
-### **Problema: "conda não é reconhecido"**
-- Feche o PowerShell completamente
-- Abra um **novo** PowerShell
-- Se ainda não funcionar, abra "Anaconda Prompt" pelo Menu Iniciar
-
-### **Problema: "Set-ExecutionPolicy não é reconhecido"**
-- Você está no CMD, não no PowerShell
-- Use: `powershell -ExecutionPolicy Bypass -File .\build.ps1`
-
-### **Problema: "frontend\dist not found" durante build**
-- Execute `npm run build` dentro da pasta `frontend\`
-- Depois rode `build.ps1` novamente
-
-### **Problema: "Windows protegeu seu computador"**
-- Clique "Mais informações" → "Executar assim mesmo"
-- (O executável não tem assinatura digital, é normal)
-
-### **Problema: "Porta 8765 em uso"**
-- Fecha outra instância do InoLabel
-- Ou finalize o processo via Gerenciador de Tarefas
-
-### **Problema: Navegador abre em branco / "Connection Refused"**
-- Aguarde 10-30 segundos (servidor pode demorar)
-- Verifique se InoLabel.exe está rodando
-- Tente acessar: `http://127.0.0.1:8765`
-
-### **Problema: "libGL não encontrado" (Linux)**
 ```bash
-sudo apt-get install libgl1
+bash build.sh
 ```
 
-### **Problema: "gcc não encontrado" (Linux)**
+### Windows (Prompt de Comando / PowerShell)
+
+```cmd
+pip install pyinstaller
+python -m PyInstaller --noconfirm --onedir --windowed --name InoLabel ^
+    --add-data "assets;assets" ^
+    --hidden-import PIL._tkinter_finder ^
+    --hidden-import cv2 ^
+    --hidden-import ultralytics ^
+    --collect-all ultralytics ^
+    main.py
+```
+
+O executável gerado fica em:
+
+```
+dist/InoLabel-linux/InoLabel/InoLabel        # Linux
+dist/InoLabel-windows/InoLabel/InoLabel.exe  # Windows
+```
+
+> **Importante:** coloque o arquivo `model.pt` e a pasta `dataset/` ao lado do executável antes de rodar. O executável não inclui o modelo nem os dados — apenas o código da aplicação.
+
+> **Tamanho esperado:** entre 1.5 GB e 3 GB (Ultralytics/PyTorch são pesados).
+
+---
+
+## Como usar
+
 ```bash
-sudo apt-get install build-essential python3-dev cmake
+python main.py   # ou execute o binário gerado pelo build
 ```
 
-### **Problema: Nenhuma imagem aparece**
-- Confira se o caminho da pasta `dataset/` está **correto e absoluto**
-- Confira se tem imagens de verdade lá dentro
-- Reformate para um dos formatos aceitos
+O wizard de configuração abrirá pedindo:
 
-### **Problema: O build demora demais ou trava**
-- PyTorch pode demorar 20+ minutos em conexões lentas
-- Não feche o terminal (leia os logs em `dist/logs/`)
-- Se travar por >1 hora, reinicie tudo
+1. **Modo** — escolha entre os cinco modos abaixo
+2. **Dataset** — pasta, vídeo, imagem única ou lista `.txt`/`.lst`
+3. **Estado de saída** — continuar saída anterior, usar como template ou criar novo. Por padrão os estados são salvos em **`state_saved/`** na raiz da aplicação (a pasta-pai é editável no wizard)
+4. **Modelo e classes** — adicione um ou mais pesos YOLO `.pt` (opcional) e configure as classes da sessão
 
 ---
 
-## 📚 Modos de Anotação
+## Modos de anotação
 
-| Modo | Descrição | Melhor para |
-|------|-----------|-----------|
-| **Detecção** | Bounding boxes simples por frame | Objetos estáticos, imagens |
-| **Rastreamento** | Mantém identidade entre frames (BYTETracker) | Vídeos com movimento |
-| **OBB** | Caixas rotacionadas com ângulo | Objetos em diferentes orientações |
-| **Classificação** | Organiza imagens em pastas por classe | Triagem de dados |
+| Modo | Descrição |
+|------|-----------|
+| **Tracking** | Mantém identidade dos objetos entre frames via BYTETracker por classe |
+| **Detecção padrão** | Caixas independentes por frame, sem `track_id` |
+| **Detecção orientada (OBB)** | Caixas rotacionadas com ângulo, exportáveis no formato YOLO OBB |
+| **Keypoint detection** | Pontos-chave ordenados por instância, exportáveis em COCO Keypoints e YOLO Pose |
+| **Classificação** | Copia imagens para subpastas por classe ao pressionar o atalho da classe |
+
+O modelo YOLO é **opcional** em todos os modos — é possível anotar inteiramente de forma manual.
 
 ---
 
-## ⌨️ Atalhos Principais
+## Modo Keypoint detection (pose)
+
+Cada instância de objeto possui uma **classe** e um conjunto de **keypoints com ordem fixa** (a ordem é semântica e nunca é reordenada automaticamente durante a anotação).
+
+### Configuração
+
+No wizard, ao escolher o modo **Keypoint detection**, defina por classe a lista de keypoints **em ordem**, separados por vírgula (ex: `top_left, top_right, bottom_right, bottom_left`). A configuração é obrigatória — o início é bloqueado se alguma classe não tiver keypoints definidos — e fica salva em `categories[].keypoints` para reabrir e continuar depois.
+
+### Como anotar
+
+- Clique para posicionar cada ponto na ordem definida. Ao completar o último ponto da classe, a instância **fecha automaticamente**.
+- Para classes **sem lista fixa** (modo livre), a forma fecha ao clicar novamente sobre o **primeiro ponto** (a partir de 3 pontos) — um anel verde e o texto `fechar` indicam quando o clique vai fechar.
+- A **bounding box** é calculada automaticamente a partir dos pontos com visibilidade `> 0`.
+
+Visibilidade (convenção COCO): `0` ausente, `1` oculto/anotável, `2` visível.
+
+| Tecla / Mouse | Ação (modo keypoint) |
+|-------|----------------------|
+| `F` | Finalizar instância atual |
+| `X` | Marcar o ponto atual como ausente (`v=0`) — durante a colocação |
+| `C` | Com um ponto **selecionado**, cicla a visibilidade **desse** ponto (`2 → 1 → 0`); sem seleção, define a visibilidade do **próximo** ponto a colocar |
+| **Clique direito** | Sobre um ponto já anotado: alterna **visível (2) ↔ oculto (1)** |
+| `Backspace` | Remover o último ponto (ou cancelar a instância em construção) |
+| `S` | Selecionar/mover pontos ou instâncias |
+| `Esc` | Cancela a operação atual (instância em construção ou seleção) — não fecha o app |
+
+Para corrigir a visibilidade de pontos **já anotados** (ex.: marcar como oclusos os que estão na imagem mas encobertos): clique direito sobre o ponto para alternar `2 ↔ 1`, ou selecione com `S` e use `C` para passar por todos os estados. Pontos oclusos (`v=1`) aparecem como **círculo vazado**.
+
+### Exportação
+
+O botão **Exportar dataset** abre a **mesma tela de exportação** dos detectores (seleção de pasta de saída, split train/val/test e data augmentation). Formatos:
+
+- **COCO Keypoints** — `keypoints: [x,y,v,...]`, `num_keypoints`, `bbox` e `categories[].keypoints`.
+- **YOLO Pose** — `class cx cy w h x1 y1 v1 ...` (tudo normalizado) e `kpt_shape` no `data.yaml`. Todas as linhas têm o mesmo número de keypoints; pontos ausentes saem como `0 0 0`.
+
+O **data augmentation** transforma também os keypoints (flip, rotação, etc., além das operações fotométricas) e é aplicado apenas na pasta `train`.
+
+### Conserto de anotações antigas
+
+`utils/fix_keypoint_coco.py` repara um COCO Keypoints inconsistente: preenche `categories[].keypoints`, remove ponto de fechamento duplicado e recalcula `bbox`/`num_keypoints`. Por **padrão**, instâncias de 4 pontos são ordenadas em **TL → TR → BR → BL** (ideal para documentos); use `--no-sort-corners` para preservar a ordem original.
+
+```bash
+python utils/fix_keypoint_coco.py <projeto>/saved_data_states/annotations_keypoints.coco.json
+```
+
+---
+
+## Atalhos principais
+
+A maioria dos atalhos é **remapeável** pelo editor visual (botão **Atalhos** na barra superior). Os valores abaixo são os padrões do perfil `arrows`. As teclas `1–9` e `Esc` são fixas e não aparecem no editor.
 
 | Tecla | Ação |
 |-------|------|
-| `Espaço` | Próximo frame |
-| `←` / `→` | Navegar entre frames |
-| `Clique + arraste` | Desenhar bounding box |
-| `Ctrl+Z` | Desfazer |
-| `Delete` | Deletar caixa selecionada |
-| `1-9` | Mudar classe ativa |
-| `Scroll` | Zoom |
-| `Esc` | Sair |
+| `Enter` | Validar / salvar frame atual |
+| `Espaço` | Rejeitar / avançar frame |
+| `→` / `←` | Navegar entre frames salvos (perfil `arrows`) |
+| `D` / `A` | Navegar entre frames salvos (perfil `wasd`) |
+| `K` | Liga/desliga anotação manual |
+| `S` | Modo de seleção de anotação (sem tecla padrão no perfil `wasd`) |
+| `H` | Liga/desliga modo mover imagem (pan) |
+| `R` | Redefinir ROI |
+| `E` | Editar ID de tracking (apenas modo tracking) |
+| `Ctrl+Z` | Desfazer última ação |
+| `Ctrl+0` | Ajustar imagem na tela |
+| `1–9` | Trocar classe ativa |
+| `Scroll` | Zoom centrado no cursor |
+| `Esc` | Sair (no modo keypoint apenas cancela a operação atual) |
 
-Veja todos os atalhos no menu da aplicação.
+### Editor de atalhos
+
+Clique no botão **Atalhos: arrows** (topbar) para abrir o editor visual. Nele é possível:
+
+- Remapear qualquer ação clicando no botão da tecla e pressionando a nova tecla
+- Criar perfis personalizados ou alternar entre `arrows` e `wasd`
+- Restaurar os padrões de fábrica por perfil
+- Detectar conflitos em tempo real (aviso laranja, não bloqueante)
+
+O perfil ativo é salvo em `.local/keybinds.json` e restaurado automaticamente na próxima sessão.
 
 ---
 
-## 📦 Estrutura de Pastas
+## Rotação visual da imagem
+
+Os botões **↺ Girar** e **Girar ↻** na barra lateral rotacionam a exibição em 90° sem alterar a imagem salva nem as coordenadas das bounding boxes. A rotação é desfeita automaticamente ao avançar para o próximo frame. Atalhos de teclado podem ser atribuídos via editor de atalhos (grupo **Imagem**).
+
+---
+
+## Fluxo de ROI (Tracking / Detecção / OBB)
+
+1. Ao abrir cada fonte, clique 4 pontos para definir o ROI (ordem livre; o código ordena automaticamente).
+2. A homografia é calculada e `warpPerspective` é aplicado internamente.
+3. A detecção ocorre na imagem retificada; as caixas são mapeadas de volta ao frame original.
+4. Pressione `R` a qualquer momento para redefinir o ROI sem perder anotações já salvas.
+
+---
+
+## Exportação de dataset
+
+Clique em **Exportar dataset** na barra lateral para abrir a tela de exportação. As opções disponíveis são:
+
+| Opção | Descrição |
+|-------|-----------|
+| **Destino / Nome da pasta** | Caminho e nome da pasta de saída |
+| **YOLO** | Exporta imagens + labels `.txt` e `data.yaml` |
+| **COCO (.json)** | Exporta `annotations.coco.json` + pasta `images/` com as imagens |
+| **Split train/val/test** | Divide as imagens em proporções configuráveis |
+| **Data augmentation** | Gera cópias aumentadas por imagem (flip, brilho, ruído, etc.) |
+
+A exportação roda em **background** — a interface permanece responsiva. Uma barra de progresso exibe o avanço imagem por imagem; ao concluir, ela some automaticamente. Enquanto a tela de exportação está aberta, os atalhos de anotação ficam desativados.
+
+**Proteções do destino:**
+
+- A exportação só apaga e recria pastas criadas por ela mesma (marcadas com o arquivo oculto `.inolabel_export`) ou vazias.
+- Se o nome escolhido já existe e não é uma exportação do InoLabel, a saída vai para `<nome>_<data>` e a pasta existente não é tocada.
+- São recusados como destino: a pasta do projeto e qualquer pasta acima dela, o dataset de origem (dentro, igual ou acima), a pasta pessoal e a raiz do disco, além de nomes como `.` e `..`.
+- Só entram no dataset imagens com registro no estado. Imagens soltas em `images/` sem registro (por exemplo, após uma queda) são ignoradas e contadas na mensagem final, para não virarem falsos negativos.
+
+---
+
+## Saídas geradas
+
+Cada sessão cria uma pasta de projeto dentro da pasta-pai escolhida no wizard (padrão: `state_saved/`). Se o nome já existir, é adicionado um sufixo (`_001`, `_002`, ...).
 
 ```
-InoLabel/
-├── README.md                          ← (você está aqui!)
-├── instrucao.txt                      ← Guia detalhado em português
-├── DESIGN.md                          ← Sistema de design
-├── PRODUCT.md                         ← Definição do produto
-├── requirements.txt                   ← Dependências Python
-├── build.ps1                          ← Script de build (Windows)
-├── build.sh                           ← Script de build (Linux)
-├── main.py                            ← Ponto de entrada
-│
-├── app/                               ← Backend Python (FastAPI)
-│   ├── api/                           ← API REST
-│   ├── annotation/                    ← Lógica de anotação
-│   ├── models.py                      ← Dataclasses
-│   └── ...
-│
-├── frontend/                          ← Frontend React + Vite
-│   ├── src/
-│   ├── package.json
-│   └── dist/                          ← Gerado após "npm run build"
-│
-├── APLICATIVO/ (Windows) ou dist/ (Linux)
-│   └── InoLabel/
-│       ├── InoLabel.exe (Windows)
-│       ├── dataset/                   ← Suas imagens vão aqui
-│       ├── outputs/                   ← Anotações salvas aqui
-│       └── model.pt                   ← (opcional) seu modelo
+state_saved/<nome-do-projeto>/
+├── images/                              # frames salvos (originais ou retificados)
+├── saved_data_states/                   # estado da sessão (usado para retomar)
+│   ├── annotations.coco.json            # tracking (com track_id) / detecção
+│   ├── annotations_obb.coco.json        # modo OBB
+│   ├── annotations_keypoints.coco.json  # modo keypoint
+│   └── homography.json                  # homografias por fonte (ROI)
+├── annotations_detection.coco.json      # COCO de detecção exportado pelo botão
+└── yolo_dataset/                        # dataset YOLO exportado pelo botão
+    ├── data.yaml
+    └── images/ labels/ {train,val,test}/
+```
+
+No modo **classificação**, o estado fica em `classification_state.json` e as imagens são copiadas (ou movidas) para uma subpasta por classe.
+
+A exportação manual pela tela de exportação cria uma pasta separada no destino escolhido, sem sobrescrever o projeto:
+
+```
+<destino>/<nome>/
+├── annotations.coco.json    # formato COCO
+├── images/                  # imagens (cópia)
+└── (ou estrutura YOLO acima)
 ```
 
 ---
 
-## 📖 Documentação Adicional
+## Utilitários
 
-- **[app/STRUCTURE.md](app/STRUCTURE.md)** — Arquitetura do código
-- **[DESIGN.md](DESIGN.md)** — Sistema de design da UI
-- **[PRODUCT.md](PRODUCT.md)** — Visão do produto
-- **[instrucao.txt](instrucao.txt)** — Guia detalhado (em português)
+### Converter COCO → YOLO
+
+```bash
+python utils/convert_coco_to_yolo_dataset.py <projeto>/saved_data_states/annotations.coco.json \
+    --image-root <projeto>/images \
+    --output-root <projeto>/yolo_dataset \
+    --train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1
+```
+
+### Consolidar splits YOLO em train único
+
+```bash
+python utils/merge_yolo_splits.py <projeto>/yolo_dataset \
+    --output-root <projeto>/yolo_dataset_train_only
+```
+
+### Converter anotações de tracking → detecção
+
+```bash
+python utils/convert_coco_tracking_to_detection.py <projeto>/saved_data_states/annotations.coco.json
+```
+
+### Baixar candidatas do Open Images para revisão
+
+Baixa selfies com acessório (um rosto grande com a classe encostando nele) para `openimages_candidates/<classe>/`, sem tocar no dataset. Revise, apague o que não servir e mova as aprovadas para o dataset. O `candidates.csv` de cada pasta guarda a licença (CC BY 2.0: mantenha a atribuição), o autor e as caixas originais.
+
+```bash
+python utils/fetch_openimages.py --classes hat --limit 150
+python utils/fetch_openimages.py --classes hat glasses --splits validation test train  # train: CSV de 2,2 GB lido em streaming
+```
+
+O Open Images não tem classe de máscara.
+
+> **LGPD:** este utilitário baixa fotos de rosto de pessoas reais. A licença CC BY 2.0 cobre direitos autorais, não a proteção de dados pessoais. Antes de usar, registre a finalidade, a base legal e o prazo de retenção do material; mantenha `openimages_candidates/` fora do git (já está no `.gitignore`) e apague as candidatas descartadas. O utilitário não faz parte do executável distribuído.
+
+### Data augmentation de um dataset de saída
+
+```bash
+python utils/augment_output_dataset.py --annotations <projeto>/saved_data_states/annotations.coco.json \
+    --images-dir <projeto>/images --rotate90
+```
+
+> `utils/annotation_tool_bytetracked.py` é a ferramenta monolítica antiga, **obsoleta**: tem bugs já corrigidos no app (ex.: recorte de caixas) e não deve ser usada para anotar.
 
 ---
 
-## ❓ Perguntas Frequentes
+## Privacidade e segurança
 
-**P: Preciso de GPU?**
-A: Recomendado para detecção rápida, mas não é obrigatório. Roda em CPU.
-
-**P: Meus dados são privados?**
-A: 100%. Tudo roda localmente. Nada sai da sua máquina.
-
-**P: Qual é o tamanho máximo de dataset?**
-A: Depende da sua RAM. Testado com 10k+ imagens.
-
-**P: Posso usar meu próprio modelo YOLO?**
-A: Sim! Coloque `model.pt` na pasta de saída do executável.
-
-**P: Como contribuir?**
-A: Abra uma issue ou PR no GitHub!
+- **Logs sem nomes de arquivo:** mensagens no terminal identificam imagens e vídeos por `image_id` ou por uma referência anônima (`<arquivo 3f2a91c0>`), nunca pelo nome — nomes de arquivo em datasets de pessoas podem conter dados pessoais. A interface continua mostrando o nome ao próprio usuário.
+- **Pesos de modelo:** arquivos `.pt` usam pickle e executam código ao serem carregados. Abra apenas pesos de origem confiável.
+- **Estado ilegível:** se o `annotations.coco.json` não puder ser lido, a sessão não abre e o arquivo não é alterado. Restaure o `.bak` ao lado dele (gerado ao abrir cada sessão) ou corrija o JSON.
 
 ---
 
-## 🤝 Suporte
+## Configurações em `app/config.py`
 
-Encontrou algum problema?
-- **Issues**: https://github.com/Inovisao/InoLabel/issues
-- **Email**: magnumjabreuu@gmail.com
+| Variável | Descrição |
+|----------|-----------|
+| `CONF_THRESHOLD` | Limiar de confiança do YOLO (padrão `0.40`) |
+| `SAVE_RECTIFIED_FRAMES` | `True` salva frames com warpPerspective; `False` salva originais |
+| `MANUAL_IOU_THRESHOLD` | IoU mínimo para fundir anotação manual com detecção existente |
 
-Descreva:
-1. Sistema operacional (Windows/Linux)
-2. A mensagem de erro **completa**
-3. Em qual passo ocorreu
-
----
-
-## 📜 Créditos
-
-- **BYTETracker** — [FoundationVision/ByteTrack](https://github.com/FoundationVision/ByteTrack)
-- **YOLO** — [Ultralytics](https://github.com/ultralytics/ultralytics)
-- **UI Components** — [Radix UI](https://www.radix-ui.com/)
+Os caminhos de dataset, modelo e saída são configurados no wizard — os valores em `config.py` servem apenas como sugestão inicial.
 
 ---
 
-**Feito com ❤️ pela Inovisão**
+## Resolução de problemas
 
-_A ferramenta que torna a anotação de datasets tão rápida quanto deveria ser._
+| Problema | Solução |
+|----------|---------|
+| Tkinter não abre no WSL | Configure um X server e a variável `DISPLAY`, ou rode em ambiente gráfico nativo |
+| Tkinter ausente no Linux | `sudo apt-get install python3-tk` |
+| `lap`/`cython_bbox` falhando no Linux | Instale `build-essential python3-dev cmake` e tente novamente |
+| `lap`/`cython_bbox` falhando no Windows | Instale o Visual C++ Build Tools e CMake conforme descrito acima |
+| Logo não aparece na tela inicial | Verifique se `assets/inovisao.png` existe e se `Pillow` está instalado |
+| Atalhos não respondem após remapear | Verifique conflitos no editor de atalhos (aviso laranja) |
+
+---
+
+## Créditos
+
+- BYTETracker retirado de [FoundationVision/ByteTrack](https://github.com/FoundationVision/ByteTrack)
+- Detecção e OBB via [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)

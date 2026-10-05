@@ -1,7 +1,6 @@
 # ── Dados e modelos (nunca versionar) ────────────────────────────────────────
 outputs/
-output/
-output_dataset/
+state_saved/
 saved_data_states/
 dataset/
 data/
@@ -9,15 +8,11 @@ models/
 videos/
 imagens/
 dataset_original/
-model.pt
-*.pt
+openimages_candidates/
 
 # ── Build e distribuição ──────────────────────────────────────────────────────
 dist/
 build/
-APLICATIVO/*
-!APLICATIVO/.gitignore
-!APLICATIVO/README.md
 *.spec
 
 # ── Python ────────────────────────────────────────────────────────────────────
@@ -47,9 +42,3 @@ htmlcov/
 
 # ── Documentação gerada ───────────────────────────────────────────────────────
 docs/
-
-# ── Frontend (Node / Tauri) ───────────────────────────────────────────────────
-frontend/node_modules/
-frontend/dist/
-frontend/src-tauri/target/
-frontend/.tauri/

@@ -1,4 +1,5 @@
 from app.annotation.shared import *
+from app.annotation.infrastructure.persistence.state_file import AnnotationStateUnreadableError
 
 
 class CoreInitMixin:
@@ -49,12 +50,40 @@ class CoreInitMixin:
         self._initialize_model_state()
         self._initialize_runtime_state()
         self._build_ui()
-        if self.session_config.resume_existing_annotations:
-            self.load_existing_annotations()
-            self.current_video_index = self._initial_source_index_from_annotation_state()
-        self.register_signal_handlers()
-        self.start_video(self.current_video_index)
+        # Cover the gap while the page is still loading (UI build, first frame,
+        # and possibly the model/torch) — the main window stays withdrawn here.
+        from app.ui.components.loading import LoadingScreen
+        loading = LoadingScreen(self.window, "Preparando anotação...")
+        try:
+            if self.session_config.resume_existing_annotations:
+                try:
+                    self.load_existing_annotations()
+                except AnnotationStateUnreadableError as exc:
+                    self._abort_unreadable_state(exc, loading)
+                    raise
+                # Copia do ultimo estado bom antes de qualquer gravacao desta sessao.
+                self.backup_annotations_file()
+                self.current_video_index = self._initial_source_index_from_annotation_state()
+            self.register_signal_handlers()
+            if self.weights_paths:
+                loading.update_message("Carregando modelo...")
+            self.start_video(self.current_video_index)
+        finally:
+            loading.close()
         self.window.deiconify()  # show only after the first frame is rendered
+
+    def _abort_unreadable_state(self, exc: Exception, loading) -> None:
+        """Avisa o usuario (o build roda sem console) e fecha sem gravar nada."""
+        loading.close()
+        try:
+            messagebox.showerror("Estado de anotacoes ilegivel", str(exc), parent=self.window)
+        except tk.TclError:
+            pass
+        self.closed = True
+        try:
+            self.window.destroy()
+        except tk.TclError:
+            pass
 
     def _validate_required_paths(self):
         if not self.data_root.exists():
@@ -93,6 +122,7 @@ class CoreInitMixin:
 
     def ensure_models_loaded(self) -> List:
         """Lazily loads all models and returns the list."""
+        from ultralytics import YOLO  # deferred: importing torch costs ~4s
         for i, weights_path in enumerate(self.weights_paths):
             if self.models[i] is not None:
                 continue

@@ -1,4 +1,5 @@
 from app.annotation.shared import *
+from app.log_privacy import log_ref
 
 
 class ReviewCacheMixin:
@@ -69,7 +70,7 @@ class ReviewCacheMixin:
             return None
         frame = cv2.imread(str(self.output_images_dir / file_name))
         if frame is None:
-            print(f"[WARN] Could not load frame from disk: {self.output_images_dir / file_name}")
+            print(f"[WARN] Could not load frame from disk: {log_ref(file_name)}")
             return None
         record["frame"] = frame
         return frame
