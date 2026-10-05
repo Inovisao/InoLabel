@@ -561,7 +561,7 @@ done
 # Smoke test — inicializa o processo e verifica que nao crashou imediatamente
 step "Smoke test do executavel..."
 if [[ "$TARGET_OS" != "windows" ]] && command -v timeout &>/dev/null; then
-    SMOKE_OUTPUT=$(timeout 5s "$EXE_PATH" 2>&1 || true)
+    SMOKE_OUTPUT=$(BROWSER=/bin/false timeout 5s "$EXE_PATH" 2>&1 || true)
     if echo "$SMOKE_OUTPUT" | grep -qiE "ModuleNotFoundError|ImportError|Traceback"; then
         warn "Smoke test detectou erro de import:"
         echo "$SMOKE_OUTPUT" | grep -iE "ModuleNotFoundError|ImportError|No module|Traceback" | head -5 | while IFS= read -r line; do echo "    $line"; done

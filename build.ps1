@@ -15,13 +15,22 @@ function Write-Ok($msg)   { Write-Host "  [OK] $msg" -ForegroundColor Green }
 function Write-Warn($msg) { Write-Host "  [WARN] $msg" -ForegroundColor Yellow }
 function Write-Info($msg) { Write-Host "  [INFO] $msg" -ForegroundColor Cyan }
 function Write-Step($msg) { Write-Host "`n==> $msg" -ForegroundColor White }
-function Write-Fail($msg) { Write-Host "  [ERROR] $msg" -ForegroundColor Red; exit 1 }
+function Write-Fail($msg) {
+    Write-Host "  [ERROR] $msg" -ForegroundColor Red
+    if ($script:TranscriptActive) {
+        try { Stop-Transcript | Out-Null } catch {}
+        $script:TranscriptActive = $false
+    }
+    exit 1
+}
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
 New-Item -ItemType Directory -Force -Path "dist\logs" | Out-Null
 $LOG_FILE = "dist\logs\build_{0}.log" -f (Get-Date -Format 'yyyyMMdd_HHmmss')
+$script:TranscriptActive = $false
 Start-Transcript -Path $LOG_FILE -Append | Out-Null
+$script:TranscriptActive = $true
 
 Write-Host ""
 Write-Host "========================================"
@@ -71,6 +80,7 @@ if ($bundleComplete) {
     } else {
         Write-Info "Usando build existente. Execute: $aplicativoExe"
         Stop-Transcript | Out-Null
+        $script:TranscriptActive = $false
         exit 0
     }
 } elseif ($bundlePartial) {
@@ -334,6 +344,18 @@ try {
     $lnk = $shell.CreateShortcut((Join-Path $startMenu "InoLabel.lnk"))
     $lnk.TargetPath = (Resolve-Path $finalExe).Path
     $lnk.WorkingDirectory = (Resolve-Path $finalBundle).Path
+    $iconPath = (Resolve-Path $finalExe).Path
+    foreach ($candidate in @(
+        (Join-Path $finalBundle "assets\inolabellogo.ico"),
+        (Join-Path $finalBundle "_internal\assets\inolabellogo.ico"),
+        "assets\inolabellogo.ico"
+    )) {
+        if (Test-Path $candidate) {
+            $iconPath = (Resolve-Path $candidate).Path
+            break
+        }
+    }
+    $lnk.IconLocation = "$iconPath,0"
     $lnk.Description = "InoLabel - ferramenta de anotacao"
     $lnk.Save()
     Write-Ok "Atalho criado em: $startMenu\InoLabel.lnk"
@@ -344,6 +366,7 @@ try {
 
 $elapsed = [math]::Round($stopwatch.Elapsed.TotalSeconds)
 Stop-Transcript | Out-Null
+$script:TranscriptActive = $false
 
 Write-Host ""
 Write-Host "========================================"
