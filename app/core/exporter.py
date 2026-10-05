@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 from uuid import uuid4
 
 
@@ -18,6 +18,8 @@ class ExportJob:
     formats: list[str]
     use_split: bool = True
     split_ratios: tuple[float, float, float] = (0.7, 0.2, 0.1)
+    zip_output: bool = False
+    zip_path: Optional[Path] = None
     progress: float = 0.0
     current_file: str = ""
     status: ExportStatus = "running"

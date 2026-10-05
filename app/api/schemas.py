@@ -129,6 +129,8 @@ class ExportRequest(BaseModel):
     split: SplitConfig = Field(default_factory=SplitConfig)
     use_split: bool = True
     augmentation: bool = False
+    # Gera também <destination>/<name>.zip com imagens e anotações, conferindo as referências.
+    zip: bool = False
 
 
 class ExportStartResponse(BaseModel):
@@ -140,6 +142,8 @@ class ExportProgressResponse(BaseModel):
     progress: float
     current_file: str
     status: str
+    output_path: Optional[str] = None
+    zip_path: Optional[str] = None
 
 
 class ProjectEntry(BaseModel):

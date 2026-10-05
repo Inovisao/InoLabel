@@ -78,3 +78,12 @@ export interface ClassificationResult {
   destination_path: string;
   operation: string;
 }
+
+export interface ExportProgress {
+  export_id: string;
+  progress: number;
+  current_file: string;
+  status: string;
+  output_path?: string | null;
+  zip_path?: string | null;
+}

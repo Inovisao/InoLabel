@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Download, CheckCircle, AlertCircle, Folder } from "lucide-react";
 import { api } from "../../api/client";
+import type { ExportProgress } from "../../api/types";
 import { useSessionStore } from "../../stores/session";
 
 interface Props {
@@ -97,6 +98,8 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
   const [errorMsg, setErrorMsg] = useState("");
   const [useSplit, setUseSplit] = useState(false);
   const [split, setSplit] = useState<SplitValues>(DEFAULT_SPLIT);
+  const [zipOutput, setZipOutput] = useState(true);
+  const [zipPath, setZipPath] = useState("");
 
   useEffect(() => {
     if (!open) {
@@ -104,6 +107,7 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
       setProgress(0);
       setCurrentFile("");
       setErrorMsg("");
+      setZipPath("");
     }
   }, [open]);
 
@@ -142,6 +146,7 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
     setExportState("running");
     setProgress(0);
     setCurrentFile("");
+    setZipPath("");
 
     const splitPayload = useSplit
       ? { train: split.train / 100, val: split.val / 100, test: split.test / 100 }
@@ -155,17 +160,17 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
         formats: [format],
         use_split: useSplit,
         split: splitPayload,
+        zip: zipOutput,
       });
 
       const poll = setInterval(async () => {
         try {
-          const prog = await api.get<{ progress: number; status: string; current_file: string }>(
-            `/export/${export_id}/progress`
-          );
+          const prog = await api.get<ExportProgress>(`/export/${export_id}/progress`);
           setProgress(prog.progress);
           if (prog.current_file) setCurrentFile(prog.current_file);
           if (prog.status === "done") {
             clearInterval(poll);
+            setZipPath(prog.zip_path ?? "");
             setExportState("done");
           } else if (prog.status === "error") {
             clearInterval(poll);
@@ -245,6 +250,11 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                   <div className="alert-text">
                     Salvo em: {destination}/{name}
                   </div>
+                  {zipPath && (
+                    <div className="alert-text">
+                      Pacote zipado: {zipPath}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -463,6 +473,31 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Zip package */}
+                <div>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: exportState === "running" ? "not-allowed" : "pointer",
+                      userSelect: "none",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={zipOutput}
+                      disabled={exportState === "running"}
+                      onChange={(e) => setZipOutput(e.target.checked)}
+                      style={{ accentColor: "var(--color-primary)", width: 14, height: 14, cursor: "inherit" }}
+                    />
+                    <span className="text-label">Gerar também um pacote .zip</span>
+                  </label>
+                  <div style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 4, marginLeft: 22 }}>
+                    Imagens e anotações juntas em {name || "dataset"}.zip, com as referências conferidas.
+                  </div>
                 </div>
               </>
             )}

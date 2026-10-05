@@ -277,6 +277,7 @@ Clique em **Exportar dataset** na barra lateral para abrir a tela de exportaçã
 | **YOLO** | Exporta imagens + labels `.txt` e `data.yaml` |
 | **COCO (.json)** | Exporta `annotations.coco.json` + pasta `images/` com as imagens |
 | **Split train/val/test** | Divide as imagens em proporções configuráveis |
+| **Pacote .zip** | Gera também `<nome>.zip` com imagens e anotações. As referências são conferidas antes (imagem ↔ label, `file_name` do COCO ↔ imagem) e o `data.yaml` do pacote vai sem caminho absoluto, para o dataset funcionar em outra máquina |
 | **Data augmentation** | Gera cópias aumentadas por imagem (flip, brilho, ruído, etc.) |
 
 A exportação roda em **background** — a interface permanece responsiva. Uma barra de progresso exibe o avanço imagem por imagem; ao concluir, ela some automaticamente. Enquanto a tela de exportação está aberta, os atalhos de anotação ficam desativados.

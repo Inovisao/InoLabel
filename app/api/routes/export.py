@@ -248,6 +248,21 @@ def _run_export_blocking(export_id: str) -> None:
                     on_progress=_on_coco_progress,
                 )
 
+        if job.zip_output:
+            from app.core.export_package import verify_dataset_links, zip_dataset
+
+            # Nada vai para o pacote sem as referências conferidas: imagem com o seu
+            # label, file_name do COCO com a imagem ao lado.
+            job.current_file = "Conferindo referências..."
+            verify_dataset_links(out)
+
+            def _on_zip_progress(done: int, zip_total: int, name: str) -> None:
+                job.progress = done / max(zip_total, 1)
+                job.current_file = f"Compactando: {name}"
+
+            job.progress = 0.0
+            job.zip_path = zip_dataset(out, on_progress=_on_zip_progress)
+
         job.progress = 1.0
         job.current_file = ""
         job.status = "done"
@@ -287,6 +302,7 @@ async def start_export(body: ExportRequest, background_tasks: BackgroundTasks) -
             formats=body.formats,
             use_split=body.use_split,
             split_ratios=(split["train"], split["val"], split["test"]),
+            zip_output=body.zip,
         )
     )
     background_tasks.add_task(_run_export, job.export_id)
@@ -303,4 +319,6 @@ def export_progress(export_id: str) -> ExportProgressResponse:
         progress=job.progress,
         current_file=job.current_file,
         status=job.status,
+        output_path=str(job.output_path),
+        zip_path=str(job.zip_path) if job.zip_path is not None else None,
     )
