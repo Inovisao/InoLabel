@@ -15,6 +15,15 @@ dist/
 build/
 *.spec
 
+# ── Frontend (Node / Vite / Tauri) ────────────────────────────────────────────
+node_modules/
+.vite/
+*.tsbuildinfo
+frontend/src-tauri/target/
+
+# ── Executável empacotado (PyInstaller) ───────────────────────────────────────
+APLICATIVO/
+
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
