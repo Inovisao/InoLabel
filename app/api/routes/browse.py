@@ -1,10 +1,18 @@
 """Seletor nativo de pasta/arquivo — só funciona com o app rodando na máquina do usuário.
 
-No Linux usa o seletor do próprio ambiente gráfico (zenity no GNOME, kdialog no KDE),
-em um processo separado. O diálogo do Tkinter fica como último recurso: criado numa
-thread do servidor e sob Wayland, ele abria em outro monitor ou atrás do navegador e
-a tela ficava travada esperando por ele. No Windows e no macOS o diálogo do Tkinter
-já é o nativo do sistema.
+O seletor é sempre o do próprio sistema, aberto fora da thread do servidor quando
+o sistema exige:
+
+- Linux: zenity (GNOME) ou kdialog (KDE), em processo separado. O diálogo Tkinter,
+  criado numa thread do servidor sob Wayland, abria em outro monitor ou atrás do
+  navegador e travava a tela.
+- macOS: ``osascript`` (choose folder / choose file), em processo separado. Lá o
+  Tkinter só pode rodar na thread principal; numa thread do servidor ele derruba
+  o processo.
+- Windows: diálogo do Tkinter, que nesse sistema já é o seletor do Explorer e
+  funciona a partir de uma thread de trabalho.
+
+O Tkinter também é o último recurso no Linux sem zenity nem kdialog.
 """
 from __future__ import annotations
 
@@ -42,11 +50,29 @@ def _kdialog_command(exe: str, *, folder: bool, filetypes: FileTypes) -> List[st
     return [exe, *title, "--getopenfilename", ".", filters or "*"]
 
 
+def _osascript_command(exe: str, *, folder: bool, filetypes: FileTypes) -> List[str]:
+    if folder:
+        script = f'POSIX path of (choose folder with prompt "{FOLDER_TITLE}")'
+    else:
+        patterns = [pattern for _label, pattern in filetypes]
+        # "of type" restringe a seleção; com "todos os arquivos" na lista não há restrição.
+        extensions = [] if any(p in ("*", "*.*") for p in patterns) else [
+            p.rsplit(".", 1)[-1] for p in patterns if "." in p
+        ]
+        of_type = " of type {" + ", ".join(f'"{ext}"' for ext in extensions) + "}" if extensions else ""
+        script = f'POSIX path of (choose file with prompt "{FILE_TITLE}"{of_type})'
+    return [exe, "-e", script]
+
+
 def _native_command(*, folder: bool, filetypes: FileTypes) -> Optional[List[str]]:
-    """Comando do seletor do ambiente gráfico no Linux; None se não houver nenhum."""
-    if not sys.platform.startswith("linux"):
+    """Comando do seletor do sistema em processo separado; None quando o Tkinter é o caminho."""
+    if sys.platform == "darwin":
+        candidates = (("osascript", _osascript_command),)
+    elif sys.platform.startswith("linux"):
+        candidates = (("zenity", _zenity_command), ("kdialog", _kdialog_command))
+    else:
         return None
-    for name, build in (("zenity", _zenity_command), ("kdialog", _kdialog_command)):
+    for name, build in candidates:
         exe = shutil.which(name)
         if exe:
             return build(exe, folder=folder, filetypes=filetypes)
@@ -61,7 +87,9 @@ def _run_native(cmd: List[str]) -> str:
         return ""
     if result.returncode != 0:
         return ""  # 1 = usuário cancelou
-    return result.stdout.strip()
+    path = result.stdout.strip()
+    # osascript devolve pastas com "/" no fim.
+    return path.rstrip("/") or path
 
 
 def _tk_dialog(*, folder: bool, filetypes: FileTypes) -> str:

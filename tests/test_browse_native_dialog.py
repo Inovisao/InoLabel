@@ -85,8 +85,45 @@ def test_falls_back_to_tk_only_without_any_native_tool(linux, monkeypatch):
     assert browse._pick_folder() == "/via/tk"
 
 
-def test_other_platforms_keep_the_tk_dialog(monkeypatch):
-    """No Windows e no macOS o diálogo do Tkinter já é o nativo do sistema."""
+@pytest.fixture()
+def macos(monkeypatch):
+    monkeypatch.setattr(browse.sys, "platform", "darwin")
+
+
+def test_macos_folder_uses_osascript_never_tk(macos, monkeypatch):
+    """No macOS o Tkinter fora da thread principal derruba o processo."""
+    _available(monkeypatch, "osascript")
+    _forbid_tk(monkeypatch)
+    calls = _fake_run(monkeypatch, stdout="/Users/u/meu dataset/\n")
+
+    assert browse._pick_folder() == "/Users/u/meu dataset"
+    assert calls == [[
+        "/usr/bin/osascript", "-e", 'POSIX path of (choose folder with prompt "Selecionar pasta")',
+    ]]
+
+
+def test_macos_file_restricts_type_only_without_all_files_option(macos, monkeypatch):
+    _available(monkeypatch, "osascript")
+    _forbid_tk(monkeypatch)
+    calls = _fake_run(monkeypatch, stdout="/Users/u/best.pt\n")
+
+    assert browse._pick_file([("Modelo YOLO", "*.pt")]) == "/Users/u/best.pt"
+    assert calls[0][2] == 'POSIX path of (choose file with prompt "Selecionar arquivo" of type {"pt"})'
+
+    browse._pick_file(YOLO_TYPES)   # inclui "Todos os arquivos"
+    assert "of type" not in calls[1][2]
+
+
+def test_macos_cancel_returns_empty_path(macos, monkeypatch):
+    _available(monkeypatch, "osascript")
+    _forbid_tk(monkeypatch)
+    _fake_run(monkeypatch, returncode=1)
+
+    assert browse._pick_folder() == ""
+
+
+def test_windows_keeps_the_tk_dialog(monkeypatch):
+    """No Windows o diálogo do Tkinter já é o seletor do Explorer."""
     monkeypatch.setattr(browse.sys, "platform", "win32")
     _available(monkeypatch, "zenity")
     monkeypatch.setattr(browse, "_tk_dialog", lambda **kwargs: "C:/dados")
