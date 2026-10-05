@@ -72,36 +72,56 @@ class TestNormalizeSplitRatios(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestRmtreeWarning(unittest.TestCase):
-    """I2 – Deve imprimir aviso [AVISO] antes de destruir um diretório existente."""
+    """I2 – Um diretório existente só é recriado se for uma exportação do InoLabel.
+
+    Antes bastava imprimir [AVISO] e apagar; isso destruía pastas do usuário
+    (decisão de 2026-10-05: recusar em vez de avisar e apagar).
+    """
 
     def _make_fake_image(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(path), np.zeros((10, 10, 3), dtype=np.uint8))
 
-    def test_warning_printed_on_overwrite(self):
+    def _payload(self):
+        return {
+            "images": [{"id": 1, "file_name": "img.jpg", "width": 10, "height": 10}],
+            "annotations": [],
+            "categories": [{"id": 1, "name": "car"}],
+        }
+
+    def test_existing_folder_with_user_files_is_refused_untouched(self):
+        from app.annotation.infrastructure.export.export_dir import UnsafeExportDirError
+        from app.annotation.infrastructure.export.yolo_exporter import export_yolo_no_split
+
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             src = root / "src"
             self._make_fake_image(src / "img.jpg")
             dataset_root = root / "out"
-            dataset_root.mkdir()  # pre-existing directory
+            dataset_root.mkdir()
+            (dataset_root / "importante.txt").write_text("nao apagar", encoding="utf-8")
 
-            payload = {
-                "images": [{"id": 1, "file_name": "img.jpg", "width": 10, "height": 10}],
-                "annotations": [],
-                "categories": [{"id": 1, "name": "car"}],
-            }
+            with self.assertRaises(UnsafeExportDirError):
+                export_yolo_no_split(self._payload(), src, dataset_root)
 
-            from app.annotation.infrastructure.export.yolo_exporter import export_yolo_no_split
-            import io
-            import sys
-            captured = io.StringIO()
-            with patch("sys.stdout", captured):
-                export_yolo_no_split(payload, src, dataset_root)
+            self.assertTrue((dataset_root / "importante.txt").exists())
 
-            output = captured.getvalue()
-            self.assertIn("[AVISO]", output)
-            self.assertIn(str(dataset_root), output)
+    def test_previous_export_is_replaced(self):
+        from app.annotation.infrastructure.export.yolo_exporter import export_yolo_no_split
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "src"
+            self._make_fake_image(src / "img.jpg")
+            dataset_root = root / "out"
+            dataset_root.mkdir()  # pasta vazia: aceita
+
+            export_yolo_no_split(self._payload(), src, dataset_root)
+            (dataset_root / "sobra_da_exportacao_anterior.txt").write_text("x", encoding="utf-8")
+            export_yolo_no_split(self._payload(), src, dataset_root)
+
+            self.assertFalse((dataset_root / "sobra_da_exportacao_anterior.txt").exists())
+            self.assertTrue((dataset_root / "images" / "all" / "img.jpg").exists())
 
     def test_no_warning_when_dir_does_not_exist(self):
         with tempfile.TemporaryDirectory() as tmp:

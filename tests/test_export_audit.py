@@ -47,13 +47,24 @@ class TestNormalizeYoloBbox(unittest.TestCase):
     def test_negative_width_returns_none(self):
         self.assertIsNone(self._norm([10, 10, -5, 20]))
 
-    def test_x_out_of_bounds_returns_none(self):
-        # x=91 + w=20 → center=101 → cx=1.01 > 1.0 → rejeitado
-        self.assertIsNone(self._norm([91, 0, 20, 10], w=100, h=100))
+    # Decisão de 2026-10-05: caixa que passa da borda é recortada à imagem, não
+    # descartada — descartar perdia anotações por erro de arredondamento.
+    def test_x_overflow_is_clipped_to_image(self):
+        # x=91, w=20 → recortada para x∈[91,100]: cx=0.955, largura=0.09
+        cx, cy, bw, bh = self._norm([91, 0, 20, 10], w=100, h=100)
+        self.assertAlmostEqual(cx, 0.955)
+        self.assertAlmostEqual(bw, 0.09)
+        self.assertLessEqual(cx + bw / 2, 1.0)
 
-    def test_y_out_of_bounds_returns_none(self):
-        # y=91 + h=20 → center=101 → cy=1.01 > 1.0 → rejeitado
-        self.assertIsNone(self._norm([0, 91, 10, 20], w=100, h=100))
+    def test_y_overflow_is_clipped_to_image(self):
+        cx, cy, bw, bh = self._norm([0, 91, 10, 20], w=100, h=100)
+        self.assertAlmostEqual(cy, 0.955)
+        self.assertAlmostEqual(bh, 0.09)
+        self.assertLessEqual(cy + bh / 2, 1.0)
+
+    def test_box_fully_outside_image_returns_none(self):
+        self.assertIsNone(self._norm([120, 10, 20, 10], w=100, h=100))
+        self.assertIsNone(self._norm([10, 150, 10, 20], w=100, h=100))
 
     def test_valid_bbox_returns_correct_values(self):
         result = self._norm([10, 20, 20, 20], w=100, h=100)
