@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>InoLabel UI demo — accessibility scripts</title>
+  <style>
+    body { font-family: Helvetica, Arial, sans-serif; padding:24px; background:#F0F4FA; color:#152040; }
+    .row { display:flex; gap:12px; align-items:center; margin-bottom:16px; }
+    .ds-btn-primary { background:#1560BD; color:#fff; padding:10px 14px; border-radius:6px; border:none; cursor:pointer; }
+    .ds-btn-ghost { background:transparent; border:1px solid #C2D0E8; padding:10px 14px; border-radius:6px; cursor:pointer; }
+    .demo-area { background:#fff; padding:16px; border-radius:8px; border:1px solid #EEF3FB; max-width:900px; }
+    /* menu */
+    .ds-menu { position:absolute; display:none; background:#FFFFFF; border:1px solid #C2D0E8; border-radius:6px; padding:6px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
+    .ds-menu-item { display:block; padding:8px 12px; border-radius:4px; background:transparent; border:none; text-align:left; width:100%; }
+    .ds-menu-item:focus, .ds-menu-item:hover { background:#EEF3FB; outline:none; }
+    /* tooltip */
+    .ds-tooltip { position:absolute; background:#152040; color:#fff; padding:6px 8px; border-radius:6px; font-size:11px; display:none; }
+    /* modal */
+    .ds-modal-backdrop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,0.35); }
+    .ds-modal { width:560px; background:#fff; border-radius:8px; padding:20px; box-shadow:0 24px 48px rgba(0,0,0,0.18); }
+    .ds-modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+  </style>
+</head>
+<body>
+  <h1>Accessibility demo — keyboard behaviors</h1>
+  <div class="demo-area">
+    <div class="row">
+      <button id="menuBtn" class="ds-btn-ghost" aria-haspopup="true" aria-expanded="false">More ▾</button>
+      <div id="menu" class="ds-menu" role="menu" aria-labelledby="menuBtn">
+        <button class="ds-menu-item" role="menuitem">Export</button>
+        <button class="ds-menu-item" role="menuitem">Delete</button>
+        <button class="ds-menu-item" role="menuitem">Properties</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <button id="tooltipBtn" class="ds-btn-ghost" aria-describedby="tip">Hover or focus</button>
+      <div id="tip" class="ds-tooltip" role="tooltip">Open dataset</div>
+    </div>
+
+    <div class="row">
+      <button id="openModal" class="ds-btn-primary">Open modal</button>
+    </div>
+
+    <p>Try: <kbd>Enter</kbd>/<kbd>Space</kbd> to open controls, <kbd>ArrowDown</kbd>/<kbd>ArrowUp</kbd> to navigate menu, <kbd>Esc</kbd> to close, <kbd>Tab</kbd> to cycle focus inside a modal.</p>
+  </div>
+
+  <div id="modalBackdrop" class="ds-modal-backdrop" role="dialog" aria-modal="true">
+    <div class="ds-modal" role="document">
+      <h2>Confirm export</h2>
+      <p>Exporting will write files to disk. Proceed?</p>
+      <div class="ds-modal-actions">
+        <button id="confirmExport" class="ds-btn-primary">Export</button>
+        <button id="cancelExport" class="ds-btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

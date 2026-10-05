@@ -1,1 +1,0 @@
-"""Apresentacao do modo OBB."""

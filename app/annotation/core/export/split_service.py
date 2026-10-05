@@ -6,6 +6,18 @@ import math
 from typing import Any, Dict, Sequence, Tuple
 
 
+def normalize_split_ratios(split_ratios: Tuple[float, float, float]) -> Tuple[float, float, float]:
+    """Validate and normalize split ratios so they sum to exactly 1.0."""
+    if len(split_ratios) != 3:
+        raise ValueError("split_ratios must contain train, val and test.")
+    if any(ratio < 0 for ratio in split_ratios):
+        raise ValueError("split_ratios cannot contain negative values.")
+    total = sum(split_ratios)
+    if total <= 0:
+        raise ValueError("split_ratios must have a positive sum.")
+    return tuple(ratio / total for ratio in split_ratios)
+
+
 def compute_split_counts(total: int, split_ratios: Tuple[float, float, float]) -> Dict[str, int]:
     if total <= 0:
         return {"train": 0, "val": 0, "test": 0}
