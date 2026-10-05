@@ -1,7 +1,14 @@
 from app.annotation_obb.shared import *
+from app.annotation.infrastructure.persistence.safe_paths import contained_path
+from app import __version__ as APP_VERSION
+from app.annotation.infrastructure.persistence.state_file import read_annotation_state
+from app.annotation.infrastructure.persistence.async_writer import AnnotationsAsyncWriterMixin
+from app.annotation.sources.source_identity import SourceIdentityMixin
 
 
-class OBBCocoStorageMixin:
+class OBBCocoStorageMixin(SourceIdentityMixin, AnnotationsAsyncWriterMixin):
+    _annotations_log_label = "Anotacoes OBB"
+
     def detections_to_save(self) -> List[OBBDetection]:
         return list(self.current_obb_detections) + list(self.manual_obb_detections)
 
@@ -23,8 +30,11 @@ class OBBCocoStorageMixin:
         if not new_frame and existing_file_name is not None:
             return existing_file_name
         if self.current_source_type == "images" and self.current_source_image_path is not None:
-            return self._source_image_output_name(self.current_source_image_path)
-        return f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
+            base_name = self._source_image_output_name(self.current_source_image_path)
+        else:
+            base_name = f"{self.video_name}_frame_{self.frame_index:05d}.jpg"
+        # Fontes com mesmo nome (cam1/video.mp4, cam2/video.mp4) nao podem compartilhar file_name.
+        return self._resolve_source_unique_name(base_name)
 
     def update_annotation_state(self):
         if self.current_frame is None:
@@ -44,6 +54,7 @@ class OBBCocoStorageMixin:
             "info": {
                 "description": "OBB oriented annotation with HBB compatibility bbox",
                 "version": "1.0",
+                "app_version": APP_VERSION,
                 "task_mode": self.task_mode.value,
                 "data_root": str(self.data_root),
                 "video_sources": [str(v) for v in self.video_files],
@@ -147,19 +158,15 @@ class OBBCocoStorageMixin:
             self.frames_saved_in_current_video += 1
         return image_id, file_name
 
-    def write_annotations(self):
+    def write_annotations(self, *, blocking: bool = False):
+        """Persist the COCO OBB payload — see AnnotationsAsyncWriterMixin for the rationale."""
         self.update_annotation_state()
         data = self.build_coco_payload()
         self.annotations_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = self.annotations_path.with_name(self.annotations_path.name + ".tmp")
-        try:
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            tmp_path.replace(self.annotations_path)
-        except Exception:
-            tmp_path.unlink(missing_ok=True)
-            raise
-        print(f"[INFO] Anotacoes OBB atualizadas em {self.annotations_path}")
+        if blocking:
+            self._write_annotations_now(data)
+            return
+        self._queue_annotations_write(data)
 
     def backup_annotations_file(self):
         if not self.annotations_path.exists():
@@ -177,31 +184,25 @@ class OBBCocoStorageMixin:
         return removed
 
     def remove_image_file(self, file_name: str) -> bool:
-        image_path = self.output_images_dir / file_name
-        if not image_path.exists():
+        image_path = contained_path(self.output_images_dir, file_name)
+        if image_path is None or not image_path.is_file():
             return False
         image_path.unlink()
         return True
 
     def remove_exported_dataset_files(self, file_name: str):
-        label_name = Path(file_name).with_suffix(".txt")
+        label_name = Path(file_name).with_suffix(".txt").as_posix()
         for split in ("train", "val", "test"):
-            image_path = self.yolo_dataset_dir / "images" / split / file_name
-            label_path = self.yolo_dataset_dir / "labels" / split / label_name
-            if image_path.exists():
-                image_path.unlink()
-            if label_path.exists():
-                label_path.unlink()
+            image_path = contained_path(self.yolo_dataset_dir / "images" / split, file_name)
+            label_path = contained_path(self.yolo_dataset_dir / "labels" / split, label_name)
+            for path in (image_path, label_path):
+                if path is not None and path.is_file():
+                    path.unlink()
 
     def load_existing_annotations(self):
-        annotations_path = getattr(self, "annotations_path", None)
-        if annotations_path is None or not annotations_path.exists():
-            return
-        try:
-            with open(annotations_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception as exc:  # pylint: disable=broad-except
-            print(f"[AVISO] Falha ao ler anotacoes OBB existentes: {exc}")
+        # Ilegivel -> AnnotationStateUnreadableError: nunca seguir com sessao vazia.
+        data = read_annotation_state(getattr(self, "annotations_path", None))
+        if data is None:
             return
         self.images = data.get("images", [])
         self.annotations = data.get("annotations", [])

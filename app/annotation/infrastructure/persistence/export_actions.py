@@ -3,19 +3,55 @@
 from datetime import datetime
 
 from app.annotation.shared import *
+from app.annotation.infrastructure.export.export_dir import (
+    UnsafeExportDirError,
+    ensure_export_dir,
+    is_inolabel_export,
+    mark_export_dir,
+)
 from app.dataset_export import export_detection_coco_json, export_yolo_dataset, export_yolo_no_split, load_json
 
 
 class ExportActionsMixin:
     def resolve_user_export_root(self, destination_parent: Path, folder_name: str) -> Path:
-        requested = (Path(destination_parent).expanduser() / folder_name).resolve()
+        """Pasta onde a exportacao escrevera; nunca uma pasta que contenha dados do usuario.
+
+        - nome com separador, "." ou ".." e recusado (escaparia do destino escolhido);
+        - dentro do estado da sessao: vira a irma "<output>_export";
+        - a pasta do estado ou um ancestral dela, o dataset de origem (ou algo dentro
+          dele ou acima dele), a home ou a raiz do disco: recusado;
+        - pasta existente com conteudo que nao veio de uma exportacao: ganha sufixo de data.
+        """
+        name = str(folder_name).strip()
+        if not name or name in (".", "..") or "/" in name or "\\" in name:
+            raise UnsafeExportDirError(f"Nome de pasta de exportacao invalido: {folder_name!r}")
+
+        requested = (Path(destination_parent).expanduser() / name).resolve()
         output_dir = self.output_dir.resolve()
         if requested == output_dir or output_dir in requested.parents:
-            candidate = output_dir.with_name(f"{output_dir.name}_export")
-            if not candidate.exists():
-                return candidate
+            requested = output_dir.with_name(f"{output_dir.name}_export")
+
+        if requested == output_dir or requested in output_dir.parents:
+            raise UnsafeExportDirError(
+                f"Destino de exportacao invalido: {requested} contem o estado desta sessao."
+            )
+        data_root = getattr(self, "data_root", None)
+        if data_root is not None:
+            data_root = Path(data_root).resolve()
+            # Dentro do dataset, as imagens exportadas virariam fontes na proxima sessao.
+            if requested == data_root or requested in data_root.parents or data_root in requested.parents:
+                raise UnsafeExportDirError(
+                    f"Destino de exportacao invalido: {requested} fica no dataset de origem."
+                )
+        if requested == Path.home().resolve() or requested.parent == requested:
+            raise UnsafeExportDirError(f"Destino de exportacao invalido: {requested}")
+
+        occupied = requested.exists() and (
+            not requested.is_dir() or (any(requested.iterdir()) and not is_inolabel_export(requested))
+        )
+        if occupied:
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            return candidate.with_name(f"{candidate.name}_{stamp}")
+            requested = requested.with_name(f"{requested.name}_{stamp}")
         return requested
 
     def resolve_export_dataset_path(self, selected_dir: Path) -> Path:
@@ -40,6 +76,8 @@ class ExportActionsMixin:
         if self.coco_detection_export_path.exists():
             export_detection_coco_json(self.build_coco_payload(), self.coco_detection_export_path)
         if (self.yolo_dataset_dir / "data.yaml").exists():
+            # Pasta interna do estado, criada por versoes sem marcador: e nossa, pode ser recriada.
+            mark_export_dir(self.yolo_dataset_dir)
             export_yolo_dataset(
                 self.build_coco_payload(),
                 source_images_dir=self.output_images_dir,
@@ -51,7 +89,8 @@ class ExportActionsMixin:
 
     def load_export_payload_from_state(self) -> dict:
         self.autosave_current_frame(reason="exportar dataset")
-        self.write_annotations()
+        # Blocking: the payload is read back from disk immediately below.
+        self.write_annotations(blocking=True)
         if not self.annotations_path.exists():
             raise FileNotFoundError(f"Annotation state not found: {self.annotations_path}")
         payload = load_json(self.annotations_path)
@@ -60,12 +99,20 @@ class ExportActionsMixin:
             raise RuntimeError("No images saved in the current state to export.")
         return payload
 
-    def reconcile_export_payload_with_state_files(self, payload: dict) -> dict:
+    def reconcile_export_payload_with_state_files(self, payload: dict, *, include_orphans: bool = False) -> dict:
+        """Confere as imagens em output/images contra o estado.
+
+        Imagens sem registro (orfas: queda entre gravar o JPG e o estado, colisao de
+        nomes de versoes antigas) nao tem anotacoes conhecidas. Exporta-las as tornaria
+        negativas ("nenhum objeto") e criaria falsos negativos no treino, entao por
+        padrao ficam de fora e so sao contadas em `self.last_export_orphan_count`.
+        """
         payload = dict(payload)
         images = [dict(image) for image in payload.get("images", [])]
         known_files = {str(image.get("file_name", "")).strip() for image in images}
         known_ids = [int(image.get("id", 0) or 0) for image in images]
         next_image_id = max(known_ids, default=0) + 1
+        self.last_export_orphan_count = 0
 
         if not self.output_images_dir.exists():
             payload["images"] = images
@@ -77,6 +124,9 @@ class ExportActionsMixin:
                 continue
             file_name = image_path.relative_to(self.output_images_dir).as_posix()
             if file_name in known_files:
+                continue
+            self.last_export_orphan_count += 1
+            if not include_orphans:
                 continue
 
             frame = cv2.imread(str(image_path))
@@ -98,11 +148,57 @@ class ExportActionsMixin:
         payload["images"] = images
         return payload
 
-    def perform_dataset_export(self, config, cancel_event=None):
+    def _export_yolo_format(self, payload, yolo_root, config, on_progress):
+        """Returns (summary_line, exported_part). Override per task to change the YOLO flavor."""
+        if config.use_split:
+            report = export_yolo_dataset(
+                payload,
+                source_images_dir=self.output_images_dir,
+                dataset_root=yolo_root,
+                split_ratios=config.split_ratios,
+                augmentation_preset=config.augmentation,
+                on_progress=on_progress,
+            )
+            total_images = sum(report["images_per_split"].values())
+            total_labels = sum(report["labels_per_split"].values())
+            split_text = " ".join(f"{name}={count}" for name, count in report["images_per_split"].items())
+            return f"YOLO: {total_images} imagens, {total_labels} labels", f"YOLO {split_text}"
+        report = export_yolo_no_split(
+            payload,
+            source_images_dir=self.output_images_dir,
+            dataset_root=yolo_root,
+            augmentation_preset=config.augmentation,
+            on_progress=on_progress,
+        )
+        return (
+            f"YOLO: {report['total_images']} imagens, {report['total_labels']} labels",
+            f"YOLO all={report['total_images']} imgs",
+        )
+
+    def _export_coco_format(self, payload, coco_dir, on_progress):
+        """Returns (summary_line, exported_part). Override per task to change the COCO flavor."""
+        coco_path = coco_dir / "annotations.coco.json"
+        converted = export_detection_coco_json(
+            payload,
+            coco_path,
+            source_images_dir=self.output_images_dir,
+            on_progress=on_progress,
+        )
+        return f"COCO: {len(converted['images'])} imagens", f"COCO imgs={len(converted['images'])}"
+
+    def perform_dataset_export(self, config, cancel_event=None, payload=None):
+        """Roda no worker de exportacao.
+
+        `payload` deve vir pronto da thread da UI (load_export_payload_from_state faz
+        autosave e mexe no estado em memoria). Sem ele, carrega aqui — so para chamadas
+        sincronas fora da tela de exportacao.
+        """
         multi_format = len(config.formats) > 1
-        export_root = self.resolve_user_export_root(config.destination_parent, config.folder_name)
         try:
-            payload = self.load_export_payload_from_state()
+            export_root = self.resolve_user_export_root(config.destination_parent, config.folder_name)
+            ensure_export_dir(export_root)
+            if payload is None:
+                payload = self.load_export_payload_from_state()
             exported_parts: list = []
             yolo_summary = ""
             coco_summary = ""
@@ -118,53 +214,29 @@ class ExportActionsMixin:
                 steps_done[0] = offset + done_in_format
                 if hasattr(self, "update_export_progress"):
                     pct = int(steps_done[0] * 100 / max(total_steps, 1))
-                    self.window.after(0, lambda p=pct: self.update_export_progress(p))
+                    self._post_to_main(lambda p=pct: self.update_export_progress(p))
 
             yolo_offset = 0
             coco_offset = n_images if "yolo" in config.formats else 0
 
             if "yolo" in config.formats:
                 yolo_root = export_root / "yolo" if multi_format else export_root
-                if config.use_split:
-                    report = export_yolo_dataset(
-                        payload,
-                        source_images_dir=self.output_images_dir,
-                        dataset_root=yolo_root,
-                        split_ratios=config.split_ratios,
-                        augmentation_preset=config.augmentation,
-                        on_progress=lambda d, _t: _progress(d, yolo_offset),
-                    )
-                    total_images = sum(report["images_per_split"].values())
-                    total_labels = sum(report["labels_per_split"].values())
-                    split_text = " ".join(
-                        f"{name}={count}" for name, count in report["images_per_split"].items()
-                    )
-                    yolo_summary = f"YOLO: {total_images} imagens, {total_labels} labels"
-                    exported_parts.append(f"YOLO {split_text}")
-                else:
-                    report = export_yolo_no_split(
-                        payload,
-                        source_images_dir=self.output_images_dir,
-                        dataset_root=yolo_root,
-                        augmentation_preset=config.augmentation,
-                        on_progress=lambda d, _t: _progress(d, yolo_offset),
-                    )
-                    yolo_summary = f"YOLO: {report['total_images']} imagens, {report['total_labels']} labels"
-                    exported_parts.append(f"YOLO all={report['total_images']} imgs")
+                yolo_summary, part = self._export_yolo_format(
+                    payload, yolo_root, config, lambda d, _t: _progress(d, yolo_offset)
+                )
+                exported_parts.append(part)
 
             if "coco" in config.formats:
                 coco_dir = export_root / "coco" if multi_format else export_root
-                coco_path = coco_dir / "annotations.coco.json"
-                converted = export_detection_coco_json(
-                    payload,
-                    coco_path,
-                    source_images_dir=self.output_images_dir,
-                    on_progress=lambda d, _t: _progress(d, coco_offset),
+                coco_summary, part = self._export_coco_format(
+                    payload, coco_dir, lambda d, _t: _progress(d, coco_offset)
                 )
-                coco_summary = f"COCO: {len(converted['images'])} imagens"
-                exported_parts.append(f"COCO imgs={len(converted['images'])}")
+                exported_parts.append(part)
 
             summary_lines = [line for line in (yolo_summary, coco_summary) if line]
+            orphans = getattr(self, "last_export_orphan_count", 0)
+            if orphans:
+                summary_lines.append(f"{orphans} imagem(ns) sem registro no estado ignorada(s)")
             message = f"Dataset exportado com sucesso em: {export_root}"
             if summary_lines:
                 message += " | " + " | ".join(summary_lines)
@@ -173,7 +245,7 @@ class ExportActionsMixin:
                 self.info_var.set(msg)
                 if hasattr(self, "set_export_status"):
                     self.set_export_status(root, parts, cfg)
-            self.window.after(0, _on_success)
+            self._post_to_main(_on_success)
         except InterruptedError:
             print("[INFO] Export cancelled by user.")
         except Exception as exc:  # pylint: disable=broad-except
@@ -183,4 +255,4 @@ class ExportActionsMixin:
                 self.info_var.set(msg)
                 if hasattr(self, "set_export_error"):
                     self.set_export_error(msg)
-            self.window.after(0, _on_error)
+            self._post_to_main(_on_error)

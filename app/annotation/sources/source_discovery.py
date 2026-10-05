@@ -1,4 +1,5 @@
 from app.annotation.shared import *
+from app.log_privacy import log_ref
 
 
 class SourceDiscoveryMixin:
@@ -74,7 +75,7 @@ class SourceDiscoveryMixin:
             self.current_image_cursor += 1
             frame = cv2.imread(str(image_path))
             if frame is None:
-                print(f"[AVISO] Falha ao ler imagem: {image_path}")
+                print(f"[AVISO] Falha ao ler imagem: {log_ref(image_path)}")
                 continue
             self.current_source_image_path = image_path
             return frame

@@ -9,10 +9,17 @@ class LifecycleMixin:
             return None
         if getattr(self, "_autosaving", False):
             return None
-        file_name = self.current_frame_file_name()
-        existing = self.find_image_record_by_file_name(file_name) if file_name else None
-        existing_id = int(existing["id"]) if existing is not None else None
-        existing_file = str(existing["file_name"]) if existing is not None else None
+        review_record = self._autosave_review_record()
+        if review_record is not None:
+            # In review the live source path no longer describes the frame on screen:
+            # deriving the name from it would store the frame again under a new name.
+            existing_id = int(review_record["image_id"])
+            existing_file = str(review_record["file_name"])
+        else:
+            file_name = self.current_frame_file_name()
+            existing = self.find_image_record_by_file_name(file_name) if file_name else None
+            existing_id = int(existing["id"]) if existing is not None else None
+            existing_file = str(existing["file_name"]) if existing is not None else None
         try:
             self._autosaving = True
             detections = self.detections_to_save()
@@ -24,7 +31,7 @@ class LifecycleMixin:
             self.write_annotations()
             self.update_manual_memory_after_accept(detections)
             self.remember_saved_record(detections, image_id, saved_file)
-            msg = f"Autosave concluido: {saved_file}"
+            msg = f"Autosave concluido: image_id={image_id}"
             if reason:
                 msg += f" ({reason})"
             print(f"[INFO] {msg}")
@@ -34,6 +41,17 @@ class LifecycleMixin:
             return None
         finally:
             self._autosaving = False
+
+    def _autosave_review_record(self) -> Optional[dict]:
+        """Returns the saved record on screen while in review mode, else None."""
+        review_idx = getattr(self, "review_idx", None)
+        records = getattr(self, "saved_records", None) or []
+        if review_idx is None or not 0 <= review_idx < len(records):
+            return None
+        record = records[review_idx]
+        if record.get("image_id") is None or not str(record.get("file_name", "")).strip():
+            return None
+        return record
 
     def finish_processing(self, message: str):
         if self.closed:
@@ -74,7 +92,8 @@ class LifecycleMixin:
                     pass
         try:
             if self.images or self.annotations:
-                self.write_annotations()
+                # Blocking: the backup copies the file right after, so it must be complete.
+                self.write_annotations(blocking=True)
                 self.backup_annotations_file()
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[ERRO] Falha ao salvar anotacoes no encerramento: {exc}")
@@ -88,16 +107,48 @@ class LifecycleMixin:
             self.info_var.set(message)
         except Exception:  # pylint: disable=broad-except
             pass
+        self._shutdown_export_thread()
+        self.flush_pending_annotations()
         self._destroy_window()
 
+    def _shutdown_export_thread(self):
+        """Stop any background export before tearing down Tk.
+
+        A daemon export thread alive during interpreter shutdown is a classic
+        cause of 'Tcl_AsyncDelete: async handler deleted by the wrong thread'.
+        """
+        self._export_running = False
+        event = getattr(self, "_export_cancel_event", None)
+        if event is not None:
+            event.set()
+        thread = getattr(self, "_export_thread", None)
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=5)
+
     def _destroy_window(self):
-        try:
-            self.window.after(500, self.window.destroy)
-        except Exception:  # pylint: disable=broad-except
+        # Release Tk-owned images while the interpreter is still alive, otherwise
+        # PhotoImage finalizers run after teardown and abort with Tcl_AsyncDelete.
+        pending = getattr(self, "_resize_after_id", None)
+        if pending is not None:
             try:
-                self.window.destroy()
-            except Exception:
+                self.window.after_cancel(pending)
+            except Exception:  # pylint: disable=broad-except
                 pass
+            self._resize_after_id = None
+        try:
+            if getattr(self, "canvas", None) is not None:
+                self.canvas.delete("all")
+        except Exception:  # pylint: disable=broad-except
+            pass
+        self.tk_image = None
+        try:
+            self.window.quit()
+        except Exception:  # pylint: disable=broad-except
+            pass
+        try:
+            self.window.destroy()
+        except Exception:  # pylint: disable=broad-except
+            pass
 
     def run(self):
         self.window.mainloop()

@@ -1,4 +1,5 @@
 from app.annotation.shared import *
+from app.log_privacy import log_ref
 
 
 class WorkflowActionsMixin:
@@ -19,7 +20,7 @@ class WorkflowActionsMixin:
         message = f"Imagem deletada: {file_name} | anotacoes removidas: {removed_annotations}"
         if not file_removed:
             message += " | arquivo ja nao existia em output/images"
-        print(f"[INFO] {message}")
+        print(f"[INFO] Imagem deletada: image_id={image_id} | anotacoes removidas: {removed_annotations}")
 
         if self.saved_records:
             next_idx = min(current_idx, len(self.saved_records) - 1)
@@ -44,7 +45,7 @@ class WorkflowActionsMixin:
         self.current_detections = []
         self.manual_detections = []
         self.info_var.set(f"Imagem removida da sequencia: {image_path.name}")
-        print(f"[INFO] Imagem removida da sequencia: {image_path}")
+        print(f"[INFO] Imagem removida da sequencia: {log_ref(image_path)}")
         self.load_next_frame()
 
     def on_delete_image(self):
@@ -76,7 +77,7 @@ class WorkflowActionsMixin:
         except Exception as exc:  # pylint: disable=broad-except
             target_name = str(record.get("file_name", "")).strip() if record is not None else delete_target.name
             self.info_var.set(f"Falha ao deletar {target_name}: {exc}")
-            print(f"[ERRO] Falha ao deletar {target_name}: {exc}")
+            print(f"[ERRO] Falha ao deletar {log_ref(target_name)}: {type(exc).__name__}")
 
     def on_accept(self):
         """Persists annotations when the user approves the frame."""
@@ -93,11 +94,18 @@ class WorkflowActionsMixin:
             self.write_annotations()
             self.advance_after_review_accept()
             return
-        image_id, file_name = self.store_annotations(detections_to_save)
+        # Frame ja salvo (voltou com <-, retomou a sessao): reaproveita o registro em vez
+        # de criar outro image_id com o mesmo file_name.
+        existing = self.existing_record_for_current_frame()
+        image_id, file_name = self.store_annotations(
+            detections_to_save,
+            existing_image_id=int(existing["id"]) if existing is not None else None,
+            existing_file_name=str(existing["file_name"]) if existing is not None else None,
+        )
         self.write_annotations()
         if detections_to_save:
             self.update_manual_memory_after_accept(detections_to_save)
-        self.append_saved_record(detections_to_save, image_id, file_name)
+        self.remember_saved_record(detections_to_save, image_id, file_name)
         self.load_next_frame()
 
     def on_reject(self):

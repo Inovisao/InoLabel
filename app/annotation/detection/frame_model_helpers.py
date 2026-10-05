@@ -23,8 +23,8 @@ class FrameModelHelpersMixin:
                 if category_id is None:
                     continue
                 xyxy = box.xyxy.cpu().numpy()[0]
-                xyxy[0::2] = np.clip(xyxy[0::2], 0, img_width - 1)
-                xyxy[1::2] = np.clip(xyxy[1::2], 0, img_height - 1)
+                xyxy[0::2] = np.clip(xyxy[0::2], 0, img_width)
+                xyxy[1::2] = np.clip(xyxy[1::2], 0, img_height)
                 all_dets.append(xyxy)
                 all_scores.append(conf)
                 all_cat_ids.append(category_id)

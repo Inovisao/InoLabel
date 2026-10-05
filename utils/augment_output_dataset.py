@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import argparse
 import json
 from copy import deepcopy
@@ -11,7 +12,10 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import cv2
 import numpy as np
 
-from app.config import ANNOTATIONS_PATH, COCO_DETECTION_EXPORT_PATH, OUTPUT_IMAGES_DIR
+# Rodado como script (python utils/x.py), a raiz do projeto nao esta no sys.path.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from app.dataset_export import export_detection_coco_json
 
 BRIGHTNESS_DELTAS = (-0.10, 0.10)
@@ -21,17 +25,18 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Gera imagens augmentadas em output_dataset e atualiza annotations.coco.json."
     )
+    # Os caminhos sao por projeto (definidos no wizard); nao ha padrao global.
     parser.add_argument(
         "--annotations",
         type=Path,
-        default=ANNOTATIONS_PATH,
-        help=f"Caminho do annotations.coco.json (padrao: {ANNOTATIONS_PATH})",
+        required=True,
+        help="Caminho do annotations.coco.json (ex.: <projeto>/saved_data_states/annotations.coco.json)",
     )
     parser.add_argument(
         "--images-dir",
         type=Path,
-        default=OUTPUT_IMAGES_DIR,
-        help=f"Pasta das imagens do dataset (padrao: {OUTPUT_IMAGES_DIR})",
+        required=True,
+        help="Pasta das imagens do projeto (ex.: <projeto>/images)",
     )
     parser.add_argument(
         "--rotate90",
@@ -267,9 +272,12 @@ def main():
         f"+{len(new_images)} imagens, +{len(new_annotations)} anotacoes."
     )
 
-    if COCO_DETECTION_EXPORT_PATH.exists():
-        export_detection_coco_json(payload, COCO_DETECTION_EXPORT_PATH)
-        print(f"[INFO] COCO de deteccao atualizado em {COCO_DETECTION_EXPORT_PATH}")
+    # Layout do projeto: <projeto>/saved_data_states/annotations.coco.json e
+    # <projeto>/annotations_detection.coco.json (ver CoreInitMixin).
+    coco_detection_path = args.annotations.resolve().parent.parent / "annotations_detection.coco.json"
+    if coco_detection_path.exists():
+        export_detection_coco_json(payload, coco_detection_path)
+        print("[INFO] COCO de deteccao do projeto atualizado.")
 
 
 if __name__ == "__main__":
