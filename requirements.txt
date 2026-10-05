@@ -7,6 +7,11 @@ numpy==2.0.2
 scipy==1.13.1
 lap==0.5.13
 cython-bbox==0.1.5
+# Backend web (app/api): servidor e validacao.
+fastapi==0.128.8
+uvicorn==0.39.0
+pydantic==2.13.4
+filelock==3.19.1
 # Dependencias do ultralytics fixadas por reprodutibilidade. Para GPU, instale a
 # variante CUDA destas mesmas versoes pelo indice do PyTorch.
 torch==2.8.0
