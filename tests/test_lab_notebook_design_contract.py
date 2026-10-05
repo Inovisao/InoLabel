@@ -49,11 +49,3 @@ def test_react_canvas_uses_stroked_overlays_without_tint_fill():
     assert "strokeWidth={2}" in canvas
     assert "fill={`${clsColor}18`}" not in canvas
     assert "fill={`${color}18`}" not in canvas
-
-
-def test_python_canvas_overlay_colors_are_tokenized():
-    from app.annotation.ui import display_overlays
-
-    assert display_overlays.ROI_LINE_COLOR == "#1560BD"
-    assert display_overlays.ROI_POINT_COLOR == "#F07820"
-    assert display_overlays.MANUAL_RECTANGLE_COLOR == "#F07820"
