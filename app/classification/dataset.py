@@ -275,9 +275,11 @@ def list_output_states_for_sources(
     project_sources = _normalize_paths(sources)
     if not project_sources:
         return []
+    # Caminho identico, nao "um dentro do outro": senao uma pasta nova dentro de um
+    # dataset antigo retoma o estado antigo (ver app/core/output_state.py).
     return [
         state for state in list_output_states(outputs_dir)
-        if any(_paths_overlap(source, state.source_root) for source in project_sources)
+        if any(_same_path(source, state.source_root) for source in project_sources)
     ]
 
 
@@ -564,24 +566,9 @@ def _normalize_paths(paths: Iterable[Path]) -> tuple[Path, ...]:
     return tuple(normalized)
 
 
-def _paths_overlap(left: Path, right: Path) -> bool:
-    if not right:
+def _same_path(left: Path, right: Path) -> bool:
+    # Path("") vira "." (pasta atual): estado sem source_root nao pertence a dataset nenhum.
+    if str(left) in ("", ".") or str(right) in ("", "."):
         return False
-    try:
-        left = Path(left).expanduser().resolve()
-    except OSError:
-        left = Path(left).expanduser().absolute()
-    try:
-        right = Path(right).expanduser().resolve()
-    except OSError:
-        right = Path(right).expanduser().absolute()
-    try:
-        left.relative_to(right)
-        return True
-    except ValueError:
-        pass
-    try:
-        right.relative_to(left)
-        return True
-    except ValueError:
-        return False
+    normalized = _normalize_paths((left, right))
+    return len(normalized) == 1  # os dois viraram o mesmo caminho resolvido

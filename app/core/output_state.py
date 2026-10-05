@@ -316,25 +316,13 @@ def _normalize_source_paths(paths: Iterable[Path]) -> tuple[Path, ...]:
 
 
 def _state_matches_sources(state: OutputState, project_sources: tuple[Path, ...]) -> bool:
+    """O estado pertence ao dataset escolhido so quando um caminho coincide exatamente.
+
+    Antes bastava um caminho estar dentro do outro: escolher `datasets/lote_novo`
+    associava o projeto cujo dataset era `datasets/`, e o wizard passava a continuar
+    esse projeto (outra pasta de saida, outra posicao, outras imagens).
+    """
     state_sources = set(state.source_paths)
     if not state_sources:
         return False
-    for source in project_sources:
-        if source in state_sources:
-            return True
-        if any(_paths_overlap(source, state_source) for state_source in state_sources):
-            return True
-    return False
-
-
-def _paths_overlap(left: Path, right: Path) -> bool:
-    try:
-        left.relative_to(right)
-        return True
-    except ValueError:
-        pass
-    try:
-        right.relative_to(left)
-        return True
-    except ValueError:
-        return False
+    return any(source in state_sources for source in project_sources)

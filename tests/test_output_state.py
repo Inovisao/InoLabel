@@ -229,6 +229,68 @@ class OutputStateTest(unittest.TestCase):
         self.assertEqual(latest.path.name, old_for_a.name)
         self.assertEqual(latest.class_names, ("a",))
 
+    def test_new_folder_inside_old_dataset_does_not_resume_old_project(self):
+        """Regressao: escolher datasets/lote_novo retomava o projeto cujo dataset era datasets/."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            parent = root / "datasets"
+            new_folder = parent / "lote_novo"
+            new_folder.mkdir(parents=True)
+            outputs = root / "outputs"
+            old_project = outputs / "projeto_antigo"
+            self._write_annotations(old_project, sources=[parent], data_root=parent)
+
+            self.assertEqual(list_output_states_for_sources([new_folder], outputs), [])
+            self.assertIsNone(latest_output_state_for_sources([new_folder], outputs))
+            # O proprio dataset do projeto continua sendo reconhecido.
+            self.assertEqual(
+                [s.path.name for s in list_output_states_for_sources([parent], outputs)], ["projeto_antigo"]
+            )
+
+    def test_parent_folder_does_not_resume_project_of_a_subfolder(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            parent = root / "datasets"
+            child = parent / "lote_a"
+            child.mkdir(parents=True)
+            outputs = root / "outputs"
+            self._write_annotations(outputs / "projeto_lote_a", sources=[child], data_root=child)
+
+            self.assertEqual(list_output_states_for_sources([parent], outputs), [])
+
+    def test_video_listed_in_state_still_matches(self):
+        """Selecionar um video que o projeto ja usava continua retomando o projeto."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            folder = root / "videos"
+            folder.mkdir()
+            video = folder / "cam1.mp4"
+            video.write_bytes(b"")
+            outputs = root / "outputs"
+            self._write_annotations(outputs / "projeto", sources=[video], data_root=folder)
+
+            self.assertEqual([s.path.name for s in list_output_states_for_sources([video], outputs)], ["projeto"])
+
+
+class ClassificationStateMatchingTest(unittest.TestCase):
+    def test_new_folder_inside_old_source_does_not_resume(self):
+        from app.classification.dataset import list_output_states_for_sources as list_cls_states, write_state
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            parent = root / "fotos"
+            new_folder = parent / "lote_novo"
+            new_folder.mkdir(parents=True)
+            outputs = root / "outputs"
+            project = outputs / "projeto_antigo"
+            project.mkdir(parents=True)
+            from app.classification.dataset import STATE_FILE_NAME
+            write_state(project / STATE_FILE_NAME, classes=["a"], class_directories={},
+                        source_root=parent, records=[])
+
+            self.assertEqual(list_cls_states([new_folder], outputs), [])
+            self.assertEqual([s.path.name for s in list_cls_states([parent], outputs)], ["projeto_antigo"])
+
 
 if __name__ == "__main__":
     unittest.main()

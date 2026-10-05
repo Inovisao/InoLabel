@@ -92,9 +92,10 @@ class LifecycleMixin:
                     pass
         try:
             if self.images or self.annotations:
-                # Blocking: the backup copies the file right after, so it must be complete.
+                # Sem backup aqui: o .bak e feito ao abrir a sessao (CoreInitMixin) e precisa
+                # continuar guardando o estado de antes dela — copiar agora o sobrescreveria
+                # com o estado final, inutil para desfazer uma sessao errada.
                 self.write_annotations(blocking=True)
-                self.backup_annotations_file()
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[ERRO] Falha ao salvar anotacoes no encerramento: {exc}")
         try:

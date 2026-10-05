@@ -20,3 +20,13 @@ def log_ref(name: Union[str, Path, None]) -> str:
         return "<arquivo ?>"
     digest = hashlib.sha1(str(name).encode("utf-8")).hexdigest()[:8]
     return f"<arquivo {digest}>"
+
+
+def silence_opencv_path_logs() -> None:
+    """Os avisos do OpenCV (ex.: imread que falha) incluem o caminho do arquivo."""
+    try:
+        import cv2  # pylint: disable=import-outside-toplevel
+
+        cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_SILENT)
+    except Exception:  # pylint: disable=broad-except
+        pass
