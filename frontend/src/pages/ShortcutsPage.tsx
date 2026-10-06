@@ -31,6 +31,8 @@ const GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
       { keys: ["Delete"], action: "Remover anotação selecionada" },
       { keys: ["Esc"], action: "Desmarcar a caixa selecionada" },
       { keys: ["N"], action: "Marcar frame revisado sem objetos (negativo)" },
+      { keys: ["Q", "E"], action: "OBB: girar a caixa selecionada 5° (Shift: 1°)" },
+      { keys: ["Alça ○"], action: "OBB: arrastar para girar (Shift: de 15° em 15°)" },
       { keys: ["Duplo clique"], action: "Remover anotação (no canvas)" },
     ],
   },

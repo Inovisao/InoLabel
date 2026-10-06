@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Stage, Layer, Image as KonvaImage, Rect, Text, Group, Line } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Group, Line, Circle } from "react-konva";
 import Konva from "konva";
 import { useAnnotationStore } from "../../stores/annotation";
 import { useSessionStore } from "../../stores/session";
-import type { Annotation } from "../../api/types";
+import type { Annotation, OBBGeometry } from "../../api/types";
 import ConfirmModal from "../modals/ConfirmModal";
+import {
+  angleFromCenter,
+  fitInsideImage,
+  obbCorners,
+  pointInPolygon,
+  rotateTo,
+} from "./obbGeometry";
+
+/** Distância (px de tela) da alça de rotação até o lado superior da caixa. */
+const ROTATE_HANDLE_OFFSET = 28;
+const ROTATE_SNAP_DEG = 15;
 
 interface DrawingRect {
   x: number;
@@ -26,27 +37,6 @@ function colorForTrack(trackId: number) {
   return `var(${TRACK_COLOR_VARS[Math.abs(trackId) % TRACK_COLOR_VARS.length]})`;
 }
 
-function obbPoints(ann: Annotation): [number, number][] | null {
-  const obb = ann.obb;
-  if (!obb) return null;
-  if (obb.points?.length === 4) return obb.points;
-
-  const theta = (obb.angle * Math.PI) / 180;
-  const cos = Math.cos(theta);
-  const sin = Math.sin(theta);
-  const halfW = obb.width / 2;
-  const halfH = obb.height / 2;
-  return [
-    [-halfW, -halfH],
-    [halfW, -halfH],
-    [halfW, halfH],
-    [-halfW, halfH],
-  ].map(([dx, dy]) => [
-    obb.cx + dx * cos - dy * sin,
-    obb.cy + dx * sin + dy * cos,
-  ]);
-}
-
 export default function AnnotationCanvas() {
   const {
     frame,
@@ -58,6 +48,8 @@ export default function AnnotationCanvas() {
     updateAnnotation,
     selectedAnnotationId,
     selectAnnotation,
+    rotateSelected,
+    setImageSize,
     tool,
     error,
     clearError,
@@ -70,6 +62,8 @@ export default function AnnotationCanvas() {
   const [drawing, setDrawing] = useState<DrawingRect | null>(null);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
   const [confirmAnnId, setConfirmAnnId] = useState<number | null>(null);
+  /** OBB: geometria em pré-visualização enquanto a alça de rotação é arrastada. */
+  const [rotatePreview, setRotatePreview] = useState<OBBGeometry | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -85,7 +79,10 @@ export default function AnnotationCanvas() {
     if (!frame?.image_b64) { setImg(null); return; }
     const image = new window.Image();
     image.src = `data:image/jpeg;base64,${frame.image_b64}`;
-    image.onload = () => setImg(image);
+    image.onload = () => {
+      setImg(image);
+      setImageSize({ width: image.width, height: image.height });
+    };
   }, [frame?.image_b64]);
 
   const imgScale = img ? Math.min(size.width / img.width, size.height / img.height) : 1;
@@ -108,10 +105,18 @@ export default function AnnotationCanvas() {
     if (!frame) return null;
     const { x, y } = toImageCoords(stageX, stageY);
     let best: Annotation | null = null;
+    let bestArea = Infinity;
     for (const ann of frame.annotations) {
+      // No OBB o teste é pelo polígono girado, não pelo retângulo envolvente.
+      const obb = mode === "obb" ? ann.obb : null;
       const [bx, by, bw, bh] = ann.bbox;
-      if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
-        if (!best || bw * bh < best.bbox[2] * best.bbox[3]) best = ann;
+      const hit = obb
+        ? pointInPolygon(x, y, obbCorners(obb))
+        : x >= bx && x <= bx + bw && y >= by && y <= by + bh;
+      const area = obb ? obb.width * obb.height : bw * bh;
+      if (hit && area < bestArea) {
+        best = ann;
+        bestArea = area;
       }
     }
     return best;
@@ -121,9 +126,10 @@ export default function AnnotationCanvas() {
     if (e.evt.button !== 0 || !img || mode === "classification") return;
     const pos = e.target.getStage()?.getPointerPosition();
     if (!pos) return;
-    // Ferramenta de seleção: clique escolhe a caixa; arrastar move (Rect draggable).
+    // Alça de rotação ou caixa arrastável: o gesto é delas, não desenha nem seleciona.
+    if (e.target.draggable() || e.target.getParent()?.draggable()) return;
+    // Ferramenta de seleção: clique escolhe a caixa; arrastar move (draggable).
     if (tool === "select") {
-      if (e.target.draggable()) return;
       selectAnnotation(annotationAt(pos.x, pos.y)?.id ?? null);
       return;
     }
@@ -253,9 +259,12 @@ export default function AnnotationCanvas() {
               const sw = bw * imgScale;
               const sh = bh * imgScale;
               const labelFontSize = Math.max(10, Math.min(14, sw * 0.12));
-              const points = mode === "obb" ? obbPoints(ann) : null;
+              const geometry = mode === "obb" && ann.obb
+                ? (selected && rotatePreview) || ann.obb
+                : null;
+              const points = geometry ? obbCorners(geometry) : null;
 
-              if (points) {
+              if (geometry && points) {
                 const scaled = points.flatMap(([px, py]) => [
                   offsetX + px * imgScale,
                   offsetY + py * imgScale,
@@ -263,8 +272,33 @@ export default function AnnotationCanvas() {
                 const labelX = Math.min(...points.map(([px]) => offsetX + px * imgScale));
                 const labelY = Math.min(...points.map(([, py]) => offsetY + py * imgScale));
 
+                // Alça: acima do meio do lado superior, na direção "para cima" da caixa.
+                const upAngle = ((geometry.angle - 90) * Math.PI) / 180;
+                const topMidX = offsetX + ((points[0][0] + points[1][0]) / 2) * imgScale;
+                const topMidY = offsetY + ((points[0][1] + points[1][1]) / 2) * imgScale;
+                const handleX = topMidX + Math.cos(upAngle) * ROTATE_HANDLE_OFFSET;
+                const handleY = topMidY + Math.sin(upAngle) * ROTATE_HANDLE_OFFSET;
+                const centerX = offsetX + geometry.cx * imgScale;
+                const centerY = offsetY + geometry.cy * imgScale;
+
                 return (
-                  <Group key={ann.id} onDblClick={() => setConfirmAnnId(ann.id)}>
+                  <Group
+                    key={ann.id}
+                    onDblClick={() => setConfirmAnnId(ann.id)}
+                    draggable={selected && tool === "select"}
+                    onDragEnd={(e) => {
+                      if (e.target !== e.currentTarget || !img) return;
+                      const dx = e.target.x() / imgScale;
+                      const dy = e.target.y() / imgScale;
+                      e.target.position({ x: 0, y: 0 });
+                      const moved = fitInsideImage(
+                        { ...ann.obb!, cx: ann.obb!.cx + dx, cy: ann.obb!.cy + dy },
+                        img.width,
+                        img.height
+                      );
+                      if (moved) updateAnnotation(ann.id, { obb: moved });
+                    }}
+                  >
                     <Line
                       points={scaled}
                       closed
@@ -293,6 +327,51 @@ export default function AnnotationCanvas() {
                       fill="#fff"
                       listening={false}
                     />
+                    {selected && (
+                      <>
+                        <Line
+                          points={[topMidX, topMidY, handleX, handleY]}
+                          stroke={clsColor}
+                          strokeWidth={1.5}
+                          listening={false}
+                        />
+                        <Circle
+                          x={handleX}
+                          y={handleY}
+                          radius={7}
+                          fill="#fff"
+                          stroke={clsColor}
+                          strokeWidth={2}
+                          draggable
+                          onMouseEnter={(e) => {
+                            const c = e.target.getStage()?.container();
+                            if (c) c.style.cursor = "grab";
+                          }}
+                          onMouseLeave={(e) => {
+                            const c = e.target.getStage()?.container();
+                            if (c) c.style.cursor = "";
+                          }}
+                          onDragMove={(e) => {
+                            if (!img || !ann.obb) return;
+                            const pos = e.target.getStage()?.getPointerPosition();
+                            if (!pos) return;
+                            // +90: a alça fica no "para cima" da caixa (ângulo − 90°).
+                            let angle = angleFromCenter(centerX, centerY, pos.x, pos.y) + 90;
+                            if (e.evt.shiftKey) angle = Math.round(angle / ROTATE_SNAP_DEG) * ROTATE_SNAP_DEG;
+                            const next = rotateTo(ann.obb, angle, img.width, img.height);
+                            if (next) setRotatePreview(next);
+                            // Mantém a alça sobre o arco, não onde o ponteiro largou.
+                            e.target.position({ x: handleX, y: handleY });
+                          }}
+                          onDragEnd={async (e) => {
+                            e.cancelBubble = true;
+                            const preview = rotatePreview;
+                            if (preview) await rotateSelected({ angle: preview.angle });
+                            setRotatePreview(null);
+                          }}
+                        />
+                      </>
+                    )}
                   </Group>
                 );
               }
@@ -434,7 +513,9 @@ export default function AnnotationCanvas() {
           >
             {mode === "classification"
               ? "Clique na classe ou digite o número dela · Espaço pula · Ctrl+Z desfaz"
-              : tool === "select"
+              : mode === "obb" && selectedAnnotationId !== null
+                ? "Arraste a alça ○ para girar (Shift: 15°) · Q / E giram 5° · V e arraste para mover · Del remove"
+                : tool === "select"
                 ? "Clique para selecionar · arraste a caixa selecionada para mover · Del remove · B volta a desenhar"
                 : "Arraste para anotar · clique numa caixa para editar · N marca frame sem objetos · Ctrl+Z desfaz"}
           </div>

@@ -128,12 +128,17 @@ def bootstrap_project_state() -> set:
 
 def _annotation_from_state(entry: dict) -> Annotation:
     obb = entry.get("obb")
+    geometry = None
+    bbox = entry["bbox"]
+    if isinstance(obb, dict):
+        # Os cantos gravados são o que foi exportado: são a verdade se divergirem do ângulo.
+        geometry, bbox = _finalize_obb(OBBGeometry(**obb))
     return Annotation(
         id=entry["id"],
         image_id=entry["image_id"],
         category_id=entry["category_id"],
-        bbox=entry["bbox"],
-        obb=OBBGeometry(**obb) if isinstance(obb, dict) else None,
+        bbox=bbox,
+        obb=geometry,
         track_id=entry.get("track_id"),
         source=entry.get("source") or "manual",
         score=entry.get("score"),
@@ -151,6 +156,45 @@ def _points_from_obb(obb: OBBGeometry) -> list[list[float]]:
         [float(obb.cx + dx * cos_t - dy * sin_t), float(obb.cy + dx * sin_t + dy * cos_t)]
         for dx, dy in local
     ]
+
+
+def _normalize_angle(angle: float) -> float:
+    """Ângulo em graus no intervalo (-180, 180]."""
+    value = math.fmod(float(angle), 360.0)
+    if value <= -180.0:
+        value += 360.0
+    elif value > 180.0:
+        value -= 360.0
+    return value
+
+
+def _envelope(points: list[list[float]]) -> list[float]:
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+    return [min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)]
+
+
+def _finalize_obb(obb: OBBGeometry, *, trust_points: bool = True) -> tuple[OBBGeometry, list[float]]:
+    """Deixa o OBB consistente: ângulo normalizado, cantos recalculados e bbox = envelope.
+
+    Com ``trust_points`` e 4 cantos válidos, os cantos mandam (estado salvo, modelo);
+    sem eles — ou numa edição de ângulo/posição — mandam cx, cy, w, h e angle.
+    """
+    points = obb.points
+    if trust_points and points is not None and len(points) == 4 and all(len(p) == 2 for p in points):
+        base = _obb_from_points([[float(x), float(y)] for x, y in points])
+    else:
+        base = obb.model_copy(update={"points": None})
+    final = OBBGeometry(
+        cx=float(base.cx),
+        cy=float(base.cy),
+        width=float(base.width),
+        height=float(base.height),
+        angle=_normalize_angle(base.angle),
+        angle_unit="degrees",
+    )
+    final.points = _points_from_obb(final)
+    return final, _envelope(final.points)
 
 
 def _obb_from_bbox(bbox: list[float]) -> OBBGeometry:
@@ -399,17 +443,21 @@ def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
             detail=f"image_id {image_id} fora do intervalo (sessão tem {total} frames, índices 0–{total - 1}).",
         )
     obb = body.obb
+    bbox = body.bbox
     if session.mode == "obb":
-        obb = body.obb or _obb_from_bbox(body.bbox)
-        if obb.points is None:
-            obb.points = _points_from_obb(obb)
+        if body.obb is None:
+            obb = _obb_from_bbox(body.bbox)
+        else:
+            obb, bbox = _finalize_obb(body.obb)
+    elif body.obb is not None:
+        raise HTTPException(status_code=422, detail="obb so existe no modo OBB.")
 
     _ensure_loaded_from_disk(image_id)
     ann = Annotation(
         id=_state.next_ann_id[0],
         image_id=image_id,
         category_id=body.category_id,
-        bbox=body.bbox,
+        bbox=bbox,
         obb=obb,
         track_id=body.track_id,
         source=body.source,
@@ -614,8 +662,23 @@ def update_annotation(image_id: int, ann_id: int, body: AnnotationPatch) -> Anno
         if bbox is None or len(bbox) != 4 or bbox[2] <= 0 or bbox[3] <= 0:
             raise HTTPException(status_code=422, detail="bbox deve ser [x, y, largura, altura] com area.")
     current = anns[pos]
-    if "obb" in changes and changes["obb"] is not None:
-        changes["obb"] = OBBGeometry(**changes["obb"])
+    if changes.get("obb") is not None and session.mode != "obb":
+        raise HTTPException(status_code=422, detail="obb so existe no modo OBB.")
+    if session.mode == "obb":
+        # Geometria sempre coerente: obb, cantos e bbox (envelope) mudam juntos.
+        if changes.get("obb") is not None:
+            # Edição de ângulo/posição: os parâmetros mandam, os cantos são recalculados.
+            changes["obb"], changes["bbox"] = _finalize_obb(OBBGeometry(**changes["obb"]), trust_points=False)
+        elif "bbox" in changes and current.obb is not None:
+            # Mover pelo retângulo (ferramenta V): translada o OBB, mantendo ângulo e tamanho.
+            old_x, old_y, old_w, old_h = current.bbox
+            new_x, new_y, new_w, new_h = changes["bbox"]
+            dx = (new_x + new_w / 2.0) - (old_x + old_w / 2.0)
+            dy = (new_y + new_h / 2.0) - (old_y + old_h / 2.0)
+            moved = current.obb.model_copy(update={"cx": current.obb.cx + dx, "cy": current.obb.cy + dy})
+            changes["obb"], changes["bbox"] = _finalize_obb(moved, trust_points=False)
+        else:
+            changes.pop("obb", None)
     updated = current.model_copy(update=changes)
     anns[pos] = updated
     _autosave(image_id)

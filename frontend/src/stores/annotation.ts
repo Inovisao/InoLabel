@@ -8,6 +8,7 @@ import type {
   FrameResponse,
 } from "../api/types";
 import { useSessionStore } from "./session";
+import { normalizeAngle, rotateTo } from "../components/canvas/obbGeometry";
 
 export type Tool = "box" | "select";
 
@@ -31,6 +32,8 @@ interface AnnotationState {
   /** ID fixo para as próximas caixas no tracking; null = próximo ID livre. */
   pinnedTrackId: number | null;
   undoStack: UndoEntry[];
+  /** Tamanho da imagem exibida (px), para manter caixas OBB dentro dela. */
+  imageSize: { width: number; height: number } | null;
   /** Número de classe sendo digitado na classificação (> 9 classes). */
   classKeyBuffer: string;
   loading: boolean;
@@ -45,6 +48,9 @@ interface AnnotationState {
   selectAnnotation: (annId: number | null) => void;
   setTool: (tool: Tool) => void;
   setClassKeyBuffer: (value: string) => void;
+  setImageSize: (size: { width: number; height: number } | null) => void;
+  /** Modo OBB: gira a caixa selecionada para `angle` (absoluto) ou por `delta` graus. */
+  rotateSelected: (opts: { angle?: number; delta?: number }) => Promise<void>;
   /** Limpa seleção, desfazer e ID fixado ao abrir uma sessão. */
   resetSessionUi: () => void;
   setPinnedTrackId: (id: number | null) => void;
@@ -67,6 +73,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   pinnedTrackId: null,
   undoStack: [],
   classKeyBuffer: "",
+  imageSize: null,
   loading: false,
   error: null,
 
@@ -152,7 +159,9 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       const before: AnnotationPatch = {};
       if ("category_id" in patch) before.category_id = current.category_id;
       if ("track_id" in patch) before.track_id = current.track_id ?? null;
-      if ("bbox" in patch) before.bbox = current.bbox;
+      // No OBB a geometria volta pelo obb (ângulo + posição); o backend refaz o bbox.
+      if (("bbox" in patch || "obb" in patch) && current.obb) before.obb = current.obb;
+      else if ("bbox" in patch) before.bbox = current.bbox;
       set((s) => ({
         frame: s.frame
           ? { ...s.frame, annotations: s.frame.annotations.map((a) => (a.id === annId ? updated : a)) }
@@ -169,6 +178,21 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   setTool: (tool) => set({ tool }),
 
   setClassKeyBuffer: (value) => set({ classKeyBuffer: value }),
+
+  setImageSize: (size) => set({ imageSize: size }),
+
+  rotateSelected: async ({ angle, delta }) => {
+    const { frame, selectedAnnotationId, imageSize, updateAnnotation } = get();
+    const ann = frame?.annotations.find((a) => a.id === selectedAnnotationId);
+    if (!ann?.obb || !imageSize) return;
+    const target = normalizeAngle(angle ?? ann.obb.angle + (delta ?? 0));
+    const rotated = rotateTo(ann.obb, target, imageSize.width, imageSize.height);
+    if (!rotated) {
+      set({ error: "A caixa não cabe na imagem nesse ângulo." });
+      return;
+    }
+    await updateAnnotation(ann.id, { obb: rotated });
+  },
 
   resetSessionUi: () =>
     set({ selectedAnnotationId: null, undoStack: [], pinnedTrackId: null, classKeyBuffer: "", tool: "box" }),

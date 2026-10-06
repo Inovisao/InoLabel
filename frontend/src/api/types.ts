@@ -48,6 +48,8 @@ export interface AnnotationPatch {
   category_id?: number;
   track_id?: number | null;
   bbox?: [number, number, number, number];
+  /** Modo OBB: o backend recalcula cantos e bbox a partir de cx, cy, w, h e angle. */
+  obb?: OBBGeometry;
 }
 
 export interface OBBGeometry {

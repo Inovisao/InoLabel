@@ -115,6 +115,13 @@ export function useKeyboardShortcuts(options: Options = {}) {
           return;
         }
       } else {
+        // OBB: Q/E giram a caixa selecionada (Shift = ajuste fino de 1°).
+        if (mode === "obb" && s.selectedAnnotationId !== null && /^[qe]$/i.test(e.key)) {
+          e.preventDefault();
+          const step = e.shiftKey ? 1 : 5;
+          s.rotateSelected({ delta: e.key.toLowerCase() === "q" ? -step : step });
+          return;
+        }
         switch (e.key) {
           case "b":
           case "B":

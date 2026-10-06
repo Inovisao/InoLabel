@@ -202,11 +202,17 @@ function SelectionPanel() {
     useAnnotationStore();
   const mode = useSessionStore((s) => s.mode);
   const ann = frame?.annotations.find((a) => a.id === selectedAnnotationId);
+  const rotateSelected = useAnnotationStore((s) => s.rotateSelected);
   const [idText, setIdText] = useState("");
+  const [angleText, setAngleText] = useState("");
 
   useEffect(() => {
     setIdText(ann?.track_id != null ? String(ann.track_id) : "");
   }, [ann?.id, ann?.track_id]);
+
+  useEffect(() => {
+    setAngleText(ann?.obb ? String(Math.round(ann.obb.angle * 10) / 10) : "");
+  }, [ann?.id, ann?.obb?.angle]);
 
   if (!ann) return null;
 
@@ -232,6 +238,29 @@ function SelectionPanel() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
+
+        {mode === "obb" && ann.obb && (
+          <>
+            <label className="text-helper" htmlFor="sel-angle">Ângulo (°) · Q / E giram 5°, Shift 1°</label>
+            <input
+              id="sel-angle"
+              className="input text-mono"
+              inputMode="decimal"
+              value={angleText}
+              onChange={(e) => setAngleText(e.target.value.replace(/[^\d.,-]/g, ""))}
+              onBlur={() => {
+                const value = Number(angleText.replace(",", "."));
+                if (angleText.trim() === "" || !Number.isFinite(value)) {
+                  setAngleText(String(Math.round(ann.obb!.angle * 10) / 10));
+                } else if (value !== ann.obb!.angle) {
+                  rotateSelected({ angle: value });
+                }
+              }}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              style={{ height: 32, fontSize: 13 }}
+            />
+          </>
+        )}
 
         {mode === "tracking" && (
           <>
