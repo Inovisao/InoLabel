@@ -60,3 +60,5 @@ docs_agents/
 # Ferramentas locais (não fazem parte do app): demo da ferramenta de design e sandbox de agentes.
 .impeccable/
 .ai-jail
+# Sem package.json na raiz: um lock aqui só aparece por "npm install" na pasta errada.
+/package-lock.json

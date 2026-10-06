@@ -2,10 +2,13 @@
 # InoLabel build script for Windows (PowerShell native, ASCII-only)
 # Usage (PowerShell):
 #   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-#   .\build.ps1
+#   .\scripts\build.ps1
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
+
+# Paths below are relative to the repository root.
+Set-Location (Split-Path -Parent $PSScriptRoot)
 
 $CONDA_ENV_NAME = "inolabel"
 $APLICATIVO_DIR = "APLICATIVO"
@@ -42,7 +45,7 @@ Write-Host "  Log   : $LOG_FILE"
 Write-Host ""
 
 Write-Step "Checking prerequisites..."
-if (-not (Test-Path "main.py")) { Write-Fail "main.py not found. Run build.ps1 from project root." }
+if (-not (Test-Path "main.py")) { Write-Fail "main.py not found. Keep build.ps1 inside the scripts/ folder of the project." }
 if (-not (Test-Path "requirements.txt")) { Write-Fail "requirements.txt not found." }
 if (-not (Test-Path "frontend\src")) { Write-Fail "frontend\src not found. Check repository structure." }
 Write-Ok "Project root validated"

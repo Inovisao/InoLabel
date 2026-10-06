@@ -122,8 +122,8 @@ O navegador abre sozinho em `http://127.0.0.1:8765`.
 
 | Sistema | Comando | O que faz |
 |---------|---------|-----------|
-| Windows (PowerShell) | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` e `.\build.ps1` | Cria o ambiente conda `inolabel` se não existir, instala as dependências, roda `npm install` + `npm run build` e o PyInstaller |
-| Linux / Git Bash | `bash build.sh` | Roda o PyInstaller; exige o frontend já construído (`npm run build` em `frontend/`) |
+| Windows (PowerShell) | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` e `.\scripts\build.ps1` | Cria o ambiente conda `inolabel` se não existir, instala as dependências, roda `npm install` + `npm run build` e o PyInstaller |
+| Linux / Git Bash | `bash scripts/build.sh` | Roda o PyInstaller; exige o frontend já construído (`npm run build` em `frontend/`) |
 
 Saída:
 

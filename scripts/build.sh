@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # InoLabel build script — verifies dependencies and builds a self-contained executable.
 # Usage:
-#   bash build.sh           # auto-detect OS
-#   bash build.sh --os linux
-#   bash build.sh --os windows
+#   bash scripts/build.sh           # auto-detect OS
+#   bash scripts/build.sh --os linux
+#   bash scripts/build.sh --os windows
 
 set -euo pipefail
+
+# Os caminhos abaixo sao relativos a raiz do repositorio.
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -57,7 +60,7 @@ cleanup() {
     if [[ "${BUILD_FAILED:-0}" == "1" ]]; then
         echo ""
         warn "Build interrompido. Arquivos temporarios podem ter ficado em build/ e dist/."
-        warn "Rode 'bash build.sh' novamente para recomecar — o script detecta builds corrompidos."
+        warn "Rode 'bash scripts/build.sh' novamente para recomecar — o script detecta builds corrompidos."
     fi
 }
 trap cleanup EXIT
@@ -189,7 +192,7 @@ phase_done
 step "Verificando pre-requisitos..."
 
 # Diretório correto
-[[ -f "main.py" ]]          || fail "main.py nao encontrado. Execute build.sh a partir da raiz do projeto."
+[[ -f "main.py" ]]          || fail "main.py nao encontrado. Mantenha build.sh dentro da pasta scripts/ do projeto."
 [[ -f "requirements.txt" ]] || fail "requirements.txt nao encontrado."
 [[ -d "frontend/dist" ]]    || fail "frontend/dist nao encontrado. Execute 'npm run build' dentro de frontend/ antes de buildar."
 ok "Raiz do projeto"
