@@ -1,5 +1,7 @@
 import type { ClassItem, TaskMode } from "../../../shared/api/types";
 import type { KeypointVisibility, KeypointWip, Tool } from "../store";
+import type { Binds } from "../../keybinds/defaults";
+import { activeBinds, useKeybindStore } from "../../keybinds/store";
 
 const pill = {
   position: "absolute" as const,
@@ -138,6 +140,7 @@ export function ClassificationBadge({ name }: { name: string | undefined }) {
 
 /** Dica de uso no canto inferior esquerdo, conforme modo e ferramenta. */
 export function CanvasHint({ mode, tool, hasSelection }: { mode: TaskMode | null; tool: Tool; hasSelection: boolean }) {
+  const binds = useKeybindStore((s) => activeBinds(s.data));
   return (
     <div
       style={{
@@ -149,22 +152,23 @@ export function CanvasHint({ mode, tool, hasSelection }: { mode: TaskMode | null
         pointerEvents: "none",
       }}
     >
-      {hintText(mode, tool, hasSelection)}
+      {hintText(mode, tool, hasSelection, binds)}
     </div>
   );
 }
 
-function hintText(mode: TaskMode | null, tool: Tool, hasSelection: boolean): string {
-  if (mode === "classification") return "Clique na classe ou digite o número dela · Espaço pula · Ctrl+Z desfaz";
+function hintText(mode: TaskMode | null, tool: Tool, hasSelection: boolean, binds: Binds): string {
+  const key = (action: keyof Binds) => binds[action][0];
+  if (mode === "classification") return `Clique na classe ou digite o número dela · ${key("classification_skip")} pula · ${key("undo")} desfaz`;
   if (mode === "keypoint") {
     return tool === "select"
-      ? "Clique num ponto para selecionar · arraste para mover · C visível/oculto · Del apaga a instância · B volta a marcar"
-      : "Clique para marcar os pontos em ordem · X pula o ponto · C visível/oculto · F fecha · Backspace desfaz o ponto · Esc cancela";
+      ? `Clique num ponto para selecionar · arraste para mover · ${key("kp_visibility")} visível/oculto · ${key("delete_annotation")} apaga a instância · ${key("tool_box")} volta a marcar`
+      : `Clique para marcar os pontos em ordem · ${key("kp_skip")} pula o ponto · ${key("kp_visibility")} visível/oculto · ${key("kp_finish")} fecha · ${key("kp_undo")} desfaz o ponto · ${key("kp_cancel")} cancela`;
   }
   if (mode === "obb" && hasSelection) {
-    return "Arraste a alça ○ para girar (Shift: 15°) · Q / E giram 5° · V e arraste para mover · Del remove";
+    return `Arraste a alça ○ para girar (Shift: 15°) · ${key("rotate_left")} / ${key("rotate_right")} giram 5° · ${key("tool_select")} e arraste para mover · ${key("delete_annotation")} remove`;
   }
   return tool === "select"
-    ? "Clique para selecionar · arraste a caixa selecionada para mover · Del remove · B volta a desenhar"
-    : "Arraste para anotar · clique numa caixa para editar · N marca frame sem objetos · Ctrl+Z desfaz";
+    ? `Clique para selecionar · arraste a caixa selecionada para mover · ${key("delete_annotation")} remove · ${key("tool_box")} volta a desenhar`
+    : `Arraste para anotar · clique numa caixa para editar · ${key("mark_negative")} marca frame sem objetos · ${key("undo")} desfaz`;
 }

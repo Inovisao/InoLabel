@@ -12,6 +12,7 @@ import { ToastProvider } from "./shared/ui/ToastContext";
 import { ThemeProvider } from "./shared/ui/ThemeContext";
 import type { WizardState } from "./features/wizard/wizardState";
 import type { ProjectEntry } from "./shared/api/types";
+import { useKeybindStore } from "./features/keybinds/store";
 
 export type AppView =
   | "mode"
@@ -30,6 +31,7 @@ export default function App() {
   const workspace = useWorkspaceStore((s) => s.current);
   const workspaceLoaded = useWorkspaceStore((s) => s.loaded);
   const loadWorkspace = useWorkspaceStore((s) => s.load);
+  const loadKeybinds = useKeybindStore((s) => s.load);
   const [view, setView] = useState<AppView>("mode");
   const [wizardInitial, setWizardInitial] = useState<Partial<WizardState> | undefined>(undefined);
 
@@ -38,6 +40,7 @@ export default function App() {
   useEffect(() => {
     recover();
     loadWorkspace();
+    loadKeybinds();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const wizardStep = WIZARD_STEPS.indexOf(view);

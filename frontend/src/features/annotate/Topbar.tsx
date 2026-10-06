@@ -4,6 +4,7 @@ import { useAnnotationStore } from "./store";
 import { useToast } from "../../shared/ui/ToastContext";
 import { useTheme } from "../../shared/ui/ThemeContext";
 import { MODE_LABELS } from "../../shared/modes";
+import { activeBinds, useKeybindStore } from "../keybinds/store";
 
 interface Props {
   onExport: () => void;
@@ -18,6 +19,7 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
   const { isDark, toggleTheme } = useTheme();
   const ThemeIcon = isDark ? Sun : Moon;
   const themeLabel = isDark ? "Ativar tema claro" : "Ativar tema escuro";
+  const binds = useKeybindStore((s) => activeBinds(s.data));
 
   const handleSave = () => {
     toast("Anotações salvas automaticamente a cada operação.", "success");
@@ -83,7 +85,7 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
           className="btn-icon"
           onClick={prevFrame}
           disabled={loading || !frame || frame.index === 0}
-          title="Frame anterior (A / ←)"
+          title={`Frame anterior (${binds.prev_frame.join(" / ")})`}
           aria-label="Frame anterior"
         >
           <ChevronLeft size={16} />
@@ -112,7 +114,7 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
           className="btn-icon"
           onClick={nextFrame}
           disabled={loading || !frame || frame.index >= (frame.total ?? 1) - 1}
-          title="Próximo frame (D / →)"
+          title={`Próximo frame (${binds.next_frame.join(" / ")})`}
           aria-label="Próximo frame"
         >
           <ChevronRight size={16} />
@@ -132,7 +134,7 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
         </button>
         <button
           className="btn-icon"
-          title="Salvar (Ctrl+S)"
+          title={`Salvar (${binds.save.join(" / ")})`}
           aria-label="Salvar"
           onClick={handleSave}
         >
@@ -140,7 +142,7 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
         </button>
         <button
           className="btn-icon"
-          title="Exportar dataset (Ctrl+E)"
+          title={`Exportar dataset (${binds.export.join(" / ")})`}
           aria-label="Exportar dataset"
           onClick={onExport}
         >
@@ -148,7 +150,7 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
         </button>
         <button
           className="btn-icon"
-          title="Configurações (Ctrl+,)"
+          title={`Configurações (${binds.settings.join(" / ")})`}
           aria-label="Configurações"
           onClick={onSettings}
         >

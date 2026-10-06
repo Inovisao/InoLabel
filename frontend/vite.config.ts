@@ -13,7 +13,7 @@ export default defineConfig(async () => ({
     },
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8765",
+        target: `http://127.0.0.1:${process.env.INOLABEL_API_PORT || "8765"}`,
       },
     },
   },
