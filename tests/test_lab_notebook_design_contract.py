@@ -30,9 +30,10 @@ def test_react_styles_use_lab_notebook_tokens():
 
 
 def test_react_layout_matches_lab_notebook_shell():
-    topbar = (ROOT / "frontend" / "src" / "components" / "layout" / "Topbar.tsx").read_text(encoding="utf-8")
-    sidebar = (ROOT / "frontend" / "src" / "components" / "layout" / "Sidebar.tsx").read_text(encoding="utf-8")
-    statusbar = (ROOT / "frontend" / "src" / "components" / "layout" / "Statusbar.tsx").read_text(encoding="utf-8")
+    annotate = ROOT / "frontend" / "src" / "features" / "annotate"
+    topbar = (annotate / "Topbar.tsx").read_text(encoding="utf-8")
+    sidebar = (annotate / "sidebar" / "Sidebar.tsx").read_text(encoding="utf-8")
+    statusbar = (annotate / "Statusbar.tsx").read_text(encoding="utf-8")
 
     assert 'height: 56' in topbar
     assert 'width: 320' in sidebar
@@ -43,7 +44,9 @@ def test_react_layout_matches_lab_notebook_shell():
 
 
 def test_react_canvas_uses_stroked_overlays_without_tint_fill():
-    canvas = (ROOT / "frontend" / "src" / "components" / "canvas" / "AnnotationCanvas.tsx").read_text(encoding="utf-8")
+    canvas_dir = ROOT / "frontend" / "src" / "features" / "annotate" / "canvas"
+    # As formas ficam em componentes próprios (BoxShape, ObbShape...): confere a pasta toda.
+    canvas = "\n".join(f.read_text(encoding="utf-8") for f in sorted(canvas_dir.glob("*.tsx")))
 
     assert 'background: "var(--color-canvas-bg)"' in canvas
     assert "strokeWidth={2}" in canvas

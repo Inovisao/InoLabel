@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { useSessionStore } from "./stores/session";
-import { useWorkspaceStore } from "./stores/workspace";
-import WorkspaceGate from "./components/workspace/WorkspaceGate";
-import WizardPage from "./pages/WizardPage";
-import AnnotatePage from "./pages/AnnotatePage";
-import ProjectsPage from "./pages/ProjectsPage";
-import HistoryPage from "./pages/HistoryPage";
-import HelpPage from "./pages/HelpPage";
-import ShortcutsPage from "./pages/ShortcutsPage";
-import { ToastProvider } from "./ui/ToastContext";
-import { ThemeProvider } from "./ui/ThemeContext";
-import type { WizardState } from "./components/wizard/Wizard";
-import type { ProjectEntry } from "./api/types";
+import { useSessionStore } from "./shared/session/store";
+import { useWorkspaceStore } from "./features/workspace/store";
+import WorkspaceGate from "./features/workspace/WorkspaceGate";
+import WizardPage from "./features/wizard/WizardPage";
+import AnnotatePage from "./features/annotate/AnnotatePage";
+import ProjectsPage from "./features/projects/ProjectsPage";
+import HistoryPage from "./features/projects/HistoryPage";
+import HelpPage from "./features/help/HelpPage";
+import ShortcutsPage from "./features/help/ShortcutsPage";
+import { ToastProvider } from "./shared/ui/ToastContext";
+import { ThemeProvider } from "./shared/ui/ThemeContext";
+import type { WizardState } from "./features/wizard/wizardState";
+import type { ProjectEntry } from "./shared/api/types";
 
 export type AppView =
   | "mode"
