@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.api.state import reset_state
-from app.core.coco_state import state_path
+from app.core.project_state.paths import state_path
 
 W, H = 100, 80
 QUAD = ["top_left", "top_right", "bottom_right", "bottom_left"]

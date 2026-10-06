@@ -192,7 +192,7 @@ def test_export_lifecycle(tmp_path: Path):
 
 def test_keybinds_round_trip(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("INOLABEL_LOCAL_DIR", str(tmp_path))
-    from app.api.routes import keybinds
+    from app.api.keybinds import storage as keybinds
 
     keybinds.KEYBINDS_PATH = tmp_path / "keybinds.json"
     client = _client()

@@ -196,7 +196,7 @@ def test_portable_data_yaml_only_drops_path_line():
 
 @pytest.fixture()
 def session_with_frames():
-    from app.api.schemas import Annotation
+    from app.api.common.schemas import Annotation
     from app.api.state import (
         annotation_store, create_session, frame_dims, frame_paths, next_ann_id, reset_state,
     )
@@ -220,7 +220,7 @@ def session_with_frames():
 
 
 def _export(tmp: Path, name: str, formats, *, use_split=False, zip_output=True):
-    from app.api.routes.export import _run_export
+    from app.api.export.service import run_export
     from app.api.state import create_export
     from app.core.exporter import ExportJob
 
@@ -228,7 +228,7 @@ def _export(tmp: Path, name: str, formats, *, use_split=False, zip_output=True):
         destination=tmp / "exports", name=name, formats=formats,
         use_split=use_split, zip_output=zip_output,
     ))
-    asyncio.run(_run_export(job.export_id))
+    asyncio.run(run_export(job.export_id))
     return job
 
 

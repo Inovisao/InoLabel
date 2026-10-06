@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.api.state import reset_state
-from app.core.coco_state import state_path
+from app.core.project_state.paths import state_path
 
 
 @pytest.fixture()
@@ -131,7 +131,7 @@ def test_undo_removes_copy_and_record(client):
 
 
 def test_project_listing_counts_classified_images(client):
-    from app.api.routes.validation import list_projects
+    from app.api.projects.listing import list_projects
 
     c, data, out = client
     _start(c, data, out, "classification", classes=("madura", "verde"))

@@ -405,7 +405,7 @@ class TestRunExportCanonicalPipeline(unittest.TestCase):
     def _setup_session_with_frames(self, n_frames: int):
         """Cria sessão, frames e annotations no state em memória."""
         from app.api.state import reset_state, create_session, frame_paths, frame_dims, annotation_store, next_ann_id
-        from app.api.schemas import Annotation
+        from app.api.common.schemas import Annotation
 
         reset_state()
         session = create_session(
@@ -454,8 +454,8 @@ class TestRunExportCanonicalPipeline(unittest.TestCase):
             split_ratios=(0.5, 0.25, 0.25),
         ))
 
-        from app.api.routes.export import _run_export
-        asyncio.run(_run_export(job.export_id))
+        from app.api.export.service import run_export
+        asyncio.run(run_export(job.export_id))
 
         self.assertEqual(job.status, "done")
         self.assertAlmostEqual(job.progress, 1.0)
@@ -483,8 +483,8 @@ class TestRunExportCanonicalPipeline(unittest.TestCase):
             use_split=False,
         ))
 
-        from app.api.routes.export import _run_export
-        asyncio.run(_run_export(job.export_id))
+        from app.api.export.service import run_export
+        asyncio.run(run_export(job.export_id))
 
         self.assertEqual(job.status, "done")
         self.assertTrue((out_dir / "images" / "all").exists())
@@ -505,8 +505,8 @@ class TestRunExportCanonicalPipeline(unittest.TestCase):
             use_split=False,
         ))
 
-        from app.api.routes.export import _run_export
-        asyncio.run(_run_export(job.export_id))
+        from app.api.export.service import run_export
+        asyncio.run(run_export(job.export_id))
 
         label_files = list((out_dir / "labels" / "all").rglob("*.txt"))
         self.assertEqual(len(label_files), 2)
@@ -545,8 +545,8 @@ class TestRunExportCanonicalPipeline(unittest.TestCase):
             formats=["yolo"],
         ))
 
-        from app.api.routes.export import _run_export
-        asyncio.run(_run_export(job.export_id))
+        from app.api.export.service import run_export
+        asyncio.run(run_export(job.export_id))
 
         self.assertEqual(job.status, "done")
         self.assertAlmostEqual(job.progress, 1.0)
@@ -555,7 +555,7 @@ class TestRunExportCanonicalPipeline(unittest.TestCase):
         """Anotações com category_id inválido devem ser ignoradas, não gerar erro."""
         import asyncio
         from app.api.state import reset_state, create_session, frame_paths, frame_dims, annotation_store, next_ann_id
-        from app.api.schemas import Annotation
+        from app.api.common.schemas import Annotation
         from app.core.exporter import ExportJob
         from app.api.state import create_export
 
@@ -583,8 +583,8 @@ class TestRunExportCanonicalPipeline(unittest.TestCase):
             use_split=False,
         ))
 
-        from app.api.routes.export import _run_export
-        asyncio.run(_run_export(job.export_id))
+        from app.api.export.service import run_export
+        asyncio.run(run_export(job.export_id))
 
         self.assertEqual(job.status, "done")
         # Image should be exported but label should be empty (invalid category skipped)

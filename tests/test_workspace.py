@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.api.state import reset_state
-from app.core import workspace as ws
+from app.api.workspace import storage as ws
 
 
 @pytest.fixture()

@@ -121,8 +121,8 @@ def test_not_a_dataset(tmp_path, capsys):
 @pytest.mark.parametrize("fmt,use_split", [("coco", True), ("coco", False), ("yolo", True), ("yolo", False)])
 def test_exports_made_by_the_app_pass(fmt, use_split):
     """O verificador concorda com o que o próprio app exporta."""
-    from app.api.routes.export import _run_export
-    from app.api.schemas import Annotation
+    from app.api.export.service import run_export
+    from app.api.common.schemas import Annotation
     from app.api.state import annotation_store, create_export, create_session, frame_dims, frame_paths, next_ann_id, reset_state
     from app.core.exporter import ExportJob
 
@@ -138,7 +138,7 @@ def test_exports_made_by_the_app_pass(fmt, use_split):
             annotation_store[i] = [Annotation(id=next_ann_id[0], image_id=i, category_id=i % 2, bbox=[50.0, 40.0, 30.0, 20.0])]
             next_ann_id[0] += 1
         job = create_export(ExportJob(destination=tmp / "exp", name="ds", formats=[fmt], use_split=use_split))
-        asyncio.run(_run_export(job.export_id))
+        asyncio.run(run_export(job.export_id))
         assert job.status == "done", job.current_file
         report = verify(tmp / "exp" / "ds")
         assert report is not None and report.ok, dict(report.problems)

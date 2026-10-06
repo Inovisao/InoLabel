@@ -46,12 +46,16 @@ frame_dims: dict[int, tuple[int, int]] = {}  # frame_index → (width, height)
 annotation_store: dict[int, list] = {}
 next_ann_id: list[int] = [1]  # list so it's mutable from any module without 'global'
 
-# Estado do projeto no annotations.coco.json (app/core/coco_state.py):
+# Estado do projeto no annotations.coco.json (app/core/project_state/):
 # frames revisados sem objetos (negativos) e ids estáveis das imagens no COCO.
 reviewed_frames: set[int] = set()
+# Frames cujas anotações já foram carregadas do disco nesta sessão.
+loaded_from_disk: set[int] = set()
+# Índice do frame exibido (mesmo padrão de next_ann_id: lista de um item, mutável).
+current_frame_index: list[int] = [0]
 coco_image_ids: dict[str, int] = {}
 
-from app.core.coco_state_writer import CocoStateWriter  # noqa: E402
+from app.core.project_state.writer import CocoStateWriter  # noqa: E402
 
 coco_writer = CocoStateWriter()
 
@@ -126,6 +130,8 @@ def reset_state() -> None:
     annotation_store.clear()
     next_ann_id[0] = 1
     reviewed_frames.clear()
+    loaded_from_disk.clear()
+    current_frame_index[0] = 0
     coco_image_ids.clear()
     _active_session_id = None
     _ambiguous_stems_cache[0] = None

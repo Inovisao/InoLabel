@@ -4,7 +4,8 @@ import json
 
 import pytest
 
-from app.api.routes import keybinds
+from app.api.keybinds import storage as keybinds
+from app.api.keybinds.schemas import KeybindProfile
 
 LEGACY = {
     "active_profile": "wasd",
@@ -23,13 +24,13 @@ def keybinds_file(tmp_path, monkeypatch):
 
 
 def test_missing_file_returns_default(keybinds_file):
-    assert keybinds.get_keybinds() == keybinds.DEFAULT_KEYBINDS
+    assert keybinds.load() == keybinds.DEFAULT_KEYBINDS
 
 
 def test_legacy_tkinter_file_is_read_as_active_profile(keybinds_file):
     keybinds_file.write_text(json.dumps(LEGACY), encoding="utf-8")
 
-    profile = keybinds.get_keybinds()
+    profile = keybinds.load()
 
     assert profile.profile == "wasd"
     assert profile.binds == {"next_frame": "d", "prev_frame": "a"}  # atalho vazio fica de fora
@@ -38,25 +39,25 @@ def test_legacy_tkinter_file_is_read_as_active_profile(keybinds_file):
 @pytest.mark.parametrize("content", ["{ truncado", "[1, 2]", '{"profiles": {}, "active_profile": "x"}'])
 def test_unreadable_file_falls_back_to_default(keybinds_file, content):
     keybinds_file.write_text(content, encoding="utf-8")
-    assert keybinds.get_keybinds() == keybinds.DEFAULT_KEYBINDS
+    assert keybinds.load() == keybinds.DEFAULT_KEYBINDS
 
 
 def test_saving_over_legacy_file_keeps_a_copy(keybinds_file):
     keybinds_file.write_text(json.dumps(LEGACY), encoding="utf-8")
-    new_profile = keybinds.KeybindProfile(profile="custom", binds={"validate": "space"})
+    new_profile = KeybindProfile(profile="custom", binds={"validate": "space"})
 
-    keybinds.save_keybinds(new_profile)
+    keybinds.save(new_profile)
 
     backup = keybinds_file.with_name("keybinds.tkinter.json")
     assert json.loads(backup.read_text(encoding="utf-8")) == LEGACY
-    assert keybinds.get_keybinds() == new_profile
+    assert keybinds.load() == new_profile
 
 
 def test_saving_twice_does_not_replace_the_legacy_copy(keybinds_file):
     keybinds_file.write_text(json.dumps(LEGACY), encoding="utf-8")
-    keybinds.save_keybinds(keybinds.KeybindProfile(profile="a", binds={}))
-    keybinds.save_keybinds(keybinds.KeybindProfile(profile="b", binds={}))
+    keybinds.save(KeybindProfile(profile="a", binds={}))
+    keybinds.save(KeybindProfile(profile="b", binds={}))
 
     backup = keybinds_file.with_name("keybinds.tkinter.json")
     assert json.loads(backup.read_text(encoding="utf-8")) == LEGACY
-    assert keybinds.get_keybinds().profile == "b"
+    assert keybinds.load().profile == "b"

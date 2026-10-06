@@ -7,8 +7,10 @@ import cv2
 import numpy as np
 import pytest
 
-from app.core.coco_state import build_payload, parse_payload, state_path
-from app.core.coco_state_writer import CocoStateWriter
+from app.core.project_state.builder import build_payload
+from app.core.project_state.parser import parse_payload
+from app.core.project_state.paths import state_path
+from app.core.project_state.writer import CocoStateWriter
 
 W, H = 64, 48
 
@@ -209,7 +211,7 @@ def test_backup_is_taken_when_session_opens(api):
 def test_reviewed_negative_is_saved_and_exported(api):
     import asyncio
 
-    from app.api.routes.export import _run_export
+    from app.api.export.service import run_export
     from app.api.state import create_export
     from app.core.exporter import ExportJob
 
@@ -221,7 +223,7 @@ def test_reviewed_negative_is_saved_and_exported(api):
     assert client.post("/api/frames/goto/1").json()["reviewed"] is True
 
     job = create_export(ExportJob(destination=out.parent / "exp", name="ds", formats=["yolo", "coco"], use_split=False))
-    asyncio.run(_run_export(job.export_id))
+    asyncio.run(run_export(job.export_id))
     assert job.status == "done", job.current_file
 
     label = out.parent / "exp" / "ds" / "labels" / "all" / "lote_a" / "img_1.txt"

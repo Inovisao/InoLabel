@@ -482,8 +482,8 @@ class TestSafeOutputPath(unittest.TestCase):
     """B10 – _safe_output_path deve rejeitar nomes com path traversal."""
 
     def _call(self, destination, name):
-        from app.api.routes.export import _safe_output_path
-        return _safe_output_path(destination, name)
+        from app.api.export.service import safe_output_path
+        return safe_output_path(destination, name)
 
     def test_normal_name_accepted(self):
         import tempfile

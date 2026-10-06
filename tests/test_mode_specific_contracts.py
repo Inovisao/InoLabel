@@ -221,7 +221,7 @@ def test_tracking_inference_endpoint_returns_and_saves_track_ids(
     )
     client.get("/api/frames/init")
 
-    from app.api.routes import inference
+    from app.api.inference import service as inference
 
     class FakeBox:
         conf = 0.9
@@ -352,7 +352,7 @@ def test_tracking_inference_endpoint_processes_video_without_autosave(
     assert response.status_code == 200, response.text
     session_id = response.json()["session_id"]
 
-    from app.api.routes import inference
+    from app.api.inference import service as inference
 
     class FakeBox:
         conf = 0.9

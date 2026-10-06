@@ -90,26 +90,26 @@ class TestSchemaClasses:
     """Classes field validation in SessionStartRequest."""
 
     def test_empty_list_is_rejected(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         with pytest.raises(Exception, match="(?i)classe"):
             SessionStartRequest(mode="detection", classes=[], data_path="/tmp")
 
     def test_whitespace_only_list_is_rejected(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         with pytest.raises(Exception, match="(?i)classe"):
             SessionStartRequest(mode="detection", classes=["   ", "\t", ""], data_path="/tmp")
 
     def test_classes_are_stripped(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(mode="detection", classes=[" dog ", " cat "], data_path="/tmp")
         assert req.classes == ["dog", "cat"]
 
     def test_duplicate_classes_are_deduplicated(self):
         """BUG FIX: duplicates created ambiguous category IDs in YOLO export."""
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["dog", "cat", "dog", "cat"], data_path="/tmp"
@@ -117,7 +117,7 @@ class TestSchemaClasses:
         assert req.classes == ["dog", "cat"]
 
     def test_all_same_deduplicated_to_one(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["dog", "dog", "dog"], data_path="/tmp"
@@ -125,7 +125,7 @@ class TestSchemaClasses:
         assert req.classes == ["dog"]
 
     def test_deduplication_preserves_first_occurrence_order(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["cat", "dog", "cat", "bird", "dog"], data_path="/tmp"
@@ -133,7 +133,7 @@ class TestSchemaClasses:
         assert req.classes == ["cat", "dog", "bird"]
 
     def test_unicode_class_names_accepted(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["pessoa", "veículo", "açaí"], data_path="/tmp"
@@ -141,7 +141,7 @@ class TestSchemaClasses:
         assert len(req.classes) == 3
 
     def test_class_name_with_hyphens_and_underscores(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["class-1", "obj_2", "item.3"], data_path="/tmp"
@@ -149,7 +149,7 @@ class TestSchemaClasses:
         assert len(req.classes) == 3
 
     def test_very_long_class_name_accepted(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["a" * 255], data_path="/tmp"
@@ -161,26 +161,26 @@ class TestSchemaClassificationMode:
     """Classification mode requires >= 2 distinct classes."""
 
     def test_one_class_is_rejected(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         with pytest.raises(Exception, match="(?i)2 classes"):
             SessionStartRequest(mode="classification", classes=["ok"], data_path="/tmp")
 
     def test_two_classes_ok(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(mode="classification", classes=["ok", "falha"], data_path="/tmp")
         assert len(req.classes) == 2
 
     def test_two_duplicate_classes_collapse_to_one_and_fail(self):
         """['ok','ok'] → dedup → ['ok'] → fails classification >= 2 check."""
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         with pytest.raises(Exception):
             SessionStartRequest(mode="classification", classes=["ok", "ok"], data_path="/tmp")
 
     def test_three_classes_ok(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="classification", classes=["ok", "falha", "incerto"], data_path="/tmp"
@@ -188,7 +188,8 @@ class TestSchemaClassificationMode:
         assert len(req.classes) == 3
 
     def test_other_modes_allow_single_class(self):
-        from app.api.schemas import SessionStartRequest, TaskMode
+        from app.api.common.schemas import TaskMode
+        from app.api.session.schemas import SessionStartRequest
 
         for mode in [TaskMode.DETECTION, TaskMode.TRACKING, TaskMode.OBB]:
             req = SessionStartRequest(mode=mode, classes=["thing"], data_path="/tmp")
@@ -199,13 +200,13 @@ class TestSchemaLegacyNormalization:
     """Frontend sends camelCase / legacy names — schema must normalize them."""
 
     def test_data_root_maps_to_data_path(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(mode="detection", classes=["c"], data_root="/my/data")
         assert req.data_path == "/my/data"
 
     def test_data_path_takes_precedence_over_data_root(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["c"], data_path="/primary", data_root="/secondary"
@@ -213,7 +214,7 @@ class TestSchemaLegacyNormalization:
         assert req.data_path == "/primary"
 
     def test_output_dir_maps_to_output_path(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["c"], data_path="/d", output_dir="/my/out"
@@ -221,7 +222,7 @@ class TestSchemaLegacyNormalization:
         assert req.output_path == "/my/out"
 
     def test_first_weights_path_maps_to_model_path(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection",
@@ -232,7 +233,7 @@ class TestSchemaLegacyNormalization:
         assert req.model_path == "/model.pt"
 
     def test_resume_existing_maps_to_resume(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["c"], data_path="/d", resume_existing=True
@@ -241,7 +242,7 @@ class TestSchemaLegacyNormalization:
 
     def test_resume_or_resume_existing(self):
         """Either flag enables resume."""
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req_a = SessionStartRequest(
             mode="detection", classes=["c"], data_path="/d", resume=True
@@ -257,25 +258,25 @@ class TestSchemaBbox:
     """AnnotationUpsert.bbox must have exactly 4 elements."""
 
     def test_empty_list_rejected(self):
-        from app.api.schemas import AnnotationUpsert
+        from app.api.annotations.schemas import AnnotationUpsert
 
         with pytest.raises(Exception, match="4 elementos"):
             AnnotationUpsert(category_id=0, bbox=[])
 
     def test_three_elements_rejected(self):
-        from app.api.schemas import AnnotationUpsert
+        from app.api.annotations.schemas import AnnotationUpsert
 
         with pytest.raises(Exception, match="4 elementos"):
             AnnotationUpsert(category_id=0, bbox=[1, 2, 3])
 
     def test_five_elements_rejected(self):
-        from app.api.schemas import AnnotationUpsert
+        from app.api.annotations.schemas import AnnotationUpsert
 
         with pytest.raises(Exception, match="4 elementos"):
             AnnotationUpsert(category_id=0, bbox=[1, 2, 3, 4, 5])
 
     def test_four_elements_ok(self):
-        from app.api.schemas import AnnotationUpsert
+        from app.api.annotations.schemas import AnnotationUpsert
 
         ann = AnnotationUpsert(category_id=0, bbox=[10.0, 20.0, 50.0, 80.0])
         assert ann.bbox == [10.0, 20.0, 50.0, 80.0]
@@ -285,24 +286,24 @@ class TestSchemaCategoryId:
     """category_id must be >= 0 (YOLO class index)."""
 
     def test_negative_rejected(self):
-        from app.api.schemas import AnnotationUpsert
+        from app.api.annotations.schemas import AnnotationUpsert
 
         with pytest.raises(Exception, match=">= 0"):
             AnnotationUpsert(category_id=-1, bbox=[1, 2, 3, 4])
 
     def test_minus_one_rejected(self):
-        from app.api.schemas import AnnotationUpsert
+        from app.api.annotations.schemas import AnnotationUpsert
 
         with pytest.raises(Exception):
             AnnotationUpsert(category_id=-100, bbox=[1, 2, 3, 4])
 
     def test_zero_ok(self):
-        from app.api.schemas import AnnotationUpsert
+        from app.api.annotations.schemas import AnnotationUpsert
 
         assert AnnotationUpsert(category_id=0, bbox=[1, 2, 3, 4]).category_id == 0
 
     def test_large_positive_ok(self):
-        from app.api.schemas import AnnotationUpsert
+        from app.api.annotations.schemas import AnnotationUpsert
 
         assert AnnotationUpsert(category_id=999, bbox=[1, 2, 3, 4]).category_id == 999
 
@@ -311,7 +312,7 @@ class TestSchemaConfidenceThreshold:
     """confidence_threshold must be in [0.0, 1.0]."""
 
     def test_above_one_rejected(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         with pytest.raises(Exception, match="0.0 e 1.0"):
             SessionStartRequest(
@@ -319,7 +320,7 @@ class TestSchemaConfidenceThreshold:
             )
 
     def test_negative_rejected(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         with pytest.raises(Exception, match="0.0 e 1.0"):
             SessionStartRequest(
@@ -327,7 +328,7 @@ class TestSchemaConfidenceThreshold:
             )
 
     def test_zero_ok(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["c"], data_path="/d", confidence_threshold=0.0
@@ -335,7 +336,7 @@ class TestSchemaConfidenceThreshold:
         assert req.confidence_threshold == 0.0
 
     def test_one_ok(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["c"], data_path="/d", confidence_threshold=1.0
@@ -343,7 +344,7 @@ class TestSchemaConfidenceThreshold:
         assert req.confidence_threshold == 1.0
 
     def test_typical_value_ok(self):
-        from app.api.schemas import SessionStartRequest
+        from app.api.session.schemas import SessionStartRequest
 
         req = SessionStartRequest(
             mode="detection", classes=["c"], data_path="/d", confidence_threshold=0.4

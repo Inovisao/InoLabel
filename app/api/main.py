@@ -5,11 +5,24 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import annotations, browse, classes, export, frames, inference, keybinds, modes, session, validation, workspace
+from app.api.annotations.router import router as annotations_router
+from app.api.browse.router import router as browse_router
+from app.api.classes.router import router as classes_router
+from app.api.classification.router import router as classification_router
+from app.api.common.errors import DomainError
+from app.api.export.router import router as export_router
+from app.api.frames.router import router as frames_router
+from app.api.inference.router import router as inference_router
+from app.api.keybinds.router import router as keybinds_router
+from app.api.modes.router import router as modes_router
+from app.api.projects.router import router as projects_router
+from app.api.session.router import router as session_router
+from app.api.workspace.router import router as workspace_router
 
 app = FastAPI(title="InoLabel API", version="2.0.0")
 
@@ -27,17 +40,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(modes.router)
-app.include_router(validation.router)
-app.include_router(session.router)
-app.include_router(export.router)
-app.include_router(inference.router)
-app.include_router(keybinds.router)
-app.include_router(frames.router)
-app.include_router(annotations.router)
-app.include_router(classes.router)
-app.include_router(browse.router)
-app.include_router(workspace.router)
+app.include_router(modes_router)
+app.include_router(projects_router)
+app.include_router(session_router)
+app.include_router(export_router)
+app.include_router(inference_router)
+app.include_router(keybinds_router)
+app.include_router(frames_router)
+# Classificação antes de anotações: DELETE /{image_id}/classification precisa vir
+# antes de DELETE /{image_id}/{ann_id}.
+app.include_router(classification_router)
+app.include_router(annotations_router)
+app.include_router(classes_router)
+app.include_router(browse_router)
+app.include_router(workspace_router)
+
+
+@app.exception_handler(DomainError)
+async def _domain_error(_request: Request, exc: DomainError) -> JSONResponse:
+    """Regra de negócio recusada → mesmo corpo de erro do FastAPI ({"detail": ...})."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.on_event("shutdown")
