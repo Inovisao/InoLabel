@@ -89,6 +89,7 @@ def check_coco(json_path: Path, report: Report) -> None:
     report.counts["coco_categorias"] = max(report.counts["coco_categorias"], len(categories))
 
     category_ids = {c.get("id") for c in categories}
+    kpt_count = {c.get("id"): len(c.get("keypoints") or []) for c in categories if c.get("keypoints")}
     if len(category_ids) != len(categories):
         report.problem("COCO: id de categoria repetido")
 
@@ -130,9 +131,13 @@ def check_coco(json_path: Path, report: Report) -> None:
         except (TypeError, ValueError):
             report.problem("COCO: bbox inválida (não são 4 números)", name)
             continue
-        if w <= 0 or h <= 0:
+        keypoints = ann.get("keypoints")
+        # COCO Keypoints: instância de um ponto só tem bbox sem área, e é válida.
+        if (w <= 0 or h <= 0) and not keypoints:
             report.problem("COCO: bbox sem área (largura ou altura <= 0)", name)
         size = real_size.get(image_id)
+        if keypoints is not None:
+            _check_coco_keypoints(ann, keypoints, kpt_count, size, report, name)
         if size is not None:
             width, height = size
             if x < -TOLERANCE_PX or y < -TOLERANCE_PX or x + w > width + TOLERANCE_PX or y + h > height + TOLERANCE_PX:
@@ -151,6 +156,27 @@ def check_coco(json_path: Path, report: Report) -> None:
     report.counts["coco_imagens_sem_anotacao"] += sum(1 for i in by_id if i not in boxes_per_image)
 
 
+def _check_coco_keypoints(ann, keypoints, kpt_count, size, report: "Report", name) -> None:
+    report.counts["coco_instancias_keypoint"] += 1
+    expected = kpt_count.get(ann.get("category_id"))
+    if not isinstance(keypoints, list) or len(keypoints) % 3 or (expected is not None and len(keypoints) != 3 * expected):
+        report.problem("COCO: keypoints com quantidade diferente da declarada na categoria", name)
+        return
+    triplets = [keypoints[i:i + 3] for i in range(0, len(keypoints), 3)]
+    if any(int(v) not in (0, 1, 2) for _, _, v in triplets):
+        report.problem("COCO: visibilidade de keypoint fora de 0, 1 ou 2", name)
+    marked = [(x, y) for x, y, v in triplets if v > 0]
+    if not marked:
+        report.problem("COCO: instância de keypoint sem nenhum ponto marcado", name)
+    if "num_keypoints" in ann and ann["num_keypoints"] != len(marked):
+        report.problem("COCO: num_keypoints diferente dos pontos marcados", name)
+    if size is not None:
+        width, height = size
+        if any(x < -TOLERANCE_PX or y < -TOLERANCE_PX or x > width + TOLERANCE_PX or y > height + TOLERANCE_PX
+               for x, y in marked):
+            report.problem("COCO: keypoint fora da imagem", name)
+
+
 # ── YOLO ─────────────────────────────────────────────────────────────────────
 
 def _yolo_class_count(root: Path) -> Optional[int]:
@@ -162,7 +188,28 @@ def _yolo_class_count(root: Path) -> Optional[int]:
     return None
 
 
-def check_yolo(images_dir: Path, labels_dir: Path, report: Report, n_classes: Optional[int]) -> None:
+def _yolo_kpt_shape(root: Path) -> Optional[Tuple[int, int]]:
+    """``kpt_shape: [N, D]`` do data.yaml de um dataset YOLO Pose, ou None."""
+    for candidate in (root / "data.yaml", root.parent / "data.yaml", root.parent.parent / "data.yaml"):
+        if candidate.is_file():
+            for line in candidate.read_text(encoding="utf-8").splitlines():
+                if line.strip().startswith("kpt_shape:"):
+                    try:
+                        n, d = (int(v) for v in line.split(":", 1)[1].strip(" []").split(","))
+                        return n, d
+                    except ValueError:
+                        return None
+            return None
+    return None
+
+
+def check_yolo(
+    images_dir: Path,
+    labels_dir: Path,
+    report: Report,
+    n_classes: Optional[int],
+    kpt_shape: Optional[Tuple[int, int]] = None,
+) -> None:
     images = {p.relative_to(images_dir).with_suffix("").as_posix(): p
               for p in images_dir.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTS}
     labels = {p.relative_to(labels_dir).with_suffix("").as_posix(): p for p in labels_dir.rglob("*.txt")}
@@ -180,7 +227,8 @@ def check_yolo(images_dir: Path, labels_dir: Path, report: Report, n_classes: Op
         seen = Counter()
         for parts in lines:
             report.counts["yolo_caixas"] += 1
-            if len(parts) not in (5, 9):
+            pose_len = 5 + kpt_shape[0] * kpt_shape[1] if kpt_shape else None
+            if len(parts) not in (5, 9) and len(parts) != pose_len:
                 report.problem("YOLO: linha com quantidade de valores inválida", key)
                 continue
             try:
@@ -188,6 +236,20 @@ def check_yolo(images_dir: Path, labels_dir: Path, report: Report, n_classes: Op
                 values = [float(v) for v in parts[1:]]
             except ValueError:
                 report.problem("YOLO: valor não numérico", key)
+                continue
+            if len(parts) == pose_len:
+                # YOLO Pose: caixa + N pontos (x, y[, v]); a visibilidade não é coordenada.
+                _, d = kpt_shape
+                points = [values[4 + i:4 + i + d] for i in range(0, len(values) - 4, d)]
+                if d == 3 and any(int(p[2]) not in (0, 1, 2) for p in points):
+                    report.problem("YOLO: visibilidade de keypoint fora de 0, 1 ou 2", key)
+                coords = values[:4] + [c for p in points for c in p[:2]]
+                if any(v < 0.0 or v > 1.0 for v in coords):
+                    report.problem("YOLO: coordenada fora de [0, 1]", key)
+                report.counts[f"yolo_caixas_por_classe:{cls}"] += 1
+                if cls < 0 or (n_classes is not None and cls >= n_classes):
+                    report.problem("YOLO: classe fora do data.yaml", key)
+                seen[tuple(parts)] += 1
                 continue
             report.counts[f"yolo_caixas_por_classe:{cls}"] += 1
             if cls < 0 or (n_classes is not None and cls >= n_classes):
@@ -219,13 +281,14 @@ def verify(root: Path) -> Optional[Report]:
     # YOLO: raiz (images/<split>, labels/<split>) ou pasta já no nível images/labels
     if (root / "images").is_dir() and (root / "labels").is_dir():
         found = True
-        check_yolo(root / "images", root / "labels", report, _yolo_class_count(root))
+        check_yolo(root / "images", root / "labels", report, _yolo_class_count(root), _yolo_kpt_shape(root))
     elif root.parent.name in ("images", "labels") or (root.parent / "labels").is_dir():
         split = root.name
         base = root.parent.parent if root.parent.name in ("images", "labels") else root.parent
         if (base / "images" / split).is_dir() and (base / "labels" / split).is_dir():
             found = True
-            check_yolo(base / "images" / split, base / "labels" / split, report, _yolo_class_count(base))
+            check_yolo(base / "images" / split, base / "labels" / split, report,
+                       _yolo_class_count(base), _yolo_kpt_shape(base))
     return report if found else None
 
 

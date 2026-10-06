@@ -145,3 +145,51 @@ def test_exports_made_by_the_app_pass(fmt, use_split):
     finally:
         reset_state()
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ── keypoints (YOLO Pose e COCO Keypoints) ───────────────────────────────────
+
+def _pose(root: Path, lines):
+    _yolo(root, lines)
+    (root / "data.yaml").write_text("train: images/train\n\nkpt_shape: [2, 3]\n\nnames:\n  0: fruto\n", encoding="utf-8")
+    return root
+
+
+def test_yolo_pose_lines_are_valid(tmp_path):
+    # instância de um ponto só: caixa sem área, segundo ponto ausente
+    root = _pose(tmp_path / "ds", ["0 0.5 0.5 0.0 0.0 0.5 0.5 2 0.0 0.0 0"])
+    assert verify(root).ok
+
+
+@pytest.mark.parametrize("line,expected", [
+    ("0 0.5 0.5 0.2 0.2 0.5 0.5 3 0.1 0.1 2", "YOLO: visibilidade de keypoint fora de 0, 1 ou 2"),
+    ("0 0.5 0.5 0.2 0.2 1.5 0.5 2 0.1 0.1 2", "YOLO: coordenada fora de [0, 1]"),
+    ("0 0.5 0.5 0.2 0.2 0.5 0.5 2", "YOLO: linha com quantidade de valores inválida"),
+])
+def test_yolo_pose_problems_are_detected(tmp_path, line, expected):
+    assert expected in kinds(verify(_pose(tmp_path / "ds", [line])))
+
+
+def _kp_coco(split: Path, keypoints, num=None):
+    ann = {"id": 1, "image_id": 1, "category_id": 0, "bbox": [10, 10, 0, 0], "area": 0, "keypoints": keypoints}
+    if num is not None:
+        ann["num_keypoints"] = num
+    _coco(split, [ann])
+    data = json.loads((split / "_annotations.coco.json").read_text(encoding="utf-8"))
+    data["categories"][0]["keypoints"] = ["a", "b"]
+    (split / "_annotations.coco.json").write_text(json.dumps(data), encoding="utf-8")
+    return split
+
+
+def test_coco_keypoint_single_point_is_valid(tmp_path):
+    assert verify(_kp_coco(tmp_path / "train", [10, 10, 2, 0, 0, 0], num=1)).ok
+
+
+@pytest.mark.parametrize("keypoints,num,expected", [
+    ([10, 10, 2], None, "COCO: keypoints com quantidade diferente da declarada na categoria"),
+    ([0, 0, 0, 0, 0, 0], None, "COCO: instância de keypoint sem nenhum ponto marcado"),
+    ([10, 10, 2, 500, 10, 2], None, "COCO: keypoint fora da imagem"),
+    ([10, 10, 2, 5, 5, 2], 1, "COCO: num_keypoints diferente dos pontos marcados"),
+])
+def test_coco_keypoint_problems_are_detected(tmp_path, keypoints, num, expected):
+    assert expected in kinds(verify(_kp_coco(tmp_path / "train", keypoints, num)))
