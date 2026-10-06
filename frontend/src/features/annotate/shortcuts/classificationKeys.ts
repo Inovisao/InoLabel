@@ -1,5 +1,6 @@
 import type { AnnotationState } from "../store/types";
 import type { KeyHandler } from "./types";
+import { matches } from "../../keybinds/keys";
 
 async function classifyAndAdvance(s: AnnotationState, position: number) {
   const classItem = s.classes[position - 1];
@@ -34,7 +35,7 @@ function handleDigit(s: AnnotationState, digit: string) {
 }
 
 /** Modo classificação: números, Enter/Backspace/Esc do número digitado e Espaço (pula). */
-export const classificationKeys: KeyHandler = (e, s) => {
+export const classificationKeys: KeyHandler = (e, s, binds) => {
   if (/^[0-9]$/.test(e.key)) {
     e.preventDefault();
     handleDigit(s, e.key);
@@ -58,7 +59,7 @@ export const classificationKeys: KeyHandler = (e, s) => {
       return true;
     }
   }
-  if (e.key === " ") {
+  if (matches(e, binds, "classification_skip")) {
     e.preventDefault();
     s.nextFrame();
     return true;

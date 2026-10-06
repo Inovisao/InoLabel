@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ClassItem } from "../../../shared/api/types";
 import { useSessionStore } from "../../../shared/session/store";
 import Kbd from "../../../shared/ui/Kbd";
+import { activeBinds, useKeybindStore } from "../../keybinds/store";
 import { useAnnotationStore } from "../store";
 
 /** Id do campo de busca de classes; o atalho "/" foca nele. */
@@ -16,6 +17,7 @@ export default function ClassList() {
     useAnnotationStore();
   const isClassification = useSessionStore((s) => s.mode) === "classification";
   const [query, setQuery] = useState("");
+  const searchKey = useKeybindStore((s) => activeBinds(s.data).search_class.join(" / "));
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -47,7 +49,7 @@ export default function ClassList() {
       <input
         id={CLASS_SEARCH_ID}
         className="input"
-        placeholder="Buscar classe ( / )"
+        placeholder={`Buscar classe (${searchKey})`}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => {
