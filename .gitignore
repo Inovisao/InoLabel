@@ -56,3 +56,7 @@ docs/
 
 # Documentação de apoio a agentes e planos (local, fora do repositório).
 docs_agents/
+
+# Ferramentas locais (não fazem parte do app): demo da ferramenta de design e sandbox de agentes.
+.impeccable/
+.ai-jail
