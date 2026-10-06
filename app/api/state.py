@@ -20,6 +20,8 @@ class SessionState:
     classes: list[str]
     model_path: Optional[Path] = None
     resume: bool = False
+    # Modo keypoint: por classe (mesma ordem de ``classes``), {"keypoints": [...], "skeleton": [...]}.
+    keypoint_specs: list = field(default_factory=list)
     session_id: str = field(default_factory=lambda: str(uuid4()))
     current_frame: int = 0
     total_frames: int = 0

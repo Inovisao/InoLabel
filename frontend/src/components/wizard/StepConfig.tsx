@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
-import type { WizardState } from "./Wizard";
+import { DEFAULT_KEYPOINTS, parseKeypointNames, type WizardState } from "./Wizard";
 
 interface Props {
   state: WizardState;
@@ -13,7 +13,12 @@ export default function StepConfig({ state, onChange }: Props) {
   const addClass = () => {
     const name = newClass.trim();
     if (!name || state.classes.includes(name)) return;
-    onChange({ classes: [...state.classes, name] });
+    // Projeto novo começa com o padrão da 1.0.0; ao retomar, vazio = pontos do projeto.
+    const keypointNames =
+      state.mode === "keypoint" && !state.outputDir && state.keypointNames[name] === undefined
+        ? { ...state.keypointNames, [name]: DEFAULT_KEYPOINTS }
+        : state.keypointNames;
+    onChange({ classes: [...state.classes, name], keypointNames });
     setNewClass("");
   };
 
@@ -104,6 +109,43 @@ export default function StepConfig({ state, onChange }: Props) {
           </p>
         )}
       </div>
+
+      {state.mode === "keypoint" && state.classes.length > 0 && (
+        <div>
+          <label className="text-label" style={{ display: "block", marginBottom: 4 }}>
+            Pontos de cada classe
+          </label>
+          <span className="text-helper" style={{ display: "block", marginBottom: 10 }}>
+            Nomes separados por vírgula, na ordem em que serão clicados.
+            {state.outputDir && " Deixe vazio para manter os pontos já salvos no projeto."}
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {state.classes.map((cls) => {
+              const count = parseKeypointNames(state.keypointNames[cls]).length;
+              return (
+                <div key={cls} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 120, fontSize: 13, fontWeight: 600, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {cls}
+                  </span>
+                  <input
+                    className="input"
+                    aria-label={`Pontos da classe ${cls}`}
+                    placeholder={state.outputDir ? "pontos do projeto" : DEFAULT_KEYPOINTS}
+                    value={state.keypointNames[cls] ?? ""}
+                    onChange={(e) =>
+                      onChange({ keypointNames: { ...state.keypointNames, [cls]: e.target.value } })
+                    }
+                    style={{ flex: 1, fontSize: 13 }}
+                  />
+                  <span className="text-mono" style={{ width: 64, fontSize: 12, color: "var(--color-muted)", flexShrink: 0 }}>
+                    {count ? `${count} pt${count > 1 ? "s" : ""}` : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Confidence threshold */}
       <div>

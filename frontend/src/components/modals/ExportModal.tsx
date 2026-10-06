@@ -89,13 +89,17 @@ function SplitRow({
 }
 
 export default function ExportModal({ open, onClose, totalFrames }: Props) {
-  const { sessionId, outputPath } = useSessionStore();
+  const { sessionId, outputPath, mode } = useSessionStore();
+  const isKeypoint = mode === "keypoint";
 
   const [formats, setFormats] = useState<ExportFormat[]>(["yolo", "coco"]);
   const [cocoLayout, setCocoLayout] = useState<CocoLayout>("roboflow");
   const [augment, setAugment] = useState(false);
   const [augCatalog, setAugCatalog] = useState<AugmentationOption[]>([]);
-  const [augKeys, setAugKeys] = useState<string[]>(["flip_h", "brightness", "contrast"]);
+  // Keypoint: espelhar não troca os nomes dos pontos (esquerda vira direita), então fica fora do padrão.
+  const [augKeys, setAugKeys] = useState<string[]>(
+    mode === "keypoint" ? ["brightness", "contrast"] : ["flip_h", "brightness", "contrast"]
+  );
   const [augCopies, setAugCopies] = useState(1);
   const [destination, setDestination] = useState("");
   const [name, setName] = useState("dataset_export");
@@ -374,7 +378,7 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                         >
                           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 13, fontWeight: 700, color: sel ? "var(--color-primary)" : "var(--color-text)" }}>
-                              {f.label}
+                              {isKeypoint ? (f.id === "yolo" ? "YOLO Pose" : "COCO Keypoints") : f.label}
                             </span>
                             {sel && <CheckCircle size={13} color="var(--color-primary)" />}
                           </span>
@@ -615,6 +619,11 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                           ))}
                         </select>
                       </label>
+                      {isKeypoint && augKeys.some((k) => k.startsWith("flip")) && (
+                        <span className="text-helper" style={{ color: "var(--color-warning)" }}>
+                          Espelhar não troca os nomes dos pontos: um ponto "esquerdo" passa a ficar à direita.
+                        </span>
+                      )}
                       <span className="text-helper">
                         Só nas imagens de treino do YOLO (val/test e COCO ficam sem cópias, para não vazar dados na validação).
                       </span>

@@ -29,6 +29,12 @@ def list_modes() -> list[ModeInfo]:
             icon="box-rotate-clockwise",
         ),
         ModeInfo(
+            id="keypoint",
+            label="Keypoints",
+            description="Pontos nomeados por classe, clicados em ordem; exporta YOLO Pose e COCO Keypoints.",
+            icon="points",
+        ),
+        ModeInfo(
             id="classification",
             label="Classificação",
             description="Copia imagens para subpastas por classe ao pressionar o atalho da classe.",

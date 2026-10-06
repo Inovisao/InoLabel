@@ -7,6 +7,7 @@ const MODE_LABELS: Record<string, string> = {
   tracking: "Rastreamento",
   detection: "Detecção padrão",
   obb: "Detecção orientada (OBB)",
+  keypoint: "Keypoints",
   classification: "Classificação",
 };
 

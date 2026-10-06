@@ -115,6 +115,13 @@ Critério de pronto: um script de treino que lia o arquivo da 1.0.0 lê o arquiv
 
 ## 3. Parte B — modo keypoint
 
+> **Implementado em 2026-10-06.** Arquivo de estado `annotations_keypoints.coco.json` (nome da 1.0.0);
+> atalhos da 1.0.0 (F fecha, X pula, C visível/oculto, Backspace desfaz o ponto); esqueleto com índices
+> a partir de 0, como na 1.0.0 (sem esqueleto, pontos vizinhos ligados e o último ao primeiro); o `.txt`
+> é espelho em YOLO Pose e nunca fonte; mudar a quantidade de pontos de uma classe que já tem anotações é
+> recusado; o export não troca nomes ao espelhar (flips fora do padrão no modo keypoint, com aviso).
+> Esqueleto não é editável pelo wizard (é preservado do projeto). Testes: `tests/test_keypoint_mode.py`.
+
 ### 3.1 O que já existe e é reaproveitado
 
 Quatro módulos sobreviveram à remoção do Tkinter, não dependem dele e têm 18 testes passando:

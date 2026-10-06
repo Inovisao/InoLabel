@@ -101,6 +101,7 @@ def _run_export_blocking(export_id: str) -> None:
             annotation_store=_state.annotation_store,
             reviewed=_state.reviewed_frames,
             image_ids=dict(_state.coco_image_ids),
+            keypoint_specs=session.keypoint_specs,
         )
         coco_images = payload["images"]
         coco_annotations = payload["annotations"]
@@ -127,7 +128,20 @@ def _run_export_blocking(export_id: str) -> None:
                     current = sorted_export_names[done - 1]
                     job.current_file = export_to_original.get(current, current)
 
-            if session.mode == "obb":
+            if session.mode == "keypoint":
+                from app.annotation_keypoint.infrastructure.export.yolo_pose_exporter import (
+                    export_yolo_pose_dataset,
+                )
+
+                export_yolo_pose_dataset(
+                    payload,
+                    output_dir=out,
+                    source_images_dir=session.data_path,
+                    split_ratios=job.split_ratios if job.use_split else None,
+                    augmentation_preset=job.augmentation,
+                    on_progress=_on_yolo_progress,
+                )
+            elif session.mode == "obb":
                 from app.annotation_obb.infrastructure.export.yolo_obb_exporter import export_yolo_obb_dataset
 
                 export_yolo_obb_dataset(

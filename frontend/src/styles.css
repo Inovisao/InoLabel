@@ -52,12 +52,14 @@
   --color-icon-detect: #DBEAFE;
   --color-icon-obb:    #DCFCE7;
   --color-icon-class:  #FEF3C7;
+  --color-icon-kp:     #FCE7F3;
 
   /* Mode icon foregrounds */
   --color-icon-track-fg:  #3B82F6;
   --color-icon-detect-fg: #3B82F6;
   --color-icon-obb-fg:    #22C55E;
   --color-icon-class-fg:  #F59E0B;
+  --color-icon-kp-fg:     #DB2777;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -137,10 +139,12 @@
   --color-icon-detect:    #172A46;
   --color-icon-obb:       #123322;
   --color-icon-class:     #34280F;
+  --color-icon-kp:        #3B1529;
   --color-icon-track-fg:  #93C5FD;
   --color-icon-detect-fg: #93C5FD;
   --color-icon-obb-fg:    #86EFAC;
   --color-icon-class-fg:  #FCD34D;
+  --color-icon-kp-fg:     #F9A8D4;
 
   --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.28);
   --shadow-interactive: 0 8px 24px rgba(0, 0, 0, 0.26);

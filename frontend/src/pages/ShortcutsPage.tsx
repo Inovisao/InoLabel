@@ -37,6 +37,18 @@ const GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
     ],
   },
   {
+    title: "Keypoints",
+    shortcuts: [
+      { keys: ["Clique"], action: "Marcar o próximo ponto da classe (ferramenta B)" },
+      { keys: ["X"], action: "Pular o ponto (fica ausente)" },
+      { keys: ["C"], action: "Alternar visível / oculto (do ponto selecionado ou dos próximos)" },
+      { keys: ["F"], action: "Fechar a instância agora (pontos restantes ficam ausentes)" },
+      { keys: ["Backspace"], action: "Desfazer o último ponto da instância em andamento" },
+      { keys: ["Esc"], action: "Cancelar a instância em andamento" },
+      { keys: ["V", "arrastar"], action: "Mover um ponto de uma instância salva" },
+    ],
+  },
+  {
     title: "Classificação",
     shortcuts: [
       { keys: ["1–9"], action: "Classificar pela posição da classe e avançar" },

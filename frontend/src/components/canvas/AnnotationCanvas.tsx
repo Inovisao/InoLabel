@@ -5,6 +5,7 @@ import { useAnnotationStore } from "../../stores/annotation";
 import { useSessionStore } from "../../stores/session";
 import type { Annotation, OBBGeometry } from "../../api/types";
 import ConfirmModal from "../modals/ConfirmModal";
+import KeypointLayer, { keypointAt } from "./KeypointLayer";
 import {
   angleFromCenter,
   fitInsideImage,
@@ -50,6 +51,10 @@ export default function AnnotationCanvas() {
     selectAnnotation,
     rotateSelected,
     setImageSize,
+    kpWip,
+    kpNextVisibility,
+    kpPlacePoint,
+    selectKeypoint,
     tool,
     error,
     clearError,
@@ -128,6 +133,21 @@ export default function AnnotationCanvas() {
     if (!pos) return;
     // Alça de rotação ou caixa arrastável: o gesto é delas, não desenha nem seleciona.
     if (e.target.draggable() || e.target.getParent()?.draggable()) return;
+    if (mode === "keypoint") {
+      const inside =
+        pos.x >= offsetX && pos.x <= offsetX + imgW && pos.y >= offsetY && pos.y <= offsetY + imgH;
+      if (!inside) return;
+      const { x, y } = toImageCoords(pos.x, pos.y);
+      if (tool === "box") {
+        kpPlacePoint(x, y);   // B: cada clique marca o próximo ponto da classe
+      } else {
+        // V: clique perto de um ponto seleciona instância + ponto; senão, pela bbox.
+        const hit = frame ? keypointAt(frame.annotations, x, y, 10 / imgScale) : null;
+        if (hit) selectKeypoint(hit.annId, hit.index);
+        else selectAnnotation(annotationAt(pos.x, pos.y)?.id ?? null);
+      }
+      return;
+    }
     // Ferramenta de seleção: clique escolhe a caixa; arrastar move (draggable).
     if (tool === "select") {
       selectAnnotation(annotationAt(pos.x, pos.y)?.id ?? null);
@@ -239,7 +259,11 @@ export default function AnnotationCanvas() {
             )}
 
             {/* Existing annotations */}
-            {mode !== "classification" && frame?.annotations.map((ann) => {
+            {mode === "keypoint" && img && (
+              <KeypointLayer offsetX={offsetX} offsetY={offsetY} scale={imgScale} imgW={img.width} imgH={img.height} />
+            )}
+
+            {mode !== "classification" && mode !== "keypoint" && frame?.annotations.map((ann) => {
               const cls = classes.find((c) => c.id === ann.category_id);
               const hasTrack = mode === "tracking" && ann.track_id != null;
               const clsColor = hasTrack
@@ -499,6 +523,35 @@ export default function AnnotationCanvas() {
           </div>
         )}
 
+        {/* Keypoint: qual é o próximo ponto */}
+        {mode === "keypoint" && frame && tool === "box" && (() => {
+          const cls = classes.find((c) => c.id === (kpWip?.categoryId ?? selectedClassId));
+          const names = cls?.keypoints ?? [];
+          if (!names.length) return null;
+          const index = kpWip?.index ?? 0;
+          return (
+            <div
+              style={{
+                position: "absolute",
+                top: 12,
+                left: "50%",
+                transform: "translateX(-50%)",
+                padding: "6px 12px",
+                background: "var(--overlay-canvas-control)",
+                color: "var(--color-text-inverse)",
+                borderRadius: "var(--radius-md)",
+                fontSize: 12,
+                pointerEvents: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {cls?.name} · próximo: <strong>{names[index]}</strong> ({index + 1}/{names.length})
+              {" · "}
+              {kpNextVisibility === 2 ? "visível" : "oculto"}
+            </div>
+          );
+        })()}
+
         {/* Hint */}
         {frame && (
           <div
@@ -513,6 +566,10 @@ export default function AnnotationCanvas() {
           >
             {mode === "classification"
               ? "Clique na classe ou digite o número dela · Espaço pula · Ctrl+Z desfaz"
+              : mode === "keypoint"
+                ? tool === "select"
+                  ? "Clique num ponto para selecionar · arraste para mover · C visível/oculto · Del apaga a instância · B volta a marcar"
+                  : "Clique para marcar os pontos em ordem · X pula o ponto · C visível/oculto · F fecha · Backspace desfaz o ponto · Esc cancela"
               : mode === "obb" && selectedAnnotationId !== null
                 ? "Arraste a alça ○ para girar (Shift: 15°) · Q / E giram 5° · V e arraste para mover · Del remove"
                 : tool === "select"

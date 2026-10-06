@@ -1,4 +1,4 @@
-import { ScanLine, BoxSelect, Diamond, Grid2X2 } from "lucide-react";
+import { ScanLine, BoxSelect, Diamond, Grid2X2, Spline } from "lucide-react";
 import type { TaskMode } from "../../api/types";
 
 interface ModeOption {
@@ -34,6 +34,14 @@ const MODES: ModeOption[] = [
     icon: Diamond,
     iconBg: "var(--color-icon-obb)",
     iconColor: "var(--color-icon-obb-fg)",
+  },
+  {
+    id: "keypoint",
+    label: "Keypoints",
+    description: "Pontos nomeados por classe, clicados em ordem. Exporta YOLO Pose e COCO Keypoints.",
+    icon: Spline,
+    iconBg: "var(--color-icon-kp)",
+    iconColor: "var(--color-icon-kp-fg)",
   },
   {
     id: "classification",

@@ -9,6 +9,7 @@ const MODE_LABELS: Record<string, string> = {
   detection: "Detecção",
   tracking: "Tracking",
   obb: "OBB",
+  keypoint: "Keypoints",
   classification: "Classificação",
   unknown: "—",
 };

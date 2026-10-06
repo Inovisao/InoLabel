@@ -49,17 +49,22 @@ def _unique_flat_names(file_names: Sequence[str]) -> Dict[str, str]:
 
 
 def normalize_categories(categories: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return [
-        {
+    out = []
+    for cat in categories:
+        entry = {
             "id": int(cat.get("id")),
             "name": str(cat.get("name", "")),
             "supercategory": str(cat.get("supercategory", "none")),
         }
-        for cat in categories
-    ]
+        # COCO Keypoints: nomes dos pontos e esqueleto fazem parte da categoria.
+        if cat.get("keypoints"):
+            entry["keypoints"] = list(cat["keypoints"])
+            entry["skeleton"] = [list(link) for link in cat.get("skeleton", []) or []]
+        out.append(entry)
+    return out
 
 
-_OPTIONAL_ANNOTATION_FIELDS = ("score", "source", "track_id", "video", "obb")
+_OPTIONAL_ANNOTATION_FIELDS = ("score", "source", "track_id", "video", "obb", "keypoints", "num_keypoints")
 
 
 def convert_tracking_to_detection(
@@ -83,8 +88,10 @@ def convert_tracking_to_detection(
         bbox = ann.get("bbox", [0, 0, 0, 0])
         area = float(ann.get("area", 0.0))
         width, height = image_sizes.get(image_id, (0, 0))
-        if width > 0 and height > 0:
+        if width > 0 and height > 0 and not ann.get("keypoints"):
             # Nunca exportar caixa fora da resolucao declarada da imagem.
+            # (Keypoint: a bbox é o envelope dos pontos, já dentro da imagem, e pode
+            # não ter área — uma instância de um ponto só é válida.)
             clipped = clip_coco_bbox(bbox, width, height)
             if clipped is None:
                 dropped_count += 1

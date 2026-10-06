@@ -25,7 +25,10 @@ from app.annotation.core.export.yolo_label_service import clip_coco_bbox
 from app.core.palette import CLASS_COLORS
 
 STATE_SUBDIR = "saved_data_states"
-_STATE_FILE_BY_MODE = {"obb": "annotations_obb.coco.json"}
+_STATE_FILE_BY_MODE = {
+    "obb": "annotations_obb.coco.json",
+    "keypoint": "annotations_keypoints.coco.json",   # mesmo nome da 1.0.0
+}
 DEFAULT_STATE_FILE = "annotations.coco.json"
 
 
@@ -62,6 +65,7 @@ def build_payload(
     reviewed: Iterable[int] = (),
     image_ids: Optional[Dict[str, int]] = None,
     current_index: Optional[int] = None,
+    keypoint_specs: Sequence[Mapping] = (),
 ) -> dict:
     """Monta o COCO do projeto a partir do estado em memória.
 
@@ -94,6 +98,11 @@ def build_payload(
         for ann in annotation_store.get(idx) or []:
             category = int(_field(ann, "category_id", -1))
             if category < 0 or category >= len(classes):
+                continue
+            if mode == "keypoint":
+                entry = _keypoint_entry(ann, image_id, category, width, height)
+                if entry is not None:
+                    annotations.append(entry)
                 continue
             clipped = clip_coco_bbox(list(_field(ann, "bbox", [])), width, height)
             if clipped is None:
@@ -128,10 +137,7 @@ def build_payload(
             "data_root": str(data_path) if data_path is not None else "",
         },
         "licenses": [],
-        "categories": [
-            {"id": i + 1, "name": name, "color": CLASS_COLORS[i % len(CLASS_COLORS)], "supercategory": "none"}
-            for i, name in enumerate(classes)
-        ],
+        "categories": [_category(i, name, mode, keypoint_specs) for i, name in enumerate(classes)],
         "images": images,
         "annotations": annotations,
     }
@@ -141,6 +147,63 @@ def build_payload(
             "last_active_frame_index": int(current_index),
         }
     return payload
+
+
+def _category(index: int, name: str, mode: str, keypoint_specs: Sequence[Mapping]) -> dict:
+    category = {"id": index + 1, "name": name, "color": CLASS_COLORS[index % len(CLASS_COLORS)], "supercategory": "none"}
+    if mode == "keypoint":
+        spec = keypoint_specs[index] if index < len(keypoint_specs) else {}
+        category["keypoints"] = list(spec.get("keypoints", []))
+        category["skeleton"] = [list(link) for link in spec.get("skeleton", [])]
+    return category
+
+
+def _keypoint_entry(ann, image_id: int, category: int, width: int, height: int) -> Optional[dict]:
+    """Anotação no padrão COCO Keypoints; pontos presos à imagem, bbox = envelope dos visíveis."""
+    points = _field(ann, "keypoints") or []
+    flat: List[float] = []
+    placed = []
+    for kp in points:
+        x, y, v = float(kp[0]), float(kp[1]), int(kp[2])
+        if v > 0:
+            x, y = min(max(x, 0.0), float(width)), min(max(y, 0.0), float(height))
+            placed.append((x, y))
+        else:
+            x = y = 0.0
+        flat.extend([x, y, v])
+    if not placed:
+        return None   # instância sem nenhum ponto marcado não é válida
+    xs = [p[0] for p in placed]
+    ys = [p[1] for p in placed]
+    x0, y0 = min(xs), min(ys)
+    w, h = max(xs) - x0, max(ys) - y0
+    score = _field(ann, "score")
+    return {
+        "id": int(_field(ann, "id")),
+        "image_id": image_id,
+        "category_id": category + 1,
+        "bbox": [x0, y0, w, h],
+        "area": w * h,
+        "iscrowd": 0,
+        "segmentation": [],
+        "keypoints": flat,
+        "num_keypoints": len(placed),
+        "score": float(score) if score is not None else 1.0,
+        "source": _field(ann, "source", "manual") or "manual",
+    }
+
+
+def keypoint_specs_from_payload(data: dict, classes: Sequence[str]) -> List[dict]:
+    """Pontos/esqueleto por classe lidos das categorias do COCO (para retomar projeto)."""
+    by_name = {str(c.get("name", "")).strip(): c for c in data.get("categories", []) or []}
+    specs = []
+    for name in classes:
+        cat = by_name.get(name) or {}
+        specs.append({
+            "keypoints": [str(k) for k in cat.get("keypoints", []) or []],
+            "skeleton": [list(link) for link in cat.get("skeleton", []) or []],
+        })
+    return specs
 
 
 @dataclass
@@ -215,6 +278,11 @@ def parse_payload(
             "track_id": ann.get("track_id"),
             "obb": ann.get("obb"),
         }
+        flat = ann.get("keypoints")
+        if isinstance(flat, list) and flat:
+            entry["keypoints"] = [
+                [float(flat[i]), float(flat[i + 1]), int(flat[i + 2])] for i in range(0, len(flat) - 2, 3)
+            ]
         parsed.annotations.setdefault(idx, []).append(entry)
         parsed.max_annotation_id = max(parsed.max_annotation_id, ann_id)
 

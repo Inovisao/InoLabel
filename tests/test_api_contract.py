@@ -47,6 +47,7 @@ def test_modes_endpoint_returns_required_modes():
         "tracking",
         "detection",
         "obb",
+        "keypoint",
         "classification",
     ]
     assert all({"id", "label", "description", "icon"} <= set(mode) for mode in modes)

@@ -19,6 +19,20 @@ export interface WizardState {
   weightsPath: string;
   confidence: number;
   resumeExisting: boolean;
+  /** Modo keypoint: nomes dos pontos por classe, separados por vírgula. */
+  keypointNames: Record<string, string>;
+}
+
+/** Mesmo padrão da 1.0.0 para uma classe nova. */
+export const DEFAULT_KEYPOINTS = "top_left, top_right, bottom_right, bottom_left";
+
+/** "a, b, a ,c" → ["a", "b", "c"] (sem vazios nem repetidos). */
+export function parseKeypointNames(raw: string | undefined): string[] {
+  const seen = new Set<string>();
+  return (raw ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s && !seen.has(s) && (seen.add(s), true));
 }
 
 const INITIAL: WizardState = {
@@ -30,6 +44,7 @@ const INITIAL: WizardState = {
   weightsPath: "",
   confidence: 0.4,
   resumeExisting: false,
+  keypointNames: {},
 };
 
 const STEP_LABELS = ["Modo", "Dados", "Configuração"];
@@ -58,6 +73,12 @@ export default function Wizard({ step, onStepChange, activeNav, onNavigate, init
     setState((s) => ({ ...s, ...patch }));
 
   const next = () => onStepChange(Math.min(step + 1, 2));
+
+  // Projeto novo no modo keypoint: toda classe precisa dos seus pontos.
+  const missingKeypoints =
+    state.mode === "keypoint" &&
+    !state.outputDir &&
+    state.classes.some((name) => parseKeypointNames(state.keypointNames[name]).length === 0);
   const back = () => onStepChange(Math.max(step - 1, 0));
 
   const finish = async () => {
@@ -80,6 +101,13 @@ export default function Wizard({ step, onStepChange, activeNav, onNavigate, init
       weights_paths: state.weightsPath ? [state.weightsPath] : [],
       confidence_threshold: state.confidence,
       resume_existing: state.resumeExisting,
+      // Classe sem pontos digitados ao retomar: o backend usa os do próprio projeto.
+      keypoint_classes:
+        state.mode === "keypoint"
+          ? state.classes
+              .map((name) => ({ name, keypoints: parseKeypointNames(state.keypointNames[name]) }))
+              .filter((spec) => spec.keypoints.length > 0)
+          : undefined,
     });
   };
 
@@ -171,7 +199,12 @@ export default function Wizard({ step, onStepChange, activeNav, onNavigate, init
                   Continuar →
                 </button>
               ) : (
-                <button className="btn-primary" onClick={finish} disabled={loading}>
+                <button
+                  className="btn-primary"
+                  onClick={finish}
+                  disabled={loading || missingKeypoints}
+                  title={missingKeypoints ? "Defina os pontos de todas as classes" : undefined}
+                >
                   {loading ? "Iniciando…" : "Iniciar anotação →"}
                 </button>
               )}

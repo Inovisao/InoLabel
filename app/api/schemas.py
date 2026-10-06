@@ -11,6 +11,7 @@ class TaskMode(str, Enum):
     DETECTION = "detection"
     OBB = "obb"
     CLASSIFICATION = "classification"
+    KEYPOINT = "keypoint"
 
 
 class ModeInfo(BaseModel):
@@ -28,6 +29,36 @@ class OutputsRequest(BaseModel):
     output_path: str
 
 
+class KeypointClassSpec(BaseModel):
+    """Pontos de uma classe no modo keypoint, na ordem em que são clicados.
+
+    ``skeleton`` liga pares de pontos (índices a partir de 0, como na 1.0.0); vazio
+    = os pontos são ligados em sequência.
+    """
+
+    name: str
+    keypoints: List[str]
+    skeleton: List[List[int]] = Field(default_factory=list)
+
+    @field_validator("keypoints")
+    @classmethod
+    def keypoint_names_valid(cls, value: List[str]) -> List[str]:
+        cleaned = [item.strip() for item in value if item and item.strip()]
+        if not cleaned:
+            raise ValueError("Cada classe precisa de ao menos um ponto.")
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("Nomes de pontos repetidos na mesma classe.")
+        return cleaned
+
+    @model_validator(mode="after")
+    def skeleton_in_range(self) -> "KeypointClassSpec":
+        n = len(self.keypoints)
+        for link in self.skeleton:
+            if len(link) != 2 or not all(0 <= int(i) < n for i in link) or link[0] == link[1]:
+                raise ValueError(f"Ligação de esqueleto inválida para '{self.name}': {link}.")
+        return self
+
+
 class SessionStartRequest(BaseModel):
     mode: TaskMode
     data_path: Optional[str] = None
@@ -40,6 +71,8 @@ class SessionStartRequest(BaseModel):
     weights_paths: List[str] = Field(default_factory=list)
     confidence_threshold: float = 0.4
     resume_existing: bool = False
+    # Modo keypoint: pontos de cada classe. Ao retomar, pode faltar (vem do projeto).
+    keypoint_classes: List[KeypointClassSpec] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def normalize_legacy_frontend_names(self) -> "SessionStartRequest":
@@ -217,6 +250,8 @@ class Annotation(BaseModel):
     track_id: Optional[int] = None
     source: str = "manual"
     score: Optional[float] = None
+    # Modo keypoint: [[x, y, v], ...] na ordem da classe; v = 0 ausente, 1 oculto, 2 visível.
+    keypoints: Optional[List[List[float]]] = None
 
 
 class FrameResponse(BaseModel):
@@ -235,15 +270,20 @@ class ClassItem(BaseModel):
     id: int
     name: str
     color: Optional[str] = None
+    # Modo keypoint: nomes dos pontos e esqueleto da classe.
+    keypoints: List[str] = Field(default_factory=list)
+    skeleton: List[List[int]] = Field(default_factory=list)
 
 
 class AnnotationUpsert(BaseModel):
     category_id: int
-    bbox: List[float]
+    # No modo keypoint a bbox é calculada a partir dos pontos (pode ir [0, 0, 0, 0]).
+    bbox: List[float] = Field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0])
     obb: Optional[OBBGeometry] = None
     track_id: Optional[int] = None
     source: str = "manual"
     score: Optional[float] = None
+    keypoints: Optional[List[List[float]]] = None
 
     @field_validator("category_id")
     @classmethod
@@ -357,6 +397,7 @@ class AnnotationPatch(BaseModel):
     track_id: Optional[int] = None
     bbox: Optional[List[float]] = None
     obb: Optional[OBBGeometry] = None
+    keypoints: Optional[List[List[float]]] = None
 
 
 class NextTrackId(BaseModel):

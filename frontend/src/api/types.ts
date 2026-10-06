@@ -1,4 +1,14 @@
-export type TaskMode = "tracking" | "detection" | "obb" | "classification";
+export type TaskMode = "tracking" | "detection" | "obb" | "keypoint" | "classification";
+
+/** Modo keypoint: pontos de uma classe, na ordem de clique; esqueleto com índices a partir de 0. */
+export interface KeypointClassSpec {
+  name: string;
+  keypoints: string[];
+  skeleton?: [number, number][];
+}
+
+/** [x, y, v] — v: 0 ausente, 1 oculto, 2 visível (convenção COCO). */
+export type Keypoint = [number, number, number];
 
 export interface SessionStartRequest {
   mode: TaskMode;
@@ -8,6 +18,7 @@ export interface SessionStartRequest {
   weights_paths: string[];
   confidence_threshold: number;
   resume_existing: boolean;
+  keypoint_classes?: KeypointClassSpec[];
 }
 
 export interface SessionStatus {
@@ -42,6 +53,7 @@ export interface Annotation {
   track_id?: number | null;
   source: string;
   score?: number | null;
+  keypoints?: Keypoint[] | null;
 }
 
 export interface AnnotationPatch {
@@ -50,6 +62,8 @@ export interface AnnotationPatch {
   bbox?: [number, number, number, number];
   /** Modo OBB: o backend recalcula cantos e bbox a partir de cx, cy, w, h e angle. */
   obb?: OBBGeometry;
+  /** Modo keypoint: o backend recalcula a bbox a partir dos pontos. */
+  keypoints?: Keypoint[];
 }
 
 export interface OBBGeometry {
@@ -79,6 +93,9 @@ export interface ClassItem {
   id: number;
   name: string;
   color?: string;
+  /** Modo keypoint: nomes dos pontos na ordem de clique e esqueleto. */
+  keypoints?: string[];
+  skeleton?: [number, number][];
 }
 
 export interface ClassificationResult {

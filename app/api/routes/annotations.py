@@ -78,6 +78,7 @@ def save_project_state() -> None:
         reviewed=_state.reviewed_frames,
         image_ids=_state.coco_image_ids,
         current_index=session.current_frame,
+        keypoint_specs=session.keypoint_specs,
     )
     _state.coco_writer.submit(state_path(session.output_path, session.mode), payload)
 
@@ -108,6 +109,10 @@ def bootstrap_project_state() -> set:
                 "estado do projeto: %d imagem(ns) sem correspondente no dataset, %d anotação(ões) ignorada(s)",
                 parsed.unmatched_images, parsed.skipped_annotations,
             )
+        return set(range(len(_state.frame_paths)))
+
+    if session.mode == "keypoint":
+        # Keypoint é novo nesta versão: o .txt de pose é só espelho, nunca fonte.
         return set(range(len(_state.frame_paths)))
 
     # Migração: lê os .txt existentes e grava o COCO pela primeira vez.
@@ -142,7 +147,49 @@ def _annotation_from_state(entry: dict) -> Annotation:
         track_id=entry.get("track_id"),
         source=entry.get("source") or "manual",
         score=entry.get("score"),
+        keypoints=entry.get("keypoints"),
     )
+
+
+def _keypoint_spec(session, category_id: int) -> list:
+    specs = session.keypoint_specs or []
+    return specs[category_id]["keypoints"] if 0 <= category_id < len(specs) else []
+
+
+def _validate_keypoints(session, image_id: int, category_id: int, keypoints) -> tuple[list, list]:
+    """Confere os pontos contra a classe e a imagem; devolve (pontos, bbox envelope).
+
+    Quantidade igual à da classe, visibilidade 0/1/2, ao menos um ponto marcado e
+    nenhum ponto marcado fora da imagem.
+    """
+    if not 0 <= category_id < len(session.classes):
+        raise HTTPException(status_code=422, detail="category_id fora do intervalo de classes.")
+    names = _keypoint_spec(session, category_id)
+    if keypoints is None or len(keypoints) != len(names):
+        raise HTTPException(
+            status_code=422,
+            detail=f"A classe '{session.classes[category_id]}' tem {len(names)} ponto(s); recebidos {len(keypoints or [])}.",
+        )
+    dims = _frame_dims(image_id)
+    cleaned, placed = [], []
+    for kp in keypoints:
+        if len(kp) != 3 or int(kp[2]) not in (0, 1, 2):
+            raise HTTPException(status_code=422, detail="Cada ponto é [x, y, v] com v = 0, 1 ou 2.")
+        x, y, v = float(kp[0]), float(kp[1]), int(kp[2])
+        if v == 0:
+            cleaned.append([0.0, 0.0, 0])
+            continue
+        if dims is not None and not (-0.5 <= x <= dims[0] + 0.5 and -0.5 <= y <= dims[1] + 0.5):
+            raise HTTPException(status_code=422, detail="Ponto fora da imagem.")
+        if dims is not None:
+            x, y = min(max(x, 0.0), float(dims[0])), min(max(y, 0.0), float(dims[1]))
+        cleaned.append([x, y, v])
+        placed.append((x, y))
+    if not placed:
+        raise HTTPException(status_code=422, detail="Instância sem nenhum ponto marcado.")
+    xs = [p[0] for p in placed]
+    ys = [p[1] for p in placed]
+    return cleaned, [min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)]
 
 
 def _points_from_obb(obb: OBBGeometry) -> list[list[float]]:
@@ -268,7 +315,14 @@ def _autosave(image_id: int) -> None:
             _labels_dir_created.add(labels_key)
 
         lines: List[str] = []
+        n_kpts = max((len(spec.get("keypoints", [])) for spec in session.keypoint_specs or []), default=0)
         for ann in annotations:
+            if session.mode == "keypoint":
+                if ann.keypoints:
+                    from app.annotation_keypoint.infrastructure.export.yolo_pose_exporter import _pose_line
+
+                    lines.append(_pose_line(ann.category_id, ann.keypoints, img_w, img_h, n_kpts))
+                continue
             if session.mode == "obb" and ann.obb is not None:
                 points = ann.obb.points or _points_from_obb(ann.obb)
                 values = [str(ann.category_id)]
@@ -442,6 +496,13 @@ def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
             status_code=400,
             detail=f"image_id {image_id} fora do intervalo (sessão tem {total} frames, índices 0–{total - 1}).",
         )
+    keypoints = None
+    if session.mode == "keypoint":
+        if body.track_id is not None or body.obb is not None:
+            raise HTTPException(status_code=422, detail="Modo keypoint não usa track_id nem obb.")
+        keypoints, kp_bbox = _validate_keypoints(session, image_id, body.category_id, body.keypoints)
+    elif body.keypoints is not None:
+        raise HTTPException(status_code=422, detail="keypoints so existe no modo keypoint.")
     obb = body.obb
     bbox = body.bbox
     if session.mode == "obb":
@@ -451,6 +512,9 @@ def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
             obb, bbox = _finalize_obb(body.obb)
     elif body.obb is not None:
         raise HTTPException(status_code=422, detail="obb so existe no modo OBB.")
+
+    if keypoints is not None:
+        bbox = kp_bbox
 
     _ensure_loaded_from_disk(image_id)
     ann = Annotation(
@@ -462,6 +526,7 @@ def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
         track_id=body.track_id,
         source=body.source,
         score=body.score,
+        keypoints=keypoints,
     )
     _state.annotation_store.setdefault(image_id, []).append(ann)
     _state.next_ann_id[0] += 1
@@ -662,6 +727,17 @@ def update_annotation(image_id: int, ann_id: int, body: AnnotationPatch) -> Anno
         if bbox is None or len(bbox) != 4 or bbox[2] <= 0 or bbox[3] <= 0:
             raise HTTPException(status_code=422, detail="bbox deve ser [x, y, largura, altura] com area.")
     current = anns[pos]
+    if session.mode == "keypoint":
+        if changes.get("keypoints") is not None or "category_id" in changes:
+            # Trocar de classe só se a nova tiver o mesmo número de pontos.
+            category = int(changes.get("category_id", current.category_id))
+            points = changes.get("keypoints") if changes.get("keypoints") is not None else current.keypoints
+            changes["keypoints"], changes["bbox"] = _validate_keypoints(session, image_id, category, points)
+        else:
+            changes.pop("keypoints", None)
+            changes.pop("bbox", None)   # a bbox do keypoint é sempre a dos pontos
+    elif changes.get("keypoints") is not None:
+        raise HTTPException(status_code=422, detail="keypoints so existe no modo keypoint.")
     if changes.get("obb") is not None and session.mode != "obb":
         raise HTTPException(status_code=422, detail="obb so existe no modo OBB.")
     if session.mode == "obb":

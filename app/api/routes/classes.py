@@ -23,6 +23,13 @@ def list_classes() -> List[ClassItem]:
             id=i,
             name=name,
             color=_PALETTE[i % len(_PALETTE)],
+            keypoints=_spec(session, i).get("keypoints", []),
+            skeleton=_spec(session, i).get("skeleton", []),
         )
         for i, name in enumerate(session.classes)
     ]
+
+
+def _spec(session, index: int) -> dict:
+    specs = session.keypoint_specs or []
+    return specs[index] if index < len(specs) else {}

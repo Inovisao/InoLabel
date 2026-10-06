@@ -6,11 +6,23 @@ import type {
   ClassItem,
   ClassificationResult,
   FrameResponse,
+  Keypoint,
 } from "../api/types";
 import { useSessionStore } from "./session";
 import { normalizeAngle, rotateTo } from "../components/canvas/obbGeometry";
 
 export type Tool = "box" | "select";
+
+/** Modo keypoint: instância sendo marcada, ponto a ponto, na ordem da classe. */
+export interface KeypointWip {
+  categoryId: number;
+  points: Keypoint[];
+  /** Próximo ponto a marcar (índice em `points`). */
+  index: number;
+}
+
+/** Visibilidade COCO: 2 visível, 1 oculto (marcado, mas encoberto), 0 ausente. */
+export type KeypointVisibility = 1 | 2;
 
 /** Uma operação desfazível; guarda o frame para desfazer mesmo após navegar. */
 type UndoEntry =
@@ -32,6 +44,11 @@ interface AnnotationState {
   /** ID fixo para as próximas caixas no tracking; null = próximo ID livre. */
   pinnedTrackId: number | null;
   undoStack: UndoEntry[];
+  kpWip: KeypointWip | null;
+  /** Visibilidade dada aos próximos pontos marcados (tecla C alterna). */
+  kpNextVisibility: KeypointVisibility;
+  /** Ponto selecionado da instância selecionada (arrastar, C, etc.). */
+  selectedKpIndex: number | null;
   /** Tamanho da imagem exibida (px), para manter caixas OBB dentro dela. */
   imageSize: { width: number; height: number } | null;
   /** Número de classe sendo digitado na classificação (> 9 classes). */
@@ -49,6 +66,19 @@ interface AnnotationState {
   setTool: (tool: Tool) => void;
   setClassKeyBuffer: (value: string) => void;
   setImageSize: (size: { width: number; height: number } | null) => void;
+  /** Keypoint: marca o próximo ponto da instância em andamento (cria a instância se preciso). */
+  kpPlacePoint: (x: number, y: number) => Promise<void>;
+  /** Keypoint: marca o próximo ponto como ausente (tecla X). */
+  kpSkipPoint: () => Promise<void>;
+  /** Keypoint: desfaz o último ponto da instância em andamento; false se não havia. */
+  kpUndoPoint: () => boolean;
+  kpCancel: () => void;
+  /** Keypoint: fecha a instância agora; pontos que faltam ficam ausentes (tecla F). */
+  kpFinish: () => Promise<void>;
+  /** Keypoint: alterna visível/oculto do ponto selecionado, ou dos próximos pontos (tecla C). */
+  kpToggleVisibility: () => Promise<void>;
+  kpMovePoint: (annId: number, index: number, x: number, y: number) => Promise<void>;
+  selectKeypoint: (annId: number, index: number | null) => void;
   /** Modo OBB: gira a caixa selecionada para `angle` (absoluto) ou por `delta` graus. */
   rotateSelected: (opts: { angle?: number; delta?: number }) => Promise<void>;
   /** Limpa seleção, desfazer e ID fixado ao abrir uma sessão. */
@@ -72,6 +102,9 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   tool: "box",
   pinnedTrackId: null,
   undoStack: [],
+  kpWip: null,
+  kpNextVisibility: 2,
+  selectedKpIndex: null,
   classKeyBuffer: "",
   imageSize: null,
   loading: false,
@@ -81,7 +114,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     set({ loading: true });
     try {
       const frame = await api.get<FrameResponse>("/frames/current");
-      set({ frame, classificationResult: null, selectedAnnotationId: null, loading: false });
+      set({ frame, classificationResult: null, selectedAnnotationId: null, selectedKpIndex: null, kpWip: null, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
     }
@@ -91,7 +124,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     set({ loading: true });
     try {
       const frame = await api.post<FrameResponse>("/frames/next");
-      set({ frame, classificationResult: null, selectedAnnotationId: null, loading: false });
+      set({ frame, classificationResult: null, selectedAnnotationId: null, selectedKpIndex: null, kpWip: null, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
     }
@@ -101,7 +134,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     set({ loading: true });
     try {
       const frame = await api.post<FrameResponse>("/frames/prev");
-      set({ frame, classificationResult: null, selectedAnnotationId: null, loading: false });
+      set({ frame, classificationResult: null, selectedAnnotationId: null, selectedKpIndex: null, kpWip: null, loading: false });
     } catch (e) {
       set({ loading: false, error: (e as Error).message });
     }
@@ -116,7 +149,15 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     }
   },
 
-  setSelectedClass: (id) => set({ selectedClassId: id }),
+  setSelectedClass: (id) => {
+    // Trocar de classe no meio de uma instância de keypoint a descarta (pontos de outra classe).
+    const wip = get().kpWip;
+    if (wip && wip.categoryId !== id && wip.index > 0) {
+      set({ selectedClassId: id, kpWip: null, error: "Instância em andamento descartada ao trocar de classe." });
+      return;
+    }
+    set({ selectedClassId: id, kpWip: null });
+  },
 
   addAnnotation: async (bbox) => {
     const { frame, selectedClassId, pinnedTrackId } = get();
@@ -161,6 +202,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       if ("track_id" in patch) before.track_id = current.track_id ?? null;
       // No OBB a geometria volta pelo obb (ângulo + posição); o backend refaz o bbox.
       if (("bbox" in patch || "obb" in patch) && current.obb) before.obb = current.obb;
+      else if ("keypoints" in patch && current.keypoints) before.keypoints = current.keypoints;
       else if ("bbox" in patch) before.bbox = current.bbox;
       set((s) => ({
         frame: s.frame
@@ -173,13 +215,82 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     }
   },
 
-  selectAnnotation: (annId) => set({ selectedAnnotationId: annId }),
+  selectAnnotation: (annId) => set({ selectedAnnotationId: annId, selectedKpIndex: null }),
 
   setTool: (tool) => set({ tool }),
 
   setClassKeyBuffer: (value) => set({ classKeyBuffer: value }),
 
   setImageSize: (size) => set({ imageSize: size }),
+
+  kpPlacePoint: async (x, y) => {
+    const { kpWip, selectedClassId, classes, kpNextVisibility } = get();
+    const names = classes.find((c) => c.id === selectedClassId)?.keypoints ?? [];
+    let wip = kpWip;
+    if (!wip) {
+      if (names.length === 0) {
+        set({ error: "Esta classe não tem pontos definidos." });
+        return;
+      }
+      wip = { categoryId: selectedClassId, points: names.map(() => [0, 0, 0] as Keypoint), index: 0 };
+    }
+    const points = wip.points.map((p, i) => (i === wip!.index ? ([x, y, kpNextVisibility] as Keypoint) : p));
+    const next = { ...wip, points, index: wip.index + 1 };
+    set({ kpWip: next, selectedAnnotationId: null, selectedKpIndex: null });
+    if (next.index >= next.points.length) await commitWip(next);
+  },
+
+  kpSkipPoint: async () => {
+    const wip = get().kpWip;
+    if (!wip) return;
+    const next = { ...wip, index: wip.index + 1 };   // o ponto já está [0, 0, 0]
+    set({ kpWip: next });
+    if (next.index >= next.points.length) await commitWip(next);
+  },
+
+  kpUndoPoint: () => {
+    const wip = get().kpWip;
+    if (!wip) return false;
+    if (wip.index <= 1) {
+      set({ kpWip: null });
+      return true;
+    }
+    const index = wip.index - 1;
+    const points = wip.points.map((p, i) => (i === index ? ([0, 0, 0] as Keypoint) : p));
+    set({ kpWip: { ...wip, points, index } });
+    return true;
+  },
+
+  kpCancel: () => set({ kpWip: null }),
+
+  kpFinish: async () => {
+    const wip = get().kpWip;
+    if (wip) await commitWip(wip);
+  },
+
+  kpToggleVisibility: async () => {
+    const { frame, selectedAnnotationId, selectedKpIndex, kpNextVisibility, updateAnnotation } = get();
+    const ann = frame?.annotations.find((a) => a.id === selectedAnnotationId);
+    const point = selectedKpIndex !== null ? ann?.keypoints?.[selectedKpIndex] : undefined;
+    if (ann?.keypoints && point && point[2] > 0) {
+      // Ponto marcado alterna entre visível e oculto; nunca some (ausente é com X).
+      const keypoints = ann.keypoints.map((p, i) =>
+        i === selectedKpIndex ? ([p[0], p[1], p[2] === 2 ? 1 : 2] as Keypoint) : p
+      );
+      await updateAnnotation(ann.id, { keypoints });
+      return;
+    }
+    set({ kpNextVisibility: kpNextVisibility === 2 ? 1 : 2 });
+  },
+
+  kpMovePoint: async (annId, index, x, y) => {
+    const ann = get().frame?.annotations.find((a) => a.id === annId);
+    if (!ann?.keypoints) return;
+    const keypoints = ann.keypoints.map((p, i) => (i === index ? ([x, y, p[2] || 2] as Keypoint) : p));
+    await get().updateAnnotation(annId, { keypoints });
+  },
+
+  selectKeypoint: (annId, index) => set({ selectedAnnotationId: annId, selectedKpIndex: index }),
 
   rotateSelected: async ({ angle, delta }) => {
     const { frame, selectedAnnotationId, imageSize, updateAnnotation } = get();
@@ -195,7 +306,16 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   },
 
   resetSessionUi: () =>
-    set({ selectedAnnotationId: null, undoStack: [], pinnedTrackId: null, classKeyBuffer: "", tool: "box" }),
+    set({
+      selectedAnnotationId: null,
+      undoStack: [],
+      pinnedTrackId: null,
+      classKeyBuffer: "",
+      tool: "box",
+      kpWip: null,
+      kpNextVisibility: 2,
+      selectedKpIndex: null,
+    }),
 
   setPinnedTrackId: (id) => set({ pinnedTrackId: id }),
 
@@ -283,7 +403,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       // Volta ao frame da operação antes de desfazê-la.
       if (get().frame?.index !== entry.index) {
         const frame = await api.post<FrameResponse>(`/frames/goto/${entry.index}`);
-        set({ frame, classificationResult: null, selectedAnnotationId: null });
+        set({ frame, classificationResult: null, selectedAnnotationId: null, selectedKpIndex: null, kpWip: null });
       }
       if (entry.kind === "add") {
         await get().removeAnnotation(entry.annId, { skipUndo: true });
@@ -295,6 +415,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
           obb: ann.obb ?? undefined,
           source: ann.source,
           score: ann.score ?? undefined,
+          keypoints: ann.keypoints ?? undefined,
           ...(ann.track_id != null ? { track_id: ann.track_id } : {}),
         });
         set((s) => ({
@@ -328,4 +449,32 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
 
 function pushUndo(stack: UndoEntry[], entry: UndoEntry): UndoEntry[] {
   return [...stack, entry].slice(-UNDO_LIMIT);
+}
+
+
+/** Grava a instância de keypoint em andamento (pontos não marcados ficam ausentes). */
+async function commitWip(wip: KeypointWip): Promise<void> {
+  const store = useAnnotationStore;
+  const { frame } = store.getState();
+  store.setState({ kpWip: null });
+  if (!frame) return;
+  if (!wip.points.some((p) => p[2] > 0)) {
+    store.setState({ error: "Instância sem nenhum ponto marcado — descartada." });
+    return;
+  }
+  try {
+    const ann = await api.post<Annotation>(`/annotations/${frame.index}`, {
+      category_id: wip.categoryId,
+      keypoints: wip.points,
+      source: "manual",
+    });
+    store.setState((s) => ({
+      frame: s.frame ? { ...s.frame, annotations: [...s.frame.annotations, ann], is_saved: true } : null,
+      selectedAnnotationId: ann.id,
+      selectedKpIndex: null,
+      undoStack: pushUndo(s.undoStack, { kind: "add", index: frame.index, annId: ann.id }),
+    }));
+  } catch (e) {
+    store.setState({ error: `Erro ao salvar instância: ${(e as Error).message}` });
+  }
 }

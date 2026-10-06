@@ -112,12 +112,16 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
 
     # Estado do projeto ilegível: não abre a sessão nem toca no arquivo, para que
     # ele possa ser restaurado (.bak) ou corrigido.
+    project_data = None
     if req.mode.value != "classification":
         project_state = coco_state.state_path(output_path, req.mode.value)
         try:
-            read_annotation_state(project_state)
+            project_data = read_annotation_state(project_state)
         except AnnotationStateUnreadableError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+    keypoint_specs = (
+        _resolve_keypoint_specs(req, output_path, project_data) if req.mode.value == "keypoint" else []
+    )
 
     # --- 2. Inputs are valid — now it is safe to stop any existing session ---
     existing = active_session()
@@ -179,6 +183,7 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
         classes=req.classes,
         total_frames=total,
         current_frame=restored_frame,
+        keypoint_specs=keypoint_specs,
     )
     log.info(
         "start_session: created session %s mode=%s frames=%d path=%s resume=%s frame=%d",
@@ -197,6 +202,10 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
             "current_frame": session.current_frame,
             "created_at": existing_meta.get("created_at") or datetime.now(timezone.utc).isoformat(),
         }
+        if keypoint_specs:
+            meta["keypoint_classes"] = [
+                {"name": name, **spec} for name, spec in zip(req.classes, keypoint_specs)
+            ]
         meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass  # non-critical — projects page will just miss this entry
@@ -209,6 +218,51 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
         current_index=session.current_frame,
         classes=session.classes,
     )
+
+
+def _resolve_keypoint_specs(req: SessionStartRequest, output_path: Path, project_data) -> list:
+    """Pontos de cada classe: os enviados; ao retomar, os do projeto (COCO ou .inolabel.json).
+
+    Recusa (422) classe sem pontos e mudança na quantidade de pontos de uma classe
+    que já tem anotações — as instâncias antigas ficariam inválidas.
+    """
+    requested = {spec.name.strip(): spec for spec in req.keypoint_classes}
+    from_project = coco_state.keypoint_specs_from_payload(project_data, req.classes) if project_data else []
+    from_meta: dict = {}
+    try:
+        meta = json.loads((output_path / ".inolabel.json").read_text(encoding="utf-8"))
+        from_meta = {str(c.get("name", "")).strip(): c for c in meta.get("keypoint_classes", []) or []}
+    except (OSError, ValueError, AttributeError):
+        pass
+
+    counts_in_use: dict = {}
+    if project_data:
+        names_by_cat = {c.get("id"): str(c.get("name", "")).strip() for c in project_data.get("categories", []) or []}
+        for ann in project_data.get("annotations", []) or []:
+            name = names_by_cat.get(ann.get("category_id"))
+            counts_in_use.setdefault(name, set()).add(len(ann.get("keypoints") or []) // 3)
+
+    specs = []
+    for pos, name in enumerate(req.classes):
+        if name in requested:
+            spec = {"keypoints": list(requested[name].keypoints), "skeleton": [list(l) for l in requested[name].skeleton]}
+        elif pos < len(from_project) and from_project[pos]["keypoints"]:
+            spec = from_project[pos]
+        elif from_meta.get(name, {}).get("keypoints"):
+            spec = {"keypoints": list(from_meta[name]["keypoints"]), "skeleton": list(from_meta[name].get("skeleton", []))}
+        else:
+            raise HTTPException(status_code=422, detail=f"Defina os pontos da classe '{name}' (modo keypoint).")
+        in_use = counts_in_use.get(name, set()) - {0}
+        if in_use and in_use != {len(spec["keypoints"])}:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"A classe '{name}' já tem anotações com {sorted(in_use)[0]} ponto(s); "
+                    f"não dá para mudar para {len(spec['keypoints'])}."
+                ),
+            )
+        specs.append(spec)
+    return specs
 
 
 @router.get("/{session_id}/status", response_model=SessionStatusResponse)

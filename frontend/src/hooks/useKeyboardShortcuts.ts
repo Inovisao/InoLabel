@@ -66,7 +66,8 @@ export function useKeyboardShortcuts(options: Options = {}) {
             return;
           case "z":
             e.preventDefault();
-            s.undo();
+            // Keypoint com instância em andamento: desfaz o último ponto, não a última ação.
+            if (!s.kpUndoPoint()) s.undo();
             return;
           case ",":
             e.preventDefault();
@@ -115,6 +116,34 @@ export function useKeyboardShortcuts(options: Options = {}) {
           return;
         }
       } else {
+        // Keypoint (atalhos da 1.0.0): X pula o ponto, C alterna visível/oculto,
+        // F fecha a instância, Backspace desfaz o ponto, Esc cancela a instância.
+        if (mode === "keypoint") {
+          switch (e.key.toLowerCase()) {
+            case "x":
+              e.preventDefault();
+              s.kpSkipPoint();
+              return;
+            case "c":
+              e.preventDefault();
+              s.kpToggleVisibility();
+              return;
+            case "f":
+              e.preventDefault();
+              s.kpFinish();
+              return;
+            case "backspace":
+              e.preventDefault();
+              s.kpUndoPoint();
+              return;
+            case "escape":
+              if (s.kpWip) {
+                s.kpCancel();
+                return;
+              }
+              break;
+          }
+        }
         // OBB: Q/E giram a caixa selecionada (Shift = ajuste fino de 1°).
         if (mode === "obb" && s.selectedAnnotationId !== null && /^[qe]$/i.test(e.key)) {
           e.preventDefault();

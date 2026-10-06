@@ -180,7 +180,12 @@ export default function Sidebar() {
           <ToolButton label="Pular frame" shortcut="Espaço" onClick={() => nextFrame()} />
         ) : (
           <>
-            <ToolButton label="Caixa delimitadora" shortcut="B" active={tool === "box"} onClick={() => setTool("box")} />
+            <ToolButton
+              label={mode === "keypoint" ? "Marcar pontos" : "Caixa delimitadora"}
+              shortcut="B"
+              active={tool === "box"}
+              onClick={() => setTool("box")}
+            />
             <ToolButton label="Selecionar / mover" shortcut="V" active={tool === "select"} onClick={() => setTool("select")} />
             <ToolButton
               label={frame?.reviewed ? "Frame revisado (desmarcar)" : "Frame sem objetos"}
@@ -203,6 +208,9 @@ function SelectionPanel() {
   const mode = useSessionStore((s) => s.mode);
   const ann = frame?.annotations.find((a) => a.id === selectedAnnotationId);
   const rotateSelected = useAnnotationStore((s) => s.rotateSelected);
+  const selectedKpIndex = useAnnotationStore((s) => s.selectedKpIndex);
+  const selectKeypoint = useAnnotationStore((s) => s.selectKeypoint);
+  const isKeypoint = mode === "keypoint";
   const [idText, setIdText] = useState("");
   const [angleText, setAngleText] = useState("");
 
@@ -224,7 +232,7 @@ function SelectionPanel() {
   return (
     <>
       <div className="divider" />
-      <div className="sidebar-label">Caixa selecionada</div>
+      <div className="sidebar-label">{isKeypoint ? "Instância selecionada" : "Caixa selecionada"}</div>
       <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
         <label className="text-helper" htmlFor="sel-class">Classe</label>
         <select
@@ -290,12 +298,44 @@ function SelectionPanel() {
           </>
         )}
 
+        {isKeypoint && ann.keypoints && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span className="text-helper">Pontos · clique para selecionar · C alterna visível/oculto</span>
+            {ann.keypoints.map((p, i) => {
+              const name = classes.find((c) => c.id === ann.category_id)?.keypoints?.[i] ?? `#${i + 1}`;
+              const status = p[2] === 2 ? "● visível" : p[2] === 1 ? "○ oculto" : "– ausente";
+              return (
+                <button
+                  key={i}
+                  className={`nav-item ${selectedKpIndex === i ? "nav-item-active" : ""}`}
+                  disabled={p[2] === 0}
+                  onClick={() => selectKeypoint(ann.id, i)}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "4px 8px",
+                    fontSize: 12,
+                    border: "1px solid transparent",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: p[2] === 0 ? "default" : "pointer",
+                    fontFamily: "var(--font-sans)",
+                    opacity: p[2] === 0 ? 0.55 : 1,
+                  }}
+                >
+                  <span>{name}</span>
+                  <span style={{ color: "var(--color-muted)" }}>{status}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <button
           className="btn-secondary"
           style={{ height: 32, fontSize: 12, color: "var(--color-danger)" }}
           onClick={() => removeAnnotation(ann.id)}
         >
-          Remover caixa (Del)
+          {isKeypoint ? "Remover instância (Del)" : "Remover caixa (Del)"}
         </button>
       </div>
     </>
