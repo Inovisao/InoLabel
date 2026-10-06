@@ -9,6 +9,8 @@ videos/
 imagens/
 dataset_original/
 openimages_candidates/
+# Projeto criado dentro do repositório por um output_path relativo (antes da correção).
+anotacoes_guavira/
 
 # ── Build e distribuição ──────────────────────────────────────────────────────
 dist/
