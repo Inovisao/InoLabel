@@ -1,4 +1,4 @@
-import { Home, Sun, Moon, Bell } from "lucide-react";
+import { Home, Sun, Moon } from "lucide-react";
 import { useTheme } from "../../shared/ui/ThemeContext";
 
 interface Props {
@@ -55,47 +55,6 @@ export default function WizardTopbar({ breadcrumb = "Início" }: Props) {
         >
           <ThemeIcon size={16} />
         </button>
-
-        {/* Bell with badge */}
-        <button
-          className="btn-icon"
-          title="Notificações"
-          aria-label="Notificações"
-          style={{ position: "relative" }}
-        >
-          <Bell size={16} />
-          <span
-            style={{
-              position: "absolute",
-              top: 6,
-              right: 6,
-              width: 8,
-              height: 8,
-              background: "var(--color-error-icon)",
-              borderRadius: "50%",
-              border: "2px solid var(--color-panel)",
-            }}
-          />
-        </button>
-
-        {/* Welcome pill */}
-        <div
-          style={{
-            height: 36,
-            padding: "0 14px",
-            background: "var(--color-primary-light)",
-            color: "var(--color-primary)",
-            borderRadius: 999,
-            display: "flex",
-            alignItems: "center",
-            fontSize: 13,
-            fontWeight: 500,
-            border: "1px solid color-mix(in srgb, var(--color-primary) 15%, transparent)",
-            cursor: "default",
-          }}
-        >
-          Bem-vindo(a)! 👋
-        </div>
       </div>
     </header>
   );
