@@ -868,3 +868,25 @@ class TestEdgeCases:
             json={"category_id": 0, "bbox": [10, 10, 50]},
         )
         assert r.status_code == 422
+
+
+def test_relative_output_path_is_refused_and_nothing_is_created(tmp_path, monkeypatch):
+    """Regressão: 'anotacoes_guavira' virava uma pasta dentro do repositório (CWD)."""
+    import cv2
+    import numpy as np
+    from fastapi.testclient import TestClient
+
+    from app.api.main import app
+
+    data = tmp_path / "dataset"
+    data.mkdir()
+    cv2.imwrite(str(data / "a.jpg"), np.zeros((8, 8, 3), np.uint8))
+    monkeypatch.chdir(tmp_path)
+
+    response = TestClient(app).post("/api/session/start", json={
+        "mode": "detection", "data_path": str(data), "output_path": "anotacoes_guavira", "classes": ["x"],
+    })
+
+    assert response.status_code == 422
+    assert "caminho completo" in response.json()["detail"]
+    assert not (tmp_path / "anotacoes_guavira").exists()

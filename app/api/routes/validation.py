@@ -131,6 +131,14 @@ def list_projects(path: str = "") -> list:
                 )
             except OSError:
                 pass
+        # Classificação não gera labels/: conta os registros do estado (um por imagem).
+        classification_state = child / "classification_state.json"
+        if classification_state.is_file():
+            try:
+                records = json.loads(classification_state.read_text(encoding="utf-8")).get("records", [])
+                annotated = max(annotated, len(records))
+            except (OSError, ValueError, AttributeError):
+                pass
 
         # -- Class names: prefer metadata, fall back to classes.txt --
         classes: list[str] = meta.get("classes") or []

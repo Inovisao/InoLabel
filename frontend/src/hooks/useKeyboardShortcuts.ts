@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAnnotationStore } from "../stores/annotation";
 import { useSessionStore } from "../stores/session";
+import { CLASS_SEARCH_ID } from "../components/layout/Sidebar";
 
 interface Options {
   onSave?: () => void;
@@ -9,18 +10,52 @@ interface Options {
 }
 
 export function useKeyboardShortcuts(options: Options = {}) {
-  const { nextFrame, prevFrame, classifyFrame, classes } = useAnnotationStore();
   const mode = useSessionStore((s) => s.mode);
   const { onSave, onExport, onSettings } = options;
 
   useEffect(() => {
+    // Estado lido na hora da tecla (getState) para não religar o listener a cada mudança.
+    const store = useAnnotationStore.getState;
+
+    const classifyAndAdvance = async (position: number) => {
+      const { classes, classifyFrame, nextFrame } = store();
+      const classItem = classes[position - 1];
+      if (!classItem) return;
+      const result = await classifyFrame(classItem.id);
+      if (result) nextFrame();
+    };
+
+    /** Atalho numérico da classificação: 1..N; com mais de 9 classes, digita e confirma. */
+    const handleClassDigit = (digit: string) => {
+      const { classes, classKeyBuffer, setClassKeyBuffer } = store();
+      const total = classes.length;
+      if (total <= 9) {
+        if (digit !== "0") classifyAndAdvance(Number(digit));
+        return;
+      }
+      const typed = classKeyBuffer + digit;
+      const value = Number(typed);
+      if (value < 1 || value > total) {
+        setClassKeyBuffer("");
+        return;
+      }
+      // Confirma sozinho quando nenhum outro número pode começar assim (ex.: 7 de 12).
+      if (value * 10 > total) {
+        setClassKeyBuffer("");
+        classifyAndAdvance(value);
+      } else {
+        setClassKeyBuffer(typed);
+      }
+    };
+
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const s = store();
 
       // Ctrl shortcuts
       if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
+        switch (e.key.toLowerCase()) {
           case "s":
             e.preventDefault();
             onSave?.();
@@ -29,21 +64,81 @@ export function useKeyboardShortcuts(options: Options = {}) {
             e.preventDefault();
             onExport?.();
             return;
+          case "z":
+            e.preventDefault();
+            s.undo();
+            return;
           case ",":
             e.preventDefault();
             onSettings?.();
             return;
         }
+        return;
       }
 
-      if (mode === "classification" && /^[1-9]$/.test(e.key)) {
-        const classItem = classes[Number(e.key) - 1];
-        if (classItem) {
+      if (e.key === "/") {
+        const search = document.getElementById(CLASS_SEARCH_ID);
+        if (search) {
           e.preventDefault();
-          classifyFrame(classItem.id).then((result) => {
-            if (result) nextFrame();
-          });
+          search.focus();
+        }
+        return;
+      }
+
+      if (mode === "classification") {
+        if (/^[0-9]$/.test(e.key)) {
+          e.preventDefault();
+          handleClassDigit(e.key);
           return;
+        }
+        if (s.classKeyBuffer) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const value = Number(s.classKeyBuffer);
+            s.setClassKeyBuffer("");
+            classifyAndAdvance(value);
+            return;
+          }
+          if (e.key === "Backspace") {
+            e.preventDefault();
+            s.setClassKeyBuffer(s.classKeyBuffer.slice(0, -1));
+            return;
+          }
+          if (e.key === "Escape") {
+            s.setClassKeyBuffer("");
+            return;
+          }
+        }
+        if (e.key === " ") {
+          e.preventDefault();
+          s.nextFrame();
+          return;
+        }
+      } else {
+        switch (e.key) {
+          case "b":
+          case "B":
+            s.setTool("box");
+            return;
+          case "v":
+          case "V":
+            s.setTool("select");
+            return;
+          case "n":
+          case "N":
+            e.preventDefault();
+            s.toggleReviewed();
+            return;
+          case "Delete":
+          case "Backspace":
+            if (s.selectedAnnotationId !== null) {
+              e.preventDefault();
+              s.removeAnnotation(s.selectedAnnotationId);
+            }
+            return;
+          case "Escape":
+            s.selectAnnotation(null);
+            return;
         }
       }
 
@@ -53,18 +148,20 @@ export function useKeyboardShortcuts(options: Options = {}) {
         case "d":
         case "D":
           e.preventDefault();
-          nextFrame();
+          s.setClassKeyBuffer("");
+          s.nextFrame();
           break;
         case "ArrowLeft":
         case "a":
         case "A":
           e.preventDefault();
-          prevFrame();
+          s.setClassKeyBuffer("");
+          s.prevFrame();
           break;
       }
     }
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [classes, classifyFrame, mode, nextFrame, prevFrame, onSave, onExport, onSettings]);
+  }, [mode, onSave, onExport, onSettings]);
 }

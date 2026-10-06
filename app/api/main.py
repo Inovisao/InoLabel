@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import annotations, browse, classes, export, frames, inference, keybinds, modes, session, validation
+from app.api.routes import annotations, browse, classes, export, frames, inference, keybinds, modes, session, validation, workspace
 
 app = FastAPI(title="InoLabel API", version="2.0.0")
 
@@ -37,6 +37,15 @@ app.include_router(frames.router)
 app.include_router(annotations.router)
 app.include_router(classes.router)
 app.include_router(browse.router)
+app.include_router(workspace.router)
+
+
+@app.on_event("shutdown")
+def _flush_project_state_on_shutdown() -> None:
+    """Fechar o app não pode perder a última gravação do annotations.coco.json."""
+    from app.api import state as _state
+
+    _state.coco_writer.flush(timeout=60)
 
 
 @app.get("/health")

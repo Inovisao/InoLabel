@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSessionStore } from "./stores/session";
+import { useWorkspaceStore } from "./stores/workspace";
+import WorkspaceGate from "./components/workspace/WorkspaceGate";
 import WizardPage from "./pages/WizardPage";
 import AnnotatePage from "./pages/AnnotatePage";
 import ProjectsPage from "./pages/ProjectsPage";
@@ -25,6 +27,9 @@ const WIZARD_STEPS: AppView[] = ["mode", "data", "config"];
 export default function App() {
   const active = useSessionStore((s) => s.active);
   const recover = useSessionStore((s) => s.recover);
+  const workspace = useWorkspaceStore((s) => s.current);
+  const workspaceLoaded = useWorkspaceStore((s) => s.loaded);
+  const loadWorkspace = useWorkspaceStore((s) => s.load);
   const [view, setView] = useState<AppView>("mode");
   const [wizardInitial, setWizardInitial] = useState<Partial<WizardState> | undefined>(undefined);
 
@@ -32,6 +37,7 @@ export default function App() {
   // a page refresh). recover() is a no-op when no server session exists.
   useEffect(() => {
     recover();
+    loadWorkspace();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const wizardStep = WIZARD_STEPS.indexOf(view);
@@ -54,7 +60,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        {active ? (
+        {!active && workspaceLoaded && !workspace ? (
+          <WorkspaceGate />
+        ) : active ? (
           <AnnotatePage
             onStop={(dest) => {
               setWizardInitial(undefined);

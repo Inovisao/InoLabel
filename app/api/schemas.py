@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -129,8 +129,19 @@ class ExportRequest(BaseModel):
     split: SplitConfig = Field(default_factory=SplitConfig)
     use_split: bool = True
     augmentation: bool = False
+    # Chaves do catálogo de augmentation (GET /api/export/augmentations); vazio = conjunto padrão.
+    augmentations: List[str] = Field(default_factory=list)
+    augmentation_copies: int = Field(default=1, ge=1, le=5)
+    # COCO: "roboflow" = imagens ao lado do _annotations.coco.json; "images_dir" = em images/.
+    coco_layout: Literal["roboflow", "images_dir"] = "roboflow"
     # Gera também <destination>/<name>.zip com imagens e anotações, conferindo as referências.
     zip: bool = False
+
+
+class AugmentationOption(BaseModel):
+    key: str
+    label: str
+    description: str
 
 
 class ExportStartResponse(BaseModel):
@@ -205,6 +216,7 @@ class Annotation(BaseModel):
     obb: Optional[OBBGeometry] = None
     track_id: Optional[int] = None
     source: str = "manual"
+    score: Optional[float] = None
 
 
 class FrameResponse(BaseModel):
@@ -214,6 +226,9 @@ class FrameResponse(BaseModel):
     filename: str
     annotations: List[Annotation] = []
     is_saved: bool = False
+    reviewed: bool = False
+    # Modo classificação: índice da classe já atribuída a esta imagem (None = não classificada).
+    classification_id: Optional[int] = None
 
 
 class ClassItem(BaseModel):
@@ -228,6 +243,7 @@ class AnnotationUpsert(BaseModel):
     obb: Optional[OBBGeometry] = None
     track_id: Optional[int] = None
     source: str = "manual"
+    score: Optional[float] = None
 
     @field_validator("category_id")
     @classmethod
@@ -317,3 +333,90 @@ class TrackingInferenceResponse(BaseModel):
     processed_frames: int
     saved_annotations: bool
     frames: List[TrackingFrameResult] = Field(default_factory=list)
+
+
+class ReviewedUpdate(BaseModel):
+    """Marca a imagem como revisada sem objetos (entra no dataset como negativo)."""
+
+    reviewed: bool = True
+
+
+class FrameReviewState(BaseModel):
+    image_id: int
+    reviewed: bool
+    annotation_count: int
+
+
+class AnnotationPatch(BaseModel):
+    """Campos alteráveis de uma anotação; os omitidos ficam como estão.
+
+    ``track_id: null`` explícito remove o ID (o campo omitido não mexe nele).
+    """
+
+    category_id: Optional[int] = None
+    track_id: Optional[int] = None
+    bbox: Optional[List[float]] = None
+    obb: Optional[OBBGeometry] = None
+
+
+class NextTrackId(BaseModel):
+    next_track_id: int
+
+
+class ClassificationState(BaseModel):
+    image_id: int
+    class_id: Optional[int] = None
+    class_name: Optional[str] = None
+
+
+class WorkspaceOpen(BaseModel):
+    """Abre a pasta como workspace; cria o índice se ainda não for um."""
+
+    path: str
+    name: Optional[str] = None
+
+
+class WorkspaceProjectRef(BaseModel):
+    folder: str
+    name: str
+    mode: str = ""
+    created_at: str = ""
+
+
+class WorkspaceInfo(BaseModel):
+    path: str
+    name: str
+    version: int = 1
+    created_at: str = ""
+    projects: List[WorkspaceProjectRef] = Field(default_factory=list)
+
+
+class WorkspaceRecent(BaseModel):
+    path: str
+    name: str
+    opened_at: str = ""
+    exists: bool = True
+
+
+class WorkspaceOverview(BaseModel):
+    current: Optional[WorkspaceInfo] = None
+    recent: List[WorkspaceRecent] = Field(default_factory=list)
+
+
+class WorkspaceProjectCreate(BaseModel):
+    workspace: str
+    name: str
+    mode: TaskMode
+    data_path: str
+    classes: List[str]
+
+
+class WorkspaceProjectUpdate(BaseModel):
+    workspace: str
+    folder: str
+    data_path: Optional[str] = None
+
+
+class WorkspaceProjectCreated(BaseModel):
+    folder: str
+    output_path: str

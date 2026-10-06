@@ -39,8 +39,15 @@ export interface Annotation {
   category_id: number;
   bbox: [number, number, number, number];
   obb?: OBBGeometry | null;
-  track_id?: number;
+  track_id?: number | null;
   source: string;
+  score?: number | null;
+}
+
+export interface AnnotationPatch {
+  category_id?: number;
+  track_id?: number | null;
+  bbox?: [number, number, number, number];
 }
 
 export interface OBBGeometry {
@@ -60,6 +67,10 @@ export interface FrameResponse {
   filename: string;
   annotations: Annotation[];
   is_saved: boolean;
+  /** Revisada sem objetos (vira negativo na exportação). */
+  reviewed?: boolean;
+  /** Modo classificação: índice da classe já atribuída à imagem. */
+  classification_id?: number | null;
 }
 
 export interface ClassItem {
@@ -86,4 +97,37 @@ export interface ExportProgress {
   status: string;
   output_path?: string | null;
   zip_path?: string | null;
+}
+
+export interface WorkspaceProjectRef {
+  folder: string;
+  name: string;
+  mode: string;
+  created_at: string;
+}
+
+export interface WorkspaceInfo {
+  path: string;
+  name: string;
+  version: number;
+  created_at: string;
+  projects: WorkspaceProjectRef[];
+}
+
+export interface WorkspaceRecent {
+  path: string;
+  name: string;
+  opened_at: string;
+  exists: boolean;
+}
+
+export interface WorkspaceOverview {
+  current: WorkspaceInfo | null;
+  recent: WorkspaceRecent[];
+}
+
+export interface AugmentationOption {
+  key: string;
+  label: string;
+  description: string;
 }

@@ -10,6 +10,9 @@ from uuid import uuid4
 
 ExportStatus = Literal["running", "done", "error"]
 
+# Nome do JSON da exportação COCO (um por split, ou um na raiz sem split).
+COCO_EXPORT_FILE_NAME = "_annotations.coco.json"
+
 
 @dataclass
 class ExportJob:
@@ -20,6 +23,8 @@ class ExportJob:
     split_ratios: tuple[float, float, float] = (0.7, 0.2, 0.1)
     zip_output: bool = False
     zip_path: Optional[Path] = None
+    augmentation: Optional[object] = None      # AugmentationPreset; só YOLO
+    coco_layout: str = "roboflow"
     progress: float = 0.0
     current_file: str = ""
     status: ExportStatus = "running"

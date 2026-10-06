@@ -135,6 +135,9 @@ def _make_response(index: int) -> FrameResponse:
     # Read annotations from the SAME state object that annotations.py writes to
     anns = _state.annotation_store.get(index, [])
     has_anns = bool(anns)
+    from app.api.routes.annotations import current_classification_id
+
+    classification_id = current_classification_id(path)
 
     # Bidirectional pre-fetch: both neighbours so forward AND backward navigation is instant.
     _trigger_prefetch(index + 1)
@@ -146,7 +149,9 @@ def _make_response(index: int) -> FrameResponse:
         image_b64=image_b64,
         filename=path.name,
         annotations=list(anns),   # copy to avoid Pydantic mutating shared list
-        is_saved=has_anns,
+        is_saved=has_anns or index in _state.reviewed_frames or classification_id is not None,
+        reviewed=index in _state.reviewed_frames,
+        classification_id=classification_id,
     )
 
 
@@ -162,6 +167,12 @@ def init_frames() -> dict:
     _state.frame_dims.clear()
     _frame_b64_cache.clear()
     _prefetching.clear()
+    # O projeto inteiro sobe para a memória: o COCO de estado é montado a partir dela,
+    # e frames ainda não visitados não podem sumir dele.
+    from app.api.routes.annotations import bootstrap_project_state, reset_annotations
+
+    reset_annotations()
+    _loaded_from_disk.update(bootstrap_project_state())
     return {"total": len(_state.frame_paths), "current_index": _current_index}
 
 

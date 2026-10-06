@@ -27,8 +27,21 @@ const GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
       { keys: ["B"], action: "Ferramenta de bounding box" },
       { keys: ["V"], action: "Ferramenta de seleção" },
       { keys: ["Ctrl+Z"], action: "Desfazer última ação" },
+      { keys: ["Clique"], action: "Selecionar caixa para editar classe / ID" },
       { keys: ["Delete"], action: "Remover anotação selecionada" },
+      { keys: ["Esc"], action: "Desmarcar a caixa selecionada" },
+      { keys: ["N"], action: "Marcar frame revisado sem objetos (negativo)" },
       { keys: ["Duplo clique"], action: "Remover anotação (no canvas)" },
+    ],
+  },
+  {
+    title: "Classificação",
+    shortcuts: [
+      { keys: ["1–9"], action: "Classificar pela posição da classe e avançar" },
+      { keys: ["número", "Enter"], action: "Mais de 9 classes: digite o número e confirme" },
+      { keys: ["/"], action: "Buscar classe pelo nome" },
+      { keys: ["Espaço"], action: "Pular frame" },
+      { keys: ["Ctrl+Z"], action: "Desfazer a última classificação" },
     ],
   },
   {
@@ -43,7 +56,6 @@ const GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
     title: "Interface",
     shortcuts: [
       { keys: ["Esc"], action: "Fechar modal / cancelar operação" },
-      { keys: ["?"], action: "Mostrar esta página" },
     ],
   },
 ];

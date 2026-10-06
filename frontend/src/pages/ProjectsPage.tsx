@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { FolderOpen, RefreshCw, Search, Tag, CheckSquare, Clock } from "lucide-react";
+import { FolderOpen, RefreshCw, Tag, CheckSquare, Clock } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import { api } from "../api/client";
+import { useWorkspaceStore } from "../stores/workspace";
 import type { ProjectEntry } from "../api/types";
 
 const MODE_LABELS: Record<string, string> = {
@@ -33,16 +34,16 @@ interface Props {
 
 export default function ProjectsPage({ activeNav, onNavigate, onResume }: Props) {
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
-  const [scanPath, setScanPath] = useState<string>(
-    () => localStorage.getItem("inolabel_output_root") || "output"
-  );
-  const [inputPath, setInputPath] = useState(scanPath);
+  const workspace = useWorkspaceStore((s) => s.current);
+  const chooseAnother = useWorkspaceStore((s) => s.chooseAnother);
+  const scanPath = workspace?.path ?? "";
   const [loading, setLoading] = useState(false);
 
   const load = async (path: string) => {
+    if (!path) return;
     setLoading(true);
     try {
-      const data = await api.get<ProjectEntry[]>(`/session/projects?path=${encodeURIComponent(path)}`);
+      const data = await api.get<ProjectEntry[]>(`/workspace/projects?path=${encodeURIComponent(path)}`);
       setProjects(data);
     } catch {
       setProjects([]);
@@ -54,25 +55,6 @@ export default function ProjectsPage({ activeNav, onNavigate, onResume }: Props)
   useEffect(() => {
     load(scanPath);
   }, [scanPath]);
-
-  const handleSearch = () => {
-    const p = inputPath.trim() || "output";
-    localStorage.setItem("inolabel_output_root", p);
-    setScanPath(p);
-  };
-
-  const handleBrowse = async () => {
-    try {
-      const res = await api.get<{ path: string }>("/browse/folder");
-      if (res.path) {
-        setInputPath(res.path);
-        localStorage.setItem("inolabel_output_root", res.path);
-        setScanPath(res.path);
-      }
-    } catch {
-      // browse not available (e.g. headless env)
-    }
-  };
 
   return (
     <PageShell activeNav={activeNav} onNavigate={onNavigate} breadcrumb="Projetos">
@@ -89,44 +71,19 @@ export default function ProjectsPage({ activeNav, onNavigate, onResume }: Props)
         <p className="text-page-subtitle">Gerencie e retome seus projetos de anotação.</p>
       </div>
 
-      {/* Search bar */}
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginBottom: 24,
-          alignItems: "center",
-        }}
-      >
-        <div style={{ position: "relative", flex: 1 }}>
-          <Search
-            size={15}
-            style={{
-              position: "absolute",
-              left: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--color-muted)",
-            }}
-          />
-          <input
-            className="input"
-            value={inputPath}
-            onChange={(e) => setInputPath(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="Pasta de saída (ex: output)"
-            style={{
-              paddingLeft: 36,
-              paddingRight: 12,
-              height: 38,
-              fontSize: 13,
-            }}
-          />
+      {/* Workspace atual */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, alignItems: "center" }}>
+        <FolderOpen size={16} style={{ color: "var(--color-muted)", flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{workspace?.name}</div>
+          <div className="text-mono" style={{ fontSize: 12, color: "var(--color-muted)", wordBreak: "break-all" }}>
+            {scanPath}
+          </div>
         </div>
-        <button className="btn-secondary" onClick={handleBrowse} style={{ height: 38, whiteSpace: "nowrap" }}>
-          Procurar pasta
+        <button className="btn-secondary" onClick={chooseAnother} style={{ height: 38, whiteSpace: "nowrap" }}>
+          Trocar workspace
         </button>
-        <button className="btn-secondary" onClick={handleSearch} style={{ height: 38, display: "flex", alignItems: "center", gap: 6 }}>
+        <button className="btn-secondary" onClick={() => load(scanPath)} style={{ height: 38, display: "flex", alignItems: "center", gap: 6 }}>
           <RefreshCw size={14} />
           Atualizar
         </button>

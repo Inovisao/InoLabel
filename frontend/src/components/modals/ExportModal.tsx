@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Download, CheckCircle, AlertCircle, Folder } from "lucide-react";
 import { api } from "../../api/client";
-import type { ExportProgress } from "../../api/types";
+import type { AugmentationOption, ExportProgress } from "../../api/types";
 import { useSessionStore } from "../../stores/session";
 
 interface Props {
@@ -14,7 +14,9 @@ interface Props {
 type ExportFormat = "yolo" | "coco";
 type ExportState = "idle" | "running" | "done" | "error";
 
-const FORMATS: { id: ExportFormat; label: string; desc: string; soon?: boolean }[] = [
+type CocoLayout = "roboflow" | "images_dir";
+
+const FORMATS: { id: ExportFormat; label: string; desc: string }[] = [
   {
     id: "yolo",
     label: "YOLO TXT",
@@ -23,7 +25,7 @@ const FORMATS: { id: ExportFormat; label: string; desc: string; soon?: boolean }
   {
     id: "coco",
     label: "COCO JSON",
-    desc: "Arquivo annotations.json no formato MS COCO. Compatível com torchvision.",
+    desc: "Arquivo _annotations.coco.json no formato MS COCO. Compatível com torchvision.",
   },
 ];
 
@@ -87,9 +89,14 @@ function SplitRow({
 }
 
 export default function ExportModal({ open, onClose, totalFrames }: Props) {
-  const { sessionId } = useSessionStore();
+  const { sessionId, outputPath } = useSessionStore();
 
-  const [format, setFormat] = useState<ExportFormat>("yolo");
+  const [formats, setFormats] = useState<ExportFormat[]>(["yolo", "coco"]);
+  const [cocoLayout, setCocoLayout] = useState<CocoLayout>("roboflow");
+  const [augment, setAugment] = useState(false);
+  const [augCatalog, setAugCatalog] = useState<AugmentationOption[]>([]);
+  const [augKeys, setAugKeys] = useState<string[]>(["flip_h", "brightness", "contrast"]);
+  const [augCopies, setAugCopies] = useState(1);
   const [destination, setDestination] = useState("");
   const [name, setName] = useState("dataset_export");
   const [exportState, setExportState] = useState<ExportState>("idle");
@@ -110,6 +117,24 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
       setZipPath("");
     }
   }, [open]);
+
+  // Destino padrão: <pasta do projeto>/exports.
+  useEffect(() => {
+    if (open && !destination && outputPath) {
+      setDestination(`${outputPath.replace(/[\\/]+$/, "")}/exports`);
+    }
+  }, [open, outputPath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!open || augCatalog.length) return;
+    api.get<AugmentationOption[]>("/export/augmentations").then(setAugCatalog).catch(() => setAugCatalog([]));
+  }, [open, augCatalog.length]);
+
+  const toggleFormat = (id: ExportFormat) =>
+    setFormats((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+
+  const toggleAug = (key: string) =>
+    setAugKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
 
   const splitTotal = split.train + split.val + split.test;
   const splitValid = Math.abs(splitTotal - 100) <= 1;
@@ -157,10 +182,14 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
         session_id: sessionId,
         destination,
         name,
-        formats: [format],
+        formats,
         use_split: useSplit,
         split: splitPayload,
         zip: zipOutput,
+        coco_layout: cocoLayout,
+        augmentation: augment,
+        augmentations: augment ? augKeys : [],
+        augmentation_copies: augCopies,
       });
 
       const poll = setInterval(async () => {
@@ -193,6 +222,8 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
     !!sessionId &&
     !!destination.trim() &&
     !!name.trim() &&
+    formats.length > 0 &&
+    (!augment || augKeys.length > 0) &&
     exportState === "idle" &&
     (!useSplit || splitValid);
 
@@ -313,17 +344,18 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                 {/* Format */}
                 <div>
                   <label className="text-label" style={{ display: "block", marginBottom: 10 }}>
-                    Formato de saída
+                    Formatos de saída
                   </label>
                   <div style={{ display: "flex", gap: 10 }}>
                     {FORMATS.map((f) => {
-                      const sel = format === f.id;
-                      const disabled = !!f.soon || exportState === "running";
+                      const sel = formats.includes(f.id);
+                      const disabled = exportState === "running";
                       return (
                         <button
                           key={f.id}
-                          onClick={() => !f.soon && setFormat(f.id)}
+                          onClick={() => toggleFormat(f.id)}
                           disabled={disabled}
+                          aria-pressed={sel}
                           style={{
                             flex: 1,
                             display: "flex",
@@ -337,7 +369,6 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                             cursor: disabled ? "not-allowed" : "pointer",
                             textAlign: "left",
                             fontFamily: "var(--font-sans)",
-                            opacity: f.soon ? 0.55 : 1,
                             transition: "background var(--motion-base), border-color var(--motion-base)",
                           }}
                         >
@@ -345,11 +376,7 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                             <span style={{ fontSize: 13, fontWeight: 700, color: sel ? "var(--color-primary)" : "var(--color-text)" }}>
                               {f.label}
                             </span>
-                            {f.soon && (
-                              <span style={{ fontSize: 10, fontWeight: 600, color: "var(--color-warning)", background: "var(--color-warning-bg)", border: "1px solid var(--color-warning-border)", borderRadius: 4, padding: "1px 5px" }}>
-                                em breve
-                              </span>
-                            )}
+                            {sel && <CheckCircle size={13} color="var(--color-primary)" />}
                           </span>
                           <span style={{ fontSize: 11, color: "var(--color-muted)", lineHeight: 1.4 }}>
                             {f.desc}
@@ -360,13 +387,42 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                   </div>
                 </div>
 
+                {formats.includes("coco") && (
+                  <div>
+                    <label className="text-label" style={{ display: "block", marginBottom: 6 }}>
+                      Organização do COCO
+                    </label>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {([
+                        ["roboflow", "Estilo Roboflow", "train/_annotations.coco.json com as imagens na mesma pasta."],
+                        ["images_dir", "Pasta images/", "_annotations.coco.json com as imagens em images/."],
+                      ] as [CocoLayout, string, string][]).map(([id, label, desc]) => (
+                        <label key={id} style={{ display: "flex", gap: 8, alignItems: "flex-start", cursor: "pointer", fontSize: 13 }}>
+                          <input
+                            type="radio"
+                            name="coco-layout"
+                            checked={cocoLayout === id}
+                            disabled={exportState === "running"}
+                            onChange={() => setCocoLayout(id)}
+                            style={{ accentColor: "var(--color-primary)", marginTop: 3 }}
+                          />
+                          <span>
+                            <strong>{label}</strong>{" "}
+                            <span style={{ color: "var(--color-muted)", fontSize: 12 }}>— {desc}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Destination */}
                 <div>
                   <label className="text-label" style={{ display: "block", marginBottom: 4 }}>
                     Pasta de destino
                   </label>
                   <span className="text-helper" style={{ display: "block", marginBottom: 6 }}>
-                    Onde salvar os arquivos exportados.
+                    Por padrão, a pasta exports/ dentro do projeto.
                   </span>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
@@ -423,7 +479,10 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                       type="checkbox"
                       checked={useSplit}
                       disabled={exportState === "running"}
-                      onChange={(e) => setUseSplit(e.target.checked)}
+                      onChange={(e) => {
+                        setUseSplit(e.target.checked);
+                        if (!e.target.checked) setAugment(false);
+                      }}
                       style={{ accentColor: "var(--color-primary)", width: 14, height: 14, cursor: "inherit" }}
                     />
                     <span className="text-label">Dividir em train / val / test</span>
@@ -471,6 +530,94 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                       >
                         Total: {splitTotal}% {!splitValid && "— deve somar 100%"}
                       </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Augmentation */}
+                <div>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: exportState === "running" ? "not-allowed" : "pointer",
+                      userSelect: "none",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={augment}
+                      disabled={exportState === "running"}
+                      onChange={(e) => {
+                        setAugment(e.target.checked);
+                        // Cópias aumentadas só entram no treino; sem divisão não haveria treino.
+                        if (e.target.checked) setUseSplit(true);
+                      }}
+                      style={{ accentColor: "var(--color-primary)", width: 14, height: 14, cursor: "inherit" }}
+                    />
+                    <span className="text-label">Gerar imagens aumentadas (augmentation)</span>
+                  </label>
+                  {augment && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: "12px 14px",
+                        background: "var(--color-bg)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: "var(--radius-md)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {augCatalog.map((a) => {
+                          const on = augKeys.includes(a.key);
+                          return (
+                            <button
+                              key={a.key}
+                              type="button"
+                              title={a.description}
+                              aria-pressed={on}
+                              disabled={exportState === "running"}
+                              onClick={() => toggleAug(a.key)}
+                              style={{
+                                fontSize: 12,
+                                padding: "4px 10px",
+                                borderRadius: 999,
+                                border: `1px solid ${on ? "var(--color-primary)" : "var(--color-border)"}`,
+                                background: on ? "var(--color-primary-light)" : "var(--color-panel)",
+                                color: on ? "var(--color-primary)" : "var(--color-text)",
+                                cursor: "pointer",
+                                fontFamily: "var(--font-sans)",
+                              }}
+                            >
+                              {a.label}
+                            </button>
+                          );
+                        })}
+                        {augCatalog.length === 0 && (
+                          <span className="text-helper">Catálogo de augmentation indisponível.</span>
+                        )}
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                        Cópias por imagem
+                        <select
+                          className="input"
+                          value={augCopies}
+                          disabled={exportState === "running"}
+                          onChange={(e) => setAugCopies(Number(e.target.value))}
+                          style={{ width: 70, height: 30, fontSize: 12 }}
+                        >
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <span className="text-helper">
+                        Só nas imagens de treino do YOLO (val/test e COCO ficam sem cópias, para não vazar dados na validação).
+                      </span>
                     </div>
                   )}
                 </div>
@@ -534,7 +681,9 @@ export default function ExportModal({ open, onClose, totalFrames }: Props) {
                 }}
               >
                 <Download size={16} />
-                {exportState === "running" ? "Exportando…" : `Exportar ${format.toUpperCase()}`}
+                {exportState === "running"
+                  ? "Exportando…"
+                  : `Exportar ${formats.map((f) => f.toUpperCase()).join(" + ") || ""}`}
               </button>
             )}
           </div>

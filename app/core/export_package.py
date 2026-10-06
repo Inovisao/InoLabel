@@ -14,6 +14,7 @@ from typing import Callable, Dict, List, Optional
 
 from app.annotation.infrastructure.export.export_dir import EXPORT_MARKER
 from app.config import IMAGE_EXTENSIONS
+from app.core.exporter import COCO_EXPORT_FILE_NAME
 
 _IMAGE_EXTS = {ext.lower() for ext in IMAGE_EXTENSIONS}
 _MAX_REPORTED_PROBLEMS = 20
@@ -57,9 +58,14 @@ def _check_yolo(root: Path, problems: List[str]) -> Dict[str, int]:
 
 
 def _check_coco(root: Path, problems: List[str]) -> Dict[str, int]:
-    """Cada annotations*.json referencia imagens que existem na pasta images/ ao lado."""
+    """Cada JSON COCO referencia imagens que existem na pasta images/ ao lado.
+
+    Aceita o nome atual (_annotations.coco.json) e o de exportações anteriores
+    (annotations*.json).
+    """
     files = images = annotations = 0
-    for json_path in sorted(root.rglob("annotations*.json")):
+    coco_files = {*root.rglob(COCO_EXPORT_FILE_NAME), *root.rglob("annotations*.json")}
+    for json_path in sorted(coco_files):
         rel = json_path.relative_to(root).as_posix()
         try:
             data = json.loads(json_path.read_text(encoding="utf-8"))
@@ -70,13 +76,14 @@ def _check_coco(root: Path, problems: List[str]) -> Dict[str, int]:
             problems.append(f"COCO: {rel} não é um objeto COCO")
             continue
         files += 1
-        images_dir = json_path.parent / "images"
         image_ids = set()
         for img in data.get("images", []):
             images += 1
             image_ids.add(img.get("id"))
             name = str(img.get("file_name", ""))
-            if not name or not (images_dir / name).is_file():
+            # Imagens em images/ (layout InoLabel) ou ao lado do JSON (layout Roboflow).
+            found = name and any((folder / name).is_file() for folder in (json_path.parent / "images", json_path.parent))
+            if not found:
                 problems.append(f"COCO: {rel} aponta para imagem ausente: {name or '(sem nome)'}")
         category_ids = {cat.get("id") for cat in data.get("categories", [])}
         for ann in data.get("annotations", []):

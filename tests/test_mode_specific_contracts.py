@@ -175,7 +175,7 @@ def test_tracking_coco_export_preserves_track_id(client: TestClient, image_dir: 
     )
 
     assert export.status_code == 200, export.text
-    annotations = (tmp_path / "tracking_export" / "annotations.json").read_text(encoding="utf-8")
+    annotations = (tmp_path / "tracking_export" / "_annotations.coco.json").read_text(encoding="utf-8")
     assert '"track_id": 42' in annotations
 
 

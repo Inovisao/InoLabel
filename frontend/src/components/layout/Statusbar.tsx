@@ -10,6 +10,7 @@ const MODE_LABELS: Record<string, string> = {
 
 export default function Statusbar() {
   const frame = useAnnotationStore((s) => s.frame);
+  const classes = useAnnotationStore((s) => s.classes);
   const mode = useSessionStore((s) => s.mode);
   const annCount = frame?.annotations?.length ?? 0;
 
@@ -78,7 +79,15 @@ export default function Statusbar() {
                   fontWeight: frame.is_saved ? 600 : 400,
                 }}
               >
-                {frame.is_saved ? "● Salvo" : "○ Não salvo"}
+                {frame.is_saved
+                  ? mode === "classification"
+                    ? `● ${classes.find((c) => c.id === frame.classification_id)?.name ?? "Classificado"}`
+                    : frame.reviewed && annCount === 0
+                      ? "● Revisado sem objetos"
+                      : "● Salvo"
+                  : mode === "classification"
+                    ? "○ Sem classe"
+                    : "○ Não salvo"}
               </span>
             </>
           )}

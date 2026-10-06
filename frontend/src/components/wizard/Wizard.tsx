@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, Info } from "lucide-react";
 import { useSessionStore } from "../../stores/session";
+import { useWorkspaceStore } from "../../stores/workspace";
 import NavSidebar from "../layout/NavSidebar";
 import WizardTopbar from "../layout/WizardTopbar";
 import StepMode from "./StepMode";
@@ -11,7 +12,9 @@ import type { TaskMode } from "../../api/types";
 export interface WizardState {
   mode: TaskMode;
   dataRoot: string;
+  /** Pasta do projeto. Vazia em projeto novo: é criada no workspace a partir de projectName. */
   outputDir: string;
+  projectName: string;
   classes: string[];
   weightsPath: string;
   confidence: number;
@@ -21,7 +24,8 @@ export interface WizardState {
 const INITIAL: WizardState = {
   mode: "detection",
   dataRoot: "",
-  outputDir: "outputs",
+  outputDir: "",
+  projectName: "",
   classes: [],
   weightsPath: "",
   confidence: 0.4,
@@ -47,6 +51,8 @@ interface Props {
 export default function Wizard({ step, onStepChange, activeNav, onNavigate, initialState }: Props) {
   const [state, setState] = useState<WizardState>({ ...INITIAL, ...initialState });
   const { start, loading, error } = useSessionStore();
+  const createProject = useWorkspaceStore((s) => s.createProject);
+  const workspaceError = useWorkspaceStore((s) => s.error);
 
   const update = (patch: Partial<WizardState>) =>
     setState((s) => ({ ...s, ...patch }));
@@ -55,10 +61,21 @@ export default function Wizard({ step, onStepChange, activeNav, onNavigate, init
   const back = () => onStepChange(Math.max(step - 1, 0));
 
   const finish = async () => {
+    // Projeto novo: a pasta é criada dentro do workspace (nunca um caminho relativo).
+    const outputDir =
+      state.outputDir ||
+      (await createProject({
+        name: state.projectName,
+        mode: state.mode,
+        data_path: state.dataRoot,
+        classes: state.classes,
+      }));
+    if (!outputDir) return;
+    update({ outputDir });
     await start({
       mode: state.mode,
       data_root: state.dataRoot,
-      output_dir: state.outputDir,
+      output_dir: outputDir,
       classes: state.classes,
       weights_paths: state.weightsPath ? [state.weightsPath] : [],
       confidence_threshold: state.confidence,
@@ -96,7 +113,7 @@ export default function Wizard({ step, onStepChange, activeNav, onNavigate, init
             {steps[step]}
           </div>
 
-          {error && (
+          {(error || workspaceError) && (
             <div
               className="alert alert-error"
               style={{
@@ -105,7 +122,7 @@ export default function Wizard({ step, onStepChange, activeNav, onNavigate, init
                 color: "var(--alert-title)",
               }}
             >
-              {error}
+              {error || workspaceError}
             </div>
           )}
 
@@ -146,7 +163,11 @@ export default function Wizard({ step, onStepChange, activeNav, onNavigate, init
                 </button>
               )}
               {step < 2 ? (
-                <button className="btn-primary" onClick={next}>
+                <button
+                  className="btn-primary"
+                  onClick={next}
+                  disabled={step === 1 && (!state.dataRoot || (!state.outputDir && !state.projectName.trim()))}
+                >
                   Continuar →
                 </button>
               ) : (

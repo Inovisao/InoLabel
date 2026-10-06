@@ -275,7 +275,7 @@ Clique em **Exportar dataset** na barra lateral para abrir a tela de exportaçã
 |-------|-----------|
 | **Destino / Nome da pasta** | Caminho e nome da pasta de saída |
 | **YOLO** | Exporta imagens + labels `.txt` e `data.yaml` |
-| **COCO (.json)** | Exporta `annotations.coco.json` + pasta `images/` com as imagens |
+| **COCO (.json)** | Exporta `_annotations.coco.json` com as imagens ao lado (layout Roboflow, padrão) ou em `images/`; com split, um par por pasta `train/`, `val/`, `test/` |
 | **Split train/val/test** | Divide as imagens em proporções configuráveis |
 | **Pacote .zip** | Gera também `<nome>.zip` com imagens e anotações. As referências são conferidas antes (imagem ↔ label, `file_name` do COCO ↔ imagem) e o `data.yaml` do pacote vai sem caminho absoluto, para o dataset funcionar em outra máquina |
 | **Data augmentation** | Gera cópias aumentadas por imagem (flip, brilho, ruído, etc.) |

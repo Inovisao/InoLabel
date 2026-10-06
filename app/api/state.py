@@ -44,6 +44,15 @@ frame_dims: dict[int, tuple[int, int]] = {}  # frame_index → (width, height)
 annotation_store: dict[int, list] = {}
 next_ann_id: list[int] = [1]  # list so it's mutable from any module without 'global'
 
+# Estado do projeto no annotations.coco.json (app/core/coco_state.py):
+# frames revisados sem objetos (negativos) e ids estáveis das imagens no COCO.
+reviewed_frames: set[int] = set()
+coco_image_ids: dict[str, int] = {}
+
+from app.core.coco_state_writer import CocoStateWriter  # noqa: E402
+
+coco_writer = CocoStateWriter()
+
 
 # Cache de ambiguous_frame_stems(): (assinatura da lista de frames, stems repetidos)
 _ambiguous_stems_cache: list = [None, set()]
@@ -114,6 +123,8 @@ def reset_state() -> None:
     frame_dims.clear()
     annotation_store.clear()
     next_ann_id[0] = 1
+    reviewed_frames.clear()
+    coco_image_ids.clear()
     _active_session_id = None
     _ambiguous_stems_cache[0] = None
     _ambiguous_stems_cache[1] = set()

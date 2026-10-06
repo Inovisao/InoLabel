@@ -6,7 +6,7 @@ import json
 import os
 import re
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
@@ -417,6 +417,48 @@ def transfer_image_to_class(
         classified_at=datetime.now().isoformat(timespec="seconds"),
         operation="move" if move else "copy",
     )
+
+
+def reclassify_record(
+    record: ClassificationRecord,
+    *,
+    class_name: str,
+    output_dir: Path,
+    class_directories: dict[str, str],
+) -> ClassificationRecord:
+    """Move a imagem já classificada para a pasta da nova classe, sem duplicar.
+
+    Antes, reclassificar copiava de novo: a mesma imagem ficava nas duas pastas e
+    com dois registros, ou seja, em duas classes ao mesmo tempo.
+    """
+    if record.class_name == class_name:
+        return record
+    destination_dir = Path(output_dir).expanduser() / class_directories[class_name]
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination_path = unique_destination_path(destination_dir / record.destination_path.name)
+    if record.destination_path.exists():
+        shutil.move(str(record.destination_path), str(destination_path))
+    elif record.operation == "copy" and record.source_path.exists():
+        shutil.copy2(record.source_path, destination_path)
+    return replace(
+        record,
+        destination_path=destination_path,
+        class_name=class_name,
+        classified_at=datetime.now().isoformat(timespec="seconds"),
+    )
+
+
+def undo_record(record: ClassificationRecord) -> None:
+    """Desfaz a classificação: apaga a cópia, ou devolve a imagem movida ao lugar original."""
+    destination = record.destination_path
+    if not destination.exists():
+        return
+    if record.operation == "move":
+        if not record.source_path.exists():
+            record.source_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(destination), str(record.source_path))
+        return
+    destination.unlink()
 
 
 def copy_image_to_class(

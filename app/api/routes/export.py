@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from app.api.schemas import ExportProgressResponse, ExportRequest, ExportStartResponse
+from app.api.schemas import AugmentationOption, ExportProgressResponse, ExportRequest, ExportStartResponse
 from app.api.state import create_export, get_export, get_session
 
 router = APIRouter(prefix="/api/export", tags=["export"])
@@ -52,7 +52,6 @@ def _run_export_blocking(export_id: str) -> None:
 
     try:
         classes = session.classes
-        categories = [{"id": i, "name": name} for i, name in enumerate(classes)]
 
         frame_paths = _state.frame_paths
         frame_dims = _state.frame_dims
@@ -86,75 +85,35 @@ def _run_export_blocking(export_id: str) -> None:
                     frame_idx, frame_path, dims[0], dims[1], session.output_path
                 )
 
-        # Collect annotated frames and deduplicate export names
-        frame_entries: list[tuple[int, Path, str, list]] = []
-        used_names: set[str] = set()
-        for frame_idx, ann_list in _state.annotation_store.items():
-            if not ann_list or frame_idx >= len(frame_paths):
-                continue
-            path = frame_paths[frame_idx]
-            candidate = path.name
-            if candidate in used_names:
-                candidate = f"{path.stem}_{frame_idx}{path.suffix}"
-            used_names.add(candidate)
-            frame_entries.append((frame_idx, path, candidate, ann_list))
+        # Mesmo payload do annotations.coco.json do projeto: categorias a partir de 1,
+        # file_name relativo ao dataset (preserva subpastas) e negativos marcados.
+        from app.api.routes.annotations import _frame_dims
+        from app.core.coco_state import build_payload, relative_name
 
-        if not frame_entries:
+        for idx in set(_state.annotation_store) | _state.reviewed_frames:
+            _frame_dims(idx)
+        payload = build_payload(
+            mode=session.mode,
+            classes=classes,
+            data_path=session.data_path,
+            frame_paths=frame_paths,
+            frame_dims=_state.frame_dims,
+            annotation_store=_state.annotation_store,
+            reviewed=_state.reviewed_frames,
+            image_ids=dict(_state.coco_image_ids),
+        )
+        coco_images = payload["images"]
+        coco_annotations = payload["annotations"]
+        categories = payload["categories"]
+        if not coco_images:
             job.progress = 1.0
             job.status = "done"
             return
 
-        # Build COCO payload from in-memory annotation store
-        coco_images: list[dict] = []
-        coco_annotations: list[dict] = []
-        ann_id = 1
-        # source_image_map: export_name → original source path (no staging copy needed)
-        source_image_map: dict[str, Path] = {}
-
-        for frame_idx, path, export_name, ann_list in frame_entries:
-            dims = frame_dims.get(frame_idx)
-            if dims is None:
-                size = _read_image_size(path)
-                if size is None:
-                    continue
-                dims = size
-                _state.frame_dims[frame_idx] = dims
-
-            img_w, img_h = dims
-            source_image_map[export_name] = path
-            coco_images.append({
-                "id": frame_idx,
-                "file_name": export_name,
-                "width": img_w,
-                "height": img_h,
-            })
-            for ann in ann_list:
-                cat_id = ann.category_id
-                if cat_id < 0 or cat_id >= len(classes):
-                    continue
-                x, y, w, h = ann.bbox
-                ann_entry = {
-                    "id": ann_id,
-                    "image_id": frame_idx,
-                    "category_id": cat_id,
-                    "bbox": [float(x), float(y), float(w), float(h)],
-                    "area": float(max(w, 0) * max(h, 0)),
-                    "iscrowd": 0,
-                    "segmentation": [],
-                    "source": getattr(ann, "source", "manual"),
-                }
-                if getattr(ann, "track_id", None) is not None:
-                    ann_entry["track_id"] = int(ann.track_id)
-                if getattr(ann, "obb", None) is not None:
-                    ann_entry["obb"] = ann.obb.model_dump(exclude_none=True)
-                coco_annotations.append(ann_entry)
-                ann_id += 1
-
-        payload = {
-            "images": coco_images,
-            "annotations": coco_annotations,
-            "categories": categories,
-        }
+        # source_image_map: file_name (relativo) → imagem original, sem cópia intermediária
+        by_name = {relative_name(p, session.data_path): p for p in frame_paths}
+        source_image_map: dict[str, Path] = {img["file_name"]: by_name[img["file_name"]] for img in coco_images}
+        frame_entries = [(None, by_name[img["file_name"]], img["file_name"], None) for img in coco_images]
 
         total = len(coco_images)
         out = job.output_path
@@ -187,6 +146,7 @@ def _run_export_blocking(export_id: str) -> None:
                     split_ratios=job.split_ratios,
                     on_progress=_on_yolo_progress,
                     source_image_map=source_image_map,
+                    augmentation_preset=job.augmentation,
                 )
             else:
                 export_yolo_no_split(
@@ -195,10 +155,14 @@ def _run_export_blocking(export_id: str) -> None:
                     dataset_root=out,
                     on_progress=_on_yolo_progress,
                     source_image_map=source_image_map,
+                    augmentation_preset=job.augmentation,
                 )
 
         if "coco" in job.formats:
             from app.annotation.infrastructure.export.coco_exporter import export_detection_coco_json
+            from app.core.exporter import COCO_EXPORT_FILE_NAME
+
+            coco_images_subdir = None if job.coco_layout == "roboflow" else "images"
             from app.annotation.core.export.split_service import assign_splits, normalize_split_ratios
 
             if job.use_split:
@@ -216,7 +180,7 @@ def _run_export_blocking(export_id: str) -> None:
                     split_img_ids = {img["id"] for img in split_imgs}
                     split_anns = [ann for ann in coco_annotations if ann["image_id"] in split_img_ids]
                     split_payload = {"images": split_imgs, "annotations": split_anns, "categories": categories}
-                    split_out = out / split_name / "annotations.json"
+                    split_out = out / split_name / COCO_EXPORT_FILE_NAME
                     offset = running[0]
                     names_snapshot = [img["file_name"] for img in split_imgs]
 
@@ -235,10 +199,11 @@ def _run_export_blocking(export_id: str) -> None:
                         source_images_dir=None,
                         source_image_map=source_image_map,
                         on_progress=_on_coco_split_progress,
+                        images_subdir=coco_images_subdir,
                     )
                     running[0] += len(split_imgs)
             else:
-                out_json = out / "annotations.json"
+                out_json = out / COCO_EXPORT_FILE_NAME
                 img_names = [img["file_name"] for img in coco_images]
 
                 def _on_coco_progress(done: int, _total: int) -> None:
@@ -252,6 +217,7 @@ def _run_export_blocking(export_id: str) -> None:
                     source_images_dir=None,
                     source_image_map=source_image_map,
                     on_progress=_on_coco_progress,
+                    images_subdir=coco_images_subdir,
                 )
 
         if job.zip_output:
@@ -283,6 +249,36 @@ async def _run_export(export_id: str) -> None:
     await asyncio.to_thread(_run_export_blocking, export_id)
 
 
+DEFAULT_AUGMENTATIONS = ("flip_h", "brightness", "contrast")
+
+
+def _augmentation_preset(body):
+    """Preset do catálogo existente; antes a opção era aceita e ignorada."""
+    from app.annotation.core.augmentation.augmentation_types import (
+        AUGMENTATION_CATALOG, AugEntry, AugmentationPreset,
+    )
+
+    if not body.augmentation:
+        return None
+    catalog = {item.key: item for item in AUGMENTATION_CATALOG}
+    keys = body.augmentations or list(DEFAULT_AUGMENTATIONS)
+    unknown = [k for k in keys if k not in catalog]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Augmentation desconhecida: {', '.join(unknown)}")
+    entries = [
+        AugEntry(key=k, enabled=True, params={p.key: p.default for p in catalog[k].params})
+        for k in keys
+    ]
+    return AugmentationPreset(enabled=True, copies_per_image=body.augmentation_copies, entries=entries)
+
+
+@router.get("/augmentations", response_model=list[AugmentationOption])
+def list_augmentations() -> list:
+    from app.annotation.core.augmentation.augmentation_types import AUGMENTATION_CATALOG
+
+    return [AugmentationOption(key=i.key, label=i.label, description=i.description) for i in AUGMENTATION_CATALOG]
+
+
 @router.post("", response_model=ExportStartResponse)
 async def start_export(body: ExportRequest, background_tasks: BackgroundTasks) -> ExportStartResponse:
     from app.core.exporter import ExportJob, normalize_split
@@ -309,6 +305,8 @@ async def start_export(body: ExportRequest, background_tasks: BackgroundTasks) -
             use_split=body.use_split,
             split_ratios=(split["train"], split["val"], split["test"]),
             zip_output=body.zip,
+            augmentation=_augmentation_preset(body),
+            coco_layout=body.coco_layout,
         )
     )
     background_tasks.add_task(_run_export, job.export_id)

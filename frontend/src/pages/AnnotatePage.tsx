@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function AnnotatePage({ onStop }: Props) {
-  const { fetchFrame, fetchClasses } = useAnnotationStore();
+  const { fetchFrame, fetchClasses, resetSessionUi } = useAnnotationStore();
   const totalFrames = useSessionStore((s) => s.totalFrames);
   const { stop } = useSessionStore();
   const { toast } = useToast();
@@ -28,9 +28,10 @@ export default function AnnotatePage({ onStop }: Props) {
   const [pendingNav, setPendingNav] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    resetSessionUi();
     fetchClasses();
     fetchFrame();
-  }, [fetchClasses, fetchFrame]);
+  }, [fetchClasses, fetchFrame, resetSessionUi]);
 
   useKeyboardShortcuts({
     onExport: () => setExportOpen(true),

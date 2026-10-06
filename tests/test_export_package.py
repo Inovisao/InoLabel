@@ -45,7 +45,7 @@ def _coco_dataset(root: Path) -> Path:
         "annotations": [{"id": 1, "image_id": 1, "category_id": 0, "bbox": [1, 1, 4, 4]}],
         "categories": [{"id": 0, "name": "car"}],
     }
-    (root / "annotations.json").write_text(json.dumps(payload), encoding="utf-8")
+    (root / "_annotations.coco.json").write_text(json.dumps(payload), encoding="utf-8")
     return root
 
 
@@ -87,6 +87,13 @@ def test_consistent_coco_dataset_passes(tmp_path):
     assert report["coco_annotations"] == 1
 
 
+def test_coco_from_older_exports_is_still_checked(tmp_path):
+    """Exportações anteriores gravavam annotations.json."""
+    root = _coco_dataset(tmp_path / "ds")
+    (root / "_annotations.coco.json").rename(root / "annotations.json")
+    assert verify_dataset_links(root)["coco_files"] == 1
+
+
 def test_coco_pointing_to_missing_image_is_reported(tmp_path):
     root = _coco_dataset(tmp_path / "ds")
     (root / "images" / "a.jpg").unlink()
@@ -97,9 +104,9 @@ def test_coco_pointing_to_missing_image_is_reported(tmp_path):
 
 def test_coco_annotation_with_unknown_image_or_category_is_reported(tmp_path):
     root = _coco_dataset(tmp_path / "ds")
-    data = json.loads((root / "annotations.json").read_text(encoding="utf-8"))
+    data = json.loads((root / "_annotations.coco.json").read_text(encoding="utf-8"))
     data["annotations"].append({"id": 2, "image_id": 99, "category_id": 7, "bbox": [0, 0, 1, 1]})
-    (root / "annotations.json").write_text(json.dumps(data), encoding="utf-8")
+    (root / "_annotations.coco.json").write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(BrokenDatasetLinksError) as exc:
         verify_dataset_links(root)
     problems = " | ".join(exc.value.problems)
@@ -294,3 +301,18 @@ def test_export_request_accepts_zip_flag_and_progress_reports_paths(session_with
     assert progress["zip_path"] == str(tmp / "exports" / "ds.zip")
     assert progress["output_path"] == str(tmp / "exports" / "ds")
     assert Path(progress["zip_path"]).is_file()
+
+
+@pytest.mark.parametrize("use_split,expected", [
+    (False, ["ds/_annotations.coco.json"]),
+    (True, ["ds/test/_annotations.coco.json", "ds/train/_annotations.coco.json", "ds/val/_annotations.coco.json"]),
+])
+def test_api_coco_export_uses_underscore_file_name(session_with_frames, use_split, expected):
+    tmp = session_with_frames
+    job = _export(tmp, "ds", ["coco"], use_split=use_split)
+    assert job.status == "done", job.current_file
+    with zipfile.ZipFile(job.zip_path) as archive:
+        jsons = sorted(n for n in archive.namelist() if n.endswith(".json"))
+    # Com 3 imagens o split pode deixar val/test vazios; só confere os que existem.
+    assert jsons and set(jsons) <= set(expected)
+    assert not any(n.endswith("/annotations.json") for n in jsons)

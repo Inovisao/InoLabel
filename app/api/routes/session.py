@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,7 +22,9 @@ from app.api.schemas import (
 )
 from app.api.state import active_session, create_session, get_session, remove_session
 from app.api.state import SessionState as _SessionState
-from app.config import IMAGE_EXTENSIONS, IMAGE_LIST_EXTENSIONS, VIDEO_EXTENSIONS
+from app.annotation.infrastructure.persistence.state_file import AnnotationStateUnreadableError, read_annotation_state
+from app.core import coco_state
+from app.config import IMAGE_EXTENSIONS, IMAGE_LIST_EXTENSIONS, VIDEO_EXTENSIONS, OUTPUT_BASE
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/session", tags=["session"])
@@ -57,68 +60,12 @@ def _count_frames(path: Path) -> int:
     return 0
 
 
-@router.get("/projects", response_model=list[ProjectEntry])
-def list_projects(path: str = "output") -> list[ProjectEntry]:
-    """Scan a directory for InoLabel project folders and return metadata for each."""
-    scan_root = Path(path).expanduser().resolve()
-    if not scan_root.exists() or not scan_root.is_dir():
-        return []
+def _flush_project_state() -> None:
+    """Conclui a gravação pendente do annotations.coco.json antes de encerrar."""
+    from app.api import state as _state
 
-    candidates: list[Path] = []
-    if (scan_root / ".inolabel.json").exists():
-        candidates.append(scan_root)
-    try:
-        for subdir in scan_root.iterdir():
-            if subdir.is_dir() and (subdir / ".inolabel.json").exists():
-                candidates.append(subdir)
-    except PermissionError:
-        pass
-
-    projects: list[ProjectEntry] = []
-    for output_dir in candidates:
-        meta_path = output_dir / ".inolabel.json"
-        try:
-            meta: dict = json.loads(meta_path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-
-        labels_dir = output_dir / "labels"
-        annotated_frames = 0
-        mtimes: list[float] = [meta_path.stat().st_mtime]
-
-        if labels_dir.exists():
-            try:
-                # os.walk: os labels acompanham as subpastas do dataset.
-                for dirpath, _dirnames, filenames in os.walk(labels_dir):
-                    for filename in filenames:
-                        if not filename.endswith(".txt"):
-                            continue
-                        st = os.stat(os.path.join(dirpath, filename))
-                        mtimes.append(st.st_mtime)
-                        if st.st_size > 0:
-                            annotated_frames += 1
-            except PermissionError:
-                pass
-
-        last_modified = datetime.fromtimestamp(
-            max(mtimes), tz=timezone.utc
-        ).isoformat(timespec="seconds")
-
-        raw_data_path = meta.get("data_path", "")
-        data_path = raw_data_path if raw_data_path and Path(raw_data_path).exists() else ""
-
-        projects.append(ProjectEntry(
-            name=output_dir.name,
-            path=str(output_dir),
-            data_path=data_path,
-            mode=meta.get("mode", "unknown"),
-            annotated_frames=annotated_frames,
-            classes=meta.get("classes", []),
-            created_at=meta.get("created_at", ""),
-            last_modified=last_modified,
-        ))
-
-    return sorted(projects, key=lambda p: p.last_modified, reverse=True)
+    if not _state.coco_writer.flush(timeout=60):
+        log.error("estado do projeto: gravação pendente não terminou em 60 s")
 
 
 @router.post("/start", response_model=SessionStartResponse)
@@ -140,7 +87,17 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
             detail=f"Dataset não encontrado: {data_path}",
         )
 
-    output_path = Path(req.output_path or "outputs").expanduser().resolve()
+    # Caminho relativo seria resolvido a partir da pasta onde o app foi aberto: com
+    # "python main.py" na raiz do repositório, o projeto ia parar dentro do repositório.
+    if req.output_path and not Path(req.output_path).expanduser().is_absolute():
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Informe o caminho completo da pasta de saída (recebido: '{req.output_path}'). "
+                "Use o botão de selecionar pasta."
+            ),
+        )
+    output_path = (Path(req.output_path).expanduser() if req.output_path else OUTPUT_BASE).resolve()
 
     model_path: Path | None = None
     if req.model_path:
@@ -152,6 +109,15 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
             )
         if model_path.suffix.lower() != ".pt":
             raise HTTPException(status_code=422, detail="Modelo deve ser um arquivo .pt válido.")
+
+    # Estado do projeto ilegível: não abre a sessão nem toca no arquivo, para que
+    # ele possa ser restaurado (.bak) ou corrigido.
+    if req.mode.value != "classification":
+        project_state = coco_state.state_path(output_path, req.mode.value)
+        try:
+            read_annotation_state(project_state)
+        except AnnotationStateUnreadableError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # --- 2. Inputs are valid — now it is safe to stop any existing session ---
     existing = active_session()
@@ -197,6 +163,13 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
         except (TypeError, ValueError):
             pass
 
+    # Cópia do último estado bom antes de qualquer gravação desta sessão.
+    if req.mode.value != "classification" and project_state.is_file():
+        try:
+            shutil.copy2(project_state, project_state.with_name(project_state.name + ".bak"))
+        except OSError:
+            log.warning("start_session: não foi possível criar o .bak do estado do projeto")
+
     session = create_session(
         mode=req.mode.value,
         data_path=data_path,
@@ -216,6 +189,7 @@ async def start_session(req: SessionStartRequest, background_tasks: BackgroundTa
     # Preserve created_at from any existing metadata; include current_frame for resume.
     try:
         meta = {
+            **existing_meta,   # preserva nome/versão gravados ao criar o projeto no workspace
             "session_id": session.session_id,
             "mode": session.mode,
             "data_path": str(data_path),
@@ -304,6 +278,7 @@ def run_action(session_id: str, body: SessionActionRequest) -> SessionActionResp
 
 @router.post("/{session_id}/stop", response_model=SessionStopResponse)
 def stop_session(session_id: str) -> SessionStopResponse:
+    _flush_project_state()
     session = remove_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Sessão não encontrada")
@@ -320,6 +295,7 @@ def stop_legacy_session():
     session = active_session()
     if session is None:
         return {"ok": True}
+    _flush_project_state()
     remove_session(session.session_id)
     _update_project_meta(session)
     reset_annotations()

@@ -155,8 +155,12 @@ def export_detection_coco_json(
     source_images_dir: Optional[Path] = None,
     source_image_map: Optional[Dict[str, Path]] = None,
     on_progress: Optional[Callable[[int, int], None]] = None,
+    images_subdir: Optional[str] = "images",
 ) -> Dict[str, Any]:
     """Writes a COCO detection JSON.
+
+    ``images_subdir=None`` grava as imagens ao lado do JSON (padrão Roboflow, que usa
+    o mesmo nome _annotations.coco.json); o padrão é a pasta ``images/``.
 
     With ``source_images_dir`` or ``source_image_map`` (file_name -> source path),
     every image is copied into a single flat ``images/`` folder next to the JSON
@@ -194,7 +198,7 @@ def export_detection_coco_json(
         raise
 
     if copies:
-        images_dest = output_path.parent / "images"
+        images_dest = output_path.parent / images_subdir if images_subdir else output_path.parent
         images_dest.mkdir(parents=True, exist_ok=True)
         total = len(copies)
         for done, (src, flat_name) in enumerate(copies, 1):

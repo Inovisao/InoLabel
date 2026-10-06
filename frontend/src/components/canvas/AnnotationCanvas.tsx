@@ -55,6 +55,10 @@ export default function AnnotationCanvas() {
     classificationResult,
     addAnnotation,
     removeAnnotation,
+    updateAnnotation,
+    selectedAnnotationId,
+    selectAnnotation,
+    tool,
     error,
     clearError,
   } = useAnnotationStore();
@@ -99,10 +103,30 @@ export default function AnnotationCanvas() {
     [offsetX, offsetY, imgScale, img]
   );
 
+  /** Caixa sob o ponteiro (a menor, para caixas sobrepostas). */
+  const annotationAt = (stageX: number, stageY: number): Annotation | null => {
+    if (!frame) return null;
+    const { x, y } = toImageCoords(stageX, stageY);
+    let best: Annotation | null = null;
+    for (const ann of frame.annotations) {
+      const [bx, by, bw, bh] = ann.bbox;
+      if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+        if (!best || bw * bh < best.bbox[2] * best.bbox[3]) best = ann;
+      }
+    }
+    return best;
+  };
+
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.evt.button !== 0 || !img || mode === "classification") return;
     const pos = e.target.getStage()?.getPointerPosition();
     if (!pos) return;
+    // Ferramenta de seleção: clique escolhe a caixa; arrastar move (Rect draggable).
+    if (tool === "select") {
+      if (e.target.draggable()) return;
+      selectAnnotation(annotationAt(pos.x, pos.y)?.id ?? null);
+      return;
+    }
     // Only start drawing if click is within image bounds
     if (
       pos.x < offsetX || pos.x > offsetX + imgW ||
@@ -134,6 +158,8 @@ export default function AnnotationCanvas() {
       return;
     }
     if (!drawing || !startPos || drawing.w < 5 || drawing.h < 5) {
+      // Clique sem arrastar também seleciona a caixa sob o ponteiro.
+      if (startPos) selectAnnotation(annotationAt(startPos.x, startPos.y)?.id ?? null);
       setDrawing(null);
       setStartPos(null);
       return;
@@ -159,7 +185,7 @@ export default function AnnotationCanvas() {
           background: "var(--color-canvas-bg)",
           overflow: "hidden",
           position: "relative",
-          cursor: img && mode !== "classification" ? "crosshair" : "default",
+          cursor: img && mode !== "classification" && tool === "box" ? "crosshair" : "default",
         }}
       >
         {/* Error toast */}
@@ -209,15 +235,18 @@ export default function AnnotationCanvas() {
             {/* Existing annotations */}
             {mode !== "classification" && frame?.annotations.map((ann) => {
               const cls = classes.find((c) => c.id === ann.category_id);
-              const clsColor =
-                mode === "tracking" && ann.track_id !== undefined
-                  ? colorForTrack(ann.track_id)
-                  : cls?.color ?? "#4F46E5";
+              const hasTrack = mode === "tracking" && ann.track_id != null;
+              const clsColor = hasTrack
+                ? colorForTrack(ann.track_id as number)
+                : cls?.color ?? "#4F46E5";
               const clsName = cls?.name ?? `#${ann.category_id}`;
-              const label =
-                mode === "tracking" && ann.track_id !== undefined
-                  ? `ID ${ann.track_id} | ${clsName}`
+              const label = hasTrack
+                ? `ID ${ann.track_id} | ${clsName}`
+                : mode === "tracking"
+                  ? `sem ID | ${clsName}`
                   : clsName;
+              const selected = ann.id === selectedAnnotationId;
+              const strokeWidth = selected ? 3 : 2;
               const [bx, by, bw, bh] = ann.bbox;
               const sx = offsetX + bx * imgScale;
               const sy = offsetY + by * imgScale;
@@ -240,7 +269,8 @@ export default function AnnotationCanvas() {
                       points={scaled}
                       closed
                       stroke={clsColor}
-                      strokeWidth={2}
+                      strokeWidth={strokeWidth}
+                      dash={selected ? [8, 4] : undefined}
                       fill="transparent"
                       listening={true}
                     />
@@ -276,9 +306,20 @@ export default function AnnotationCanvas() {
                     width={sw}
                     height={sh}
                     stroke={clsColor}
-                    strokeWidth={2}
+                    strokeWidth={strokeWidth}
+                    dash={selected ? [8, 4] : undefined}
                     fill="transparent"
                     listening={true}
+                    draggable={selected && tool === "select"}
+                    dragBoundFunc={(p) => ({
+                      x: Math.max(offsetX, Math.min(p.x, offsetX + imgW - sw)),
+                      y: Math.max(offsetY, Math.min(p.y, offsetY + imgH - sh)),
+                    })}
+                    onDragEnd={(e) => {
+                      const nx = (e.target.x() - offsetX) / imgScale;
+                      const ny = (e.target.y() - offsetY) / imgScale;
+                      updateAnnotation(ann.id, { bbox: [nx, ny, bw, bh] });
+                    }}
                   />
                   {/* Label background */}
                   <Rect
@@ -392,12 +433,14 @@ export default function AnnotationCanvas() {
             }}
           >
             {mode === "classification"
-              ? "Use 1-9 para classificar pela lista de classes"
-              : "Arraste para anotar - Duplo clique na caixa para remover"}
+              ? "Clique na classe ou digite o número dela · Espaço pula · Ctrl+Z desfaz"
+              : tool === "select"
+                ? "Clique para selecionar · arraste a caixa selecionada para mover · Del remove · B volta a desenhar"
+                : "Arraste para anotar · clique numa caixa para editar · N marca frame sem objetos · Ctrl+Z desfaz"}
           </div>
         )}
 
-        {mode === "classification" && classificationResult && (
+        {mode === "classification" && frame?.classification_id != null && (
           <div
             style={{
               position: "absolute",
@@ -412,7 +455,7 @@ export default function AnnotationCanvas() {
               pointerEvents: "none",
             }}
           >
-            {classificationResult.top1_class_name}
+            Classe: {classes.find((c) => c.id === frame.classification_id)?.name ?? classificationResult?.top1_class_name}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { History, FolderOpen, CheckSquare, RotateCcw } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import { api } from "../api/client";
+import { useWorkspaceStore } from "../stores/workspace";
 import type { ProjectEntry } from "../api/types";
 
 const MODE_LABELS: Record<string, string> = {
@@ -58,13 +59,15 @@ export default function HistoryPage({ activeNav, onNavigate, onResume }: Props) 
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const scanPath = localStorage.getItem("inolabel_output_root") || "output";
+  const workspace = useWorkspaceStore((s) => s.current);
+  const scanPath = workspace?.path ?? "";
 
   const load = async () => {
+    if (!scanPath) return;
     setLoading(true);
     try {
       const data = await api.get<ProjectEntry[]>(
-        `/session/projects?path=${encodeURIComponent(scanPath)}`
+        `/workspace/projects?path=${encodeURIComponent(scanPath)}`
       );
       setProjects(data);
     } catch {
@@ -76,7 +79,7 @@ export default function HistoryPage({ activeNav, onNavigate, onResume }: Props) 
 
   useEffect(() => {
     load();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [scanPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const groups = groupByPeriod(projects);
 

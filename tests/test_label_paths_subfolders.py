@@ -134,8 +134,10 @@ def test_export_has_exactly_the_annotated_images(project):
     asyncio.run(_run_export(job.export_id))
 
     assert job.status == "done", job.current_file
-    exported = sorted((project / "exports" / "ds" / "images" / "all").iterdir())
-    assert len(exported) == 3
+    images_dir = project / "exports" / "ds" / "images" / "all"
+    exported = sorted(p.relative_to(images_dir).as_posix() for p in images_dir.rglob("*.jpg"))
+    # As subpastas do dataset são preservadas na exportação.
+    assert exported == ["lote_a/img_000.jpg", "lote_a/img_001.jpg", "lote_b/img_000.jpg"]
 
 
 # ── projetos gravados antes da correção ──────────────────────────────────────
@@ -189,7 +191,7 @@ def test_flat_dataset_keeps_the_same_file_names_as_before(project):
 def test_project_listing_counts_labels_in_subfolders(project):
     import json
 
-    from app.api.routes.session import list_projects
+    from app.api.routes.validation import list_projects
 
     session = _start(project, NESTED)
     (session.output_path).mkdir(parents=True, exist_ok=True)
@@ -200,9 +202,9 @@ def test_project_listing_counts_labels_in_subfolders(project):
     for idx in (0, 2, 3):
         ann_routes.add_annotation(idx, AnnotationUpsert(category_id=0, bbox=[5, 5, 20, 20]))
 
-    entries = list_projects(str(session.output_path))
+    entries = list_projects(str(session.output_path.parent))   # o workspace que contém o projeto
 
-    assert entries[0].annotated_frames == 3
+    assert entries[0]["annotated_frames"] == 3
 
 
 def test_annotating_an_unvisited_frame_keeps_what_was_already_saved(project):

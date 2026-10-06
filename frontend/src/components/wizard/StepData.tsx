@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function StepData({ state, onChange }: Props) {
-  const browseFolder = async (field: "dataRoot" | "outputDir") => {
+  const browseFolder = async (field: "dataRoot") => {
     try {
       const res = await api.get<{ path: string }>("/browse/folder");
       if (res.path) onChange({ [field]: res.path });
@@ -38,15 +38,29 @@ export default function StepData({ state, onChange }: Props) {
         browseIcon="folder"
       />
 
-      <PathField
-        label="Pasta de saída"
-        hint="Onde salvar os arquivos de anotação gerados."
-        placeholder="output"
-        value={state.outputDir}
-        onChange={(v) => onChange({ outputDir: v })}
-        onBrowse={() => browseFolder("outputDir")}
-        browseIcon="folder"
-      />
+      {state.outputDir ? (
+        <div>
+          <div className="text-label">Projeto</div>
+          <div className="text-mono" style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 4, wordBreak: "break-all" }}>
+            {state.outputDir}
+          </div>
+        </div>
+      ) : (
+        <div>
+          <label className="text-label" htmlFor="project-name">Nome do projeto</label>
+          <p className="text-helper" style={{ margin: "2px 0 6px" }}>
+            Uma pasta com esse nome é criada dentro do workspace para guardar as anotações.
+          </p>
+          <input
+            id="project-name"
+            className="input"
+            placeholder="ex.: guavira_lote1"
+            value={state.projectName}
+            onChange={(e) => onChange({ projectName: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+      )}
 
       <PathField
         label="Pesos do modelo (opcional)"
@@ -58,6 +72,8 @@ export default function StepData({ state, onChange }: Props) {
         browseIcon="file"
       />
 
+      {/* Só faz sentido ao reabrir um projeto: um projeto novo começa vazio. */}
+      {state.outputDir && (
       <label
         style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer", userSelect: "none" }}
       >
@@ -92,6 +108,7 @@ export default function StepData({ state, onChange }: Props) {
           Retomar anotações existentes nesta pasta
         </span>
       </label>
+      )}
     </div>
   );
 }

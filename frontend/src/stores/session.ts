@@ -9,6 +9,8 @@ interface SessionState {
   classes: string[];
   totalFrames: number;
   currentIndex: number;
+  /** Pasta do projeto ativo (absoluta); base do destino padrão da exportação. */
+  outputPath: string | null;
   loading: boolean;
   error: string | null;
   start: (req: SessionStartRequest) => Promise<void>;
@@ -23,6 +25,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   classes: [],
   totalFrames: 0,
   currentIndex: 0,
+  outputPath: null,
   loading: false,
   error: null,
 
@@ -40,6 +43,7 @@ export const useSessionStore = create<SessionState>((set) => ({
         classes: status.classes,
         totalFrames: status.total_frames,
         currentIndex: status.current_index,
+        outputPath: req.output_dir,
         loading: false,
       });
     } catch (e) {
@@ -49,7 +53,7 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   stop: async () => {
     await api.post("/session/stop");
-    set({ active: false, sessionId: null, mode: null, classes: [], totalFrames: 0 });
+    set({ active: false, sessionId: null, mode: null, classes: [], totalFrames: 0, outputPath: null });
   },
 
   recover: async () => {
@@ -63,6 +67,7 @@ export const useSessionStore = create<SessionState>((set) => ({
           classes: status.classes,
           totalFrames: status.total_frames,
           currentIndex: status.current_index,
+          outputPath: status.output_path ?? null,
         });
       }
     } catch {
