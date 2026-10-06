@@ -53,3 +53,6 @@ htmlcov/
 
 # ── Documentação gerada ───────────────────────────────────────────────────────
 docs/
+
+# Documentação de apoio a agentes e planos (local, fora do repositório).
+docs_agents/
