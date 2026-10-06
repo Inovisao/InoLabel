@@ -33,7 +33,8 @@ interface Props {
 
 export default function NavSidebar({ activeItem = "mode", onNavigate }: Props) {
   const { isDark } = useTheme();
-  const logoSrc = isDark ? "/InolabelLogoBnraca-cropped.png" : "/inolabellogo-cropped.png";
+  // Símbolo do Inovisão sem fundo; no tema escuro o azul-marinho vira branco para manter contraste.
+  const logoSrc = isDark ? "/inovisao-logo-dark.png" : "/inovisao-logo.png";
 
   return (
     <aside
@@ -63,11 +64,11 @@ export default function NavSidebar({ activeItem = "mode", onNavigate }: Props) {
       >
         <img
           src={logoSrc}
-          alt="InoLabel"
+          alt="Inovisão"
           style={{
             width: 218,
             maxWidth: "100%",
-            maxHeight: 54,
+            maxHeight: 64,
             height: "auto",
             objectFit: "contain",
             display: "block",
