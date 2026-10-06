@@ -1,17 +1,30 @@
 # ── Dados e modelos (nunca versionar) ────────────────────────────────────────
 outputs/
 state_saved/
+saved_data_states/
 dataset/
 data/
 models/
 videos/
 imagens/
 dataset_original/
+openimages_candidates/
+# Projeto criado dentro do repositório por um output_path relativo (antes da correção).
+anotacoes_guavira/
 
 # ── Build e distribuição ──────────────────────────────────────────────────────
 dist/
 build/
 *.spec
+
+# ── Frontend (Node / Vite / Tauri) ────────────────────────────────────────────
+node_modules/
+.vite/
+*.tsbuildinfo
+frontend/src-tauri/target/
+
+# ── Executável empacotado (PyInstaller) ───────────────────────────────────────
+APLICATIVO/
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
@@ -40,3 +53,12 @@ htmlcov/
 
 # ── Documentação gerada ───────────────────────────────────────────────────────
 docs/
+
+# Documentação de apoio a agentes e planos (local, fora do repositório).
+docs_agents/
+
+# Ferramentas locais (não fazem parte do app): demo da ferramenta de design e sandbox de agentes.
+.impeccable/
+.ai-jail
+# Sem package.json na raiz: um lock aqui só aparece por "npm install" na pasta errada.
+/package-lock.json

@@ -10,6 +10,7 @@ from app.annotation.core.augmentation.augmentation_types import AugmentationPres
 from app.annotation.core.export.split_service import assign_splits
 from app.annotation.core.export.yolo_label_service import build_zero_based_category_mapping
 from app.annotation_keypoint.core.augmentation.pose_augmentation import augment_pose
+from app.annotation.infrastructure.export.export_dir import reset_export_dir
 
 PoseInstance = Tuple[int, List[List[float]]]
 
@@ -40,7 +41,7 @@ def _instances_for_image(annotations: List[dict], class_mapping: Dict[int, int])
     return instances
 
 
-def _pose_line(class_index: int, kps_abs: List[List[float]], img_w: int, img_h: int, n_kpts: int) -> str:
+def format_pose_line(class_index: int, kps_abs: List[List[float]], img_w: int, img_h: int, n_kpts: int) -> str:
     visible = [(kp[0], kp[1]) for kp in kps_abs if kp[2] > 0]
     if visible:
         xs = [p[0] for p in visible]
@@ -99,7 +100,7 @@ def _write_augmented(dataset_root: Path, split: str, file_name: str, source: Pat
         label_path.parent.mkdir(parents=True, exist_ok=True)
         if not cv2.imwrite(str(image_path), aug_image):
             continue
-        lines = [_pose_line(cls, kps, aw, ah, n_kpts) for cls, kps in aug_instances]
+        lines = [format_pose_line(cls, kps, aw, ah, n_kpts) for cls, kps in aug_instances]
         label_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         written += 1
     return written
@@ -115,8 +116,7 @@ def export_yolo_pose_dataset(
     on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> dict:
     output_dir = Path(output_dir)
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
+    reset_export_dir(output_dir)  # so recria pastas vazias ou criadas pelo InoLabel
 
     class_mapping, names = build_zero_based_category_mapping(payload.get("categories", []))
     if not names:
@@ -146,7 +146,7 @@ def export_yolo_pose_dataset(
         split = assignments.get(int(image.get("id", -1)), "train") if split_ratios else "train"
         instances = _instances_for_image(annotations_by_image.get(int(image["id"]), []), class_mapping)
         img_w, img_h = int(image.get("width", 1)), int(image.get("height", 1))
-        lines = [_pose_line(cls, kps, img_w, img_h, n_kpts) for cls, kps in instances]
+        lines = [format_pose_line(cls, kps, img_w, img_h, n_kpts) for cls, kps in instances]
         _write_pair(output_dir, split, file_name, source, lines)
         copied += 1
         labels += len(lines)

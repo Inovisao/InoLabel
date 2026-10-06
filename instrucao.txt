@@ -1,0 +1,746 @@
+================================================================================
+  InoLabel - Guia de Instalação e Uso
+  Para quem nunca fez isso antes — leia com calma, passo a passo.
+================================================================================
+
+INTRODUÇÃO EM 30 SEGUNDOS
+-------------------------
+InoLabel é uma ferramenta desktop para anotar imagens e vídeos com:
+  • Bounding boxes (caixas delimitadoras)
+  • Tracking (rastreamento de objetos entre frames)
+  • OBB (oriented bounding boxes — caixas rotacionadas)
+  • Classificação (organizar imagens em categorias)
+
+Você aponta para uma pasta com imagens, define as classes, anota via navegador
+web e exporta em YOLO ou COCO format. Roda 100% localmente — nenhum dado sai
+da sua máquina.
+
+VERSÃO: 2.0.0 (FastAPI + React + Vite)
+REQUISITOS: Windows 10+ ou Linux (Ubuntu/Debian), 4 GB RAM, 3-5 GB disco livre
+
+
+O QUE VOCÊ PRECISA ANTES DE COMEÇAR
+------------------------------------
+Instale as ferramentas ABAIXO NESTA ORDEM. Depois de instalar cada uma,
+FECHE e ABRA O TERMINAL NOVAMENTE.
+
+Tempo estimado: 30-45 minutos (dependendo da conexão)
+
+
+O QUE VOCE PRECISA ANTES DE COMECAR
+-------------------------------------
+Instale as ferramentas abaixo antes de qualquer coisa.
+Depois de instalar cada uma, FECHE e ABRA o terminal novamente.
+
+  WINDOWS 10/11
+  -------
+
+  1. Git (2.40+)
+       Baixe em: https://git-scm.com/download/win
+       Instale com as opções padrão (clique "Next" em tudo).
+       Após terminar, FECHE O POWERSHELL E ABRA UM NOVO.
+       Teste: git --version
+       (Deve mostrar um número tipo "git version 2.45.0")
+
+  2. Node.js LTS (18+)
+       Baixe em: https://nodejs.org (botão verde "LTS Recommended")
+       Instale com as opções padrão.
+       Após terminar, FECHE O POWERSHELL E ABRA UM NOVO.
+       Teste: npm --version
+       (Deve mostrar um número tipo "10.2.0")
+
+  3. Miniconda (Latest)
+       Baixe em: https://docs.conda.io/en/latest/miniconda.html
+       Escolha "Miniconda3 Windows 64-bit" (último botão)
+
+       IMPORTANTE durante a instalação:
+         ✅ MARQUE "Add Miniconda3 to my PATH"
+
+       Após terminar, FECHE O POWERSHELL E ABRA UM NOVO.
+       Teste: conda --version
+       (Deve mostrar um número tipo "conda 24.1.2")
+
+  LINUX (Ubuntu / Debian e derivados)
+  ------------------------------------
+
+  1. Atualize e instale dependências do sistema
+       sudo apt-get update
+       sudo apt-get install -y git build-essential python3-dev cmake libgl1 nodejs npm
+
+       O que cada pacote faz:
+       • build-essential, python3-dev, cmake: compiladores e ferramentas
+       • libgl1: OpenGL (necessário para renderização de gráficos)
+       • nodejs npm: para gerar a interface web
+
+       Teste: node --version (deve mostrar v18+ ou superior)
+
+  2. Instale Miniconda (gerenciador Python)
+       curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
+       bash miniconda.sh -b -p $HOME/miniconda3
+       source $HOME/miniconda3/etc/profile.d/conda.sh
+       conda init
+
+       IMPORTANTE: Feche e abra o terminal após isso.
+       Teste: conda --version (deve mostrar um número tipo "conda 24.1.2")
+
+
+PASSO 0: BAIXAR O PROJETO (APENAS UMA VEZ)
+-------------------------------------------
+Se você ainda não tem o projeto na sua máquina, faça uma vez e pronto.
+
+  WINDOWS (PowerShell ou Prompt de Comando):
+    Escolha uma pasta (ex: C:\Projetos ou C:\Dev)
+    cd C:\Projetos
+    git clone https://github.com/Inovisao/InoLabel.git
+    cd InoLabel
+
+  LINUX (terminal):
+    mkdir -p ~/projetos
+    cd ~/projetos
+    git clone https://github.com/Inovisao/InoLabel.git
+    cd InoLabel
+
+  O que foi baixado:
+  • Código-fonte do programa
+  • Scripts de build (build.ps1, build.sh)
+  • Dependências Python (requirements.txt)
+  • Interface web (pasta frontend/)
+
+
+================================================================================
+  PARTE 1: WINDOWS - BUILD E EXECUÇÃO
+================================================================================
+
+PASSO 1 - Navegue até a pasta do projeto
+------------------------------------------
+  Abra PowerShell (ou Prompt de Comando) e execute:
+    cd C:\Projetos\InoLabel
+
+  (Use o caminho exato onde você baixou o projeto)
+
+  Dica: para verificar que você está no lugar certo, veja se existe:
+    - Arquivo main.py
+    - Pasta frontend/
+    - Arquivo build.ps1
+
+
+PASSO 2 - Gerar o frontend (interface web)
+--------------------------------------------
+  IMPORTANTE: Execute EXATAMENTE nesta ordem.
+
+  cd frontend
+  npm install
+  npm run build
+  cd ..
+
+  O que acontece em cada comando:
+    ✓ "npm install"   → baixa 300+ pacotes Node.js (demora 5-10 min)
+    ✓ "npm run build" → compila React + Vite → gera pasta "dist" (demora 2-3 min)
+
+  Se vir WARN em amarelo → tudo bem, não é erro
+  Se vir ERROR em vermelho → algo deu errado, releia as mensagens
+
+  Como saber que funcionou:
+    → Deve existir uma pasta "frontend\dist" com arquivos .html .js .css
+
+
+PASSO 3 - Gerar o executável (build.ps1)
+-------------------------------------------
+  Este é o passo mais importante. O script vai:
+    1. Verificar que conda e Node.js estão instalados
+    2. Criar um ambiente Python isolado chamado "inolabel"
+    3. Baixar e instalar ~2 GB de dependências Python (leva 10-20 minutos)
+    4. Compilar o código Python
+    5. Empacotar tudo em um executável
+    6. Criar as pastas "dataset\" e "outputs\" automaticamente
+
+  EXECUTE (escolha uma opcao):
+
+  ✓ Se você estiver em PowerShell:
+      Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+      .\build.ps1
+
+  ✓ Se você estiver em CMD (Prompt de Comando):
+      powershell -ExecutionPolicy Bypass -File .\build.ps1
+
+  ⏱️ TEMPO ESTIMADO: 15-30 minutos (depende da conexão internet)
+
+  IMPORTANTE: Não feche o PowerShell/CMD enquanto o build está rodando!
+  Se fechar, o build falha e você precisa começar de novo.
+
+
+PASSO 4 - Onde fica o executável (após o build completar)
+----------------------------------------------------------
+  O arquivo pronto para rodar está em:
+    APLICATIVO\InoLabel\InoLabel.exe
+
+  Estrutura de pastas (IMPORTANTE):
+    APLICATIVO\
+    └── InoLabel\
+        ├── InoLabel.exe         ← Clique aqui para rodar o programa!
+        ├── _internal\           ← (não mexa aqui — dependências internas)
+        ├── dataset\             ← COLOQUE SUAS IMAGENS AQUI
+        ├── outputs\             ← Anotações serão salvas aqui
+        └── model.pt             ← (OPCIONAL) Modelo YOLO se você tiver
+
+  Como verificar que o build funcionou:
+    ✓ Pasta "APLICATIVO\InoLabel\" existe
+    ✓ Arquivo "InoLabel.exe" tem ~2 GB
+    ✓ Pastas "dataset" e "outputs" foram criadas
+
+
+PASSO 5 - Preparar suas imagens/vídeos
+---------------------------------------
+  Antes de rodar o programa, você precisa ter imagens para anotar.
+
+  1. Copie suas imagens ou vídeos para:
+     APLICATIVO\InoLabel\dataset\
+
+     Exemplo final:
+     APLICATIVO\InoLabel\dataset\
+     ├── img1.jpg
+     ├── img2.png
+     ├── video.mp4
+     └── ...
+
+  Formatos aceitos:
+    Imagens: .jpg, .jpeg, .png, .bmp, .tif, .tiff
+    Vídeos:  .mp4, .avi, .mov, .mkv
+
+  2. (OPCIONAL) Se você tem um modelo YOLO (model.pt), copie para:
+     APLICATIVO\InoLabel\model.pt
+
+     O programa detectará automaticamente.
+
+
+PASSO 6 - Rodar o programa
+----------------------------
+  Opção A — Via PowerShell:
+    cd C:\Projetos\InoLabel\APLICATIVO\InoLabel
+    .\InoLabel.exe
+
+  Opção B — Via explorador (recomendado para novatos):
+    1. Abra "Arquivo" → "Explorador de Arquivos"
+    2. Navegue até: C:\Projetos\InoLabel\APLICATIVO\InoLabel
+    3. Clique duas vezes em "InoLabel.exe"
+
+  ⏱️ AGUARDE: 10-30 segundos para o programa iniciar
+  🌐 O navegador deve abrir automaticamente em http://127.0.0.1:8765
+
+  Se não abrir automaticamente:
+    1. Aguarde 30 segundos a mais (o servidor pode estar iniciando)
+    2. Abra seu navegador (Chrome, Firefox, Edge)
+    3. Digite: http://127.0.0.1:8765
+    4. Aperte Enter
+
+
+PASSO 7 - Usar o InoLabel (guia rápido)
+----------------------------------------
+  Na TELA INICIAL (Setup Wizard):
+    1. Escolha o MODO:
+       🔲 Detecção      — bounding boxes simples
+       🟢 Rastreamento  — rastreia objetos entre frames
+       ◇ OBB            — caixas rotacionadas
+       🏷️ Classificação — separa imagens por classe
+
+    2. Pasta de DADOS (clique para procurar):
+       C:\Projetos\InoLabel\APLICATIVO\InoLabel\dataset
+
+    3. Pasta de SAÍDA (clique para procurar):
+       C:\Projetos\InoLabel\APLICATIVO\InoLabel\outputs
+
+    4. Modelo YOLO (deixe em branco ou procure):
+       C:\Projetos\InoLabel\APLICATIVO\InoLabel\model.pt
+
+    5. CLASSES (as categorias que você vai anotar):
+       • Clique "+" para adicionar (ex: gato, cachorro)
+       • Clique na cor para escolher a cor de cada classe
+
+    6. Clique "INICIAR ANOTAÇÃO"
+
+  Na TELA DE ANOTAÇÃO:
+    • Clique e arraste para desenhar uma caixa
+    • Espaço para ir para o próximo frame
+    • Seta ← / → para navegar
+    • Delete para remover uma caixa
+    • Menu superior → "Exportar Dataset" quando terminar
+
+
+PASSO 8 - Exportar os dados
+----------------------------
+  Após anotar seus frames:
+    1. Clique em "Exportar Dataset" (menu superior)
+    2. Escolha o formato:
+       • YOLO (padrão para treinar modelos)
+       • COCO (JSON estruturado)
+    3. Escolha o split (dividir treino/validação):
+       • 70% treino, 30% validação (padrão)
+    4. (Opcional) Aplique data augmentation
+    5. Clique "EXPORTAR"
+
+  O dataset fica em outputs/ pronto para usar!
+
+
+PASSO 9 - Parar o programa
+---------------------------
+  Opção A — No PowerShell onde o InoLabel está rodando:
+    Ctrl+C
+
+  Opção B — Pelo Gerenciador de Tarefas:
+    Ctrl+Shift+Esc → procure "InoLabel.exe" → Finalizar
+
+
+================================================================================
+  PARTE 2: LINUX - BUILD E EXECUÇÃO
+================================================================================
+
+PASSO 1 - Navegue até a pasta do projeto
+------------------------------------------
+  No terminal:
+    cd ~/projetos/InoLabel
+
+  (Use o caminho exato onde você baixou)
+
+  Dica: verifique se você está no lugar certo:
+    ls -la | grep main.py    (deve encontrar o arquivo)
+
+
+PASSO 2 - Gerar o frontend (interface web)
+--------------------------------------------
+  IMPORTANTE: Execute EXATAMENTE nesta ordem.
+
+  cd frontend
+  npm install
+  npm run build
+  cd ..
+
+  O que acontece:
+    ✓ "npm install"   → baixa pacotes Node.js (demora 5-10 min)
+    ✓ "npm run build" → compila React + Vite (demora 2-3 min)
+
+  Como verificar que funcionou:
+    ls -la frontend/dist/index.html    (deve encontrar o arquivo)
+
+
+PASSO 3 - Gerar o executável (build.sh)
+----------------------------------------
+  Este é o passo mais importante:
+
+  bash build.sh
+
+  O script vai:
+    1. Verificar gcc, cmake, libGL (ferramentas de compilação)
+    2. Criar um ambiente Python isolado chamado "inolabel"
+    3. Instalar ~2 GB de dependências Python
+    4. Compilar tudo
+    5. Empacotar em um executável pronto para usar
+    6. Criar as pastas "dataset/" e "outputs/"
+
+  ⏱️ TEMPO ESTIMADO: 15-30 minutos (depende da conexão)
+
+  IMPORTANTE: Não feche o terminal enquanto o build está rodando!
+
+
+PASSO 4 - Onde fica o executável (após o build completar)
+-----------------------------------------------------------
+  O arquivo pronto para rodar está em:
+    dist/InoLabel-linux/InoLabel/InoLabel
+
+  Estrutura de pastas:
+    dist/InoLabel-linux/InoLabel/
+    ├── InoLabel              ← Clique aqui para rodar
+    ├── _internal/            ← (não mexa — dependências internas)
+    ├── dataset/              ← COLOQUE SUAS IMAGENS AQUI
+    ├── outputs/              ← Anotações serão salvas aqui
+    └── model.pt              ← (OPCIONAL) Modelo YOLO
+
+  Como verificar que o build funcionou:
+    ls -la dist/InoLabel-linux/InoLabel/InoLabel
+    (deve mostrar um arquivo com ~2 GB)
+
+
+PASSO 5 - Preparar suas imagens/vídeos
+---------------------------------------
+  Antes de rodar, copie suas imagens:
+    mkdir -p dist/InoLabel-linux/InoLabel/dataset
+    cp /caminho/das/suas/imagens/* dist/InoLabel-linux/InoLabel/dataset/
+
+  Formatos aceitos:
+    Imagens: .jpg, .jpeg, .png, .bmp, .tif, .tiff
+    Vídeos:  .mp4, .avi, .mov, .mkv
+
+  (OPCIONAL) Se tiver modelo YOLO:
+    cp /caminho/do/model.pt dist/InoLabel-linux/InoLabel/model.pt
+
+
+PASSO 6 - Rodar o programa
+----------------------------
+  No terminal:
+    cd ~/projetos/InoLabel/dist/InoLabel-linux/InoLabel
+    ./InoLabel
+
+  ⏱️ AGUARDE: 10-30 segundos para o programa iniciar
+  🌐 O navegador deve abrir automaticamente em http://127.0.0.1:8765
+
+  Se não abrir automaticamente:
+    1. Aguarde mais 30 segundos
+    2. Abra seu navegador
+    3. Digite: http://127.0.0.1:8765
+
+
+PASSO 7 - Usar o InoLabel (igual ao Windows)
+----------------------------------------------
+  Veja PASSO 7 da PARTE 1 (Windows) — o uso é idêntico em ambos OS!
+
+
+PASSO 8 - Parar o programa
+---------------------------
+  No terminal onde o InoLabel está rodando:
+    Ctrl+C
+
+
+================================================================================
+  PARTE 3: MODO DESENVOLVIMENTO (SEM BUILD, RÁPIDO)
+================================================================================
+  Útil se você quer testar rapidamente SEM gerar o executável.
+  Requer Python 3.9, 3.10, ou 3.11 já instalado.
+
+  QUANDO USAR:
+    ✓ Você quer testar rápido antes de fazer o build final
+    ✓ Você é desenvolvedor e quer editar o código
+    ✓ Você quer economizar espaço em disco
+
+  QUANDO NÃO USAR:
+    ✗ Você quer um executável pronto (use build.ps1 / build.sh)
+    ✗ Você não tem experiência com terminal/Python
+
+  PASSO 1 - Ativar ambiente conda (ou usar Python direto)
+  -------------------------------------------------------
+    Se você tem conda:
+      conda create -n inolabel python=3.10 -y
+      conda activate inolabel
+
+    Se você tem Python instalado direto:
+      python --version    (confira se é 3.9+ ou 3.10)
+
+  PASSO 2 - Instalar dependências Python
+  -----------------------------------------------
+    pip install -r requirements.txt
+
+    Isso baixa os mesmos pacotes do build, ~2 GB (demora 10-20 min)
+
+  PASSO 3 - Gerar o frontend (primeira vez)
+  -----------------------------------------------
+    cd frontend
+    npm install
+    npm run build
+    cd ..
+
+    (Se já fez isso, pode pular)
+
+  PASSO 4 - Rodar o servidor
+  -----------------------------------------------
+    python main.py
+
+    Você verá algo como:
+      INFO:     Application startup complete
+      INFO:     Uvicorn running on http://127.0.0.1:8765
+
+  PASSO 5 - Abrir no navegador
+  -----------------------------------------------
+    http://127.0.0.1:8765
+
+    Está pronto para anotar!
+
+  Para PARAR:
+    Ctrl+C no terminal
+
+
+================================================================================
+  RESOLUÇÃO DE PROBLEMAS
+================================================================================
+
+WINDOWS
+-------
+
+Problema: "conda não é reconhecido"
+  ❌ Causa: Miniconda não está no PATH, ou você abriu o terminal ANTES de instalar
+  ✓ Solução:
+      1) Feche o PowerShell completamente (Ctrl+W)
+      2) Abra um NOVO PowerShell
+      3) Se ainda não funcionar, procure no Menu Iniciar por:
+         "Anaconda Prompt" ou "Miniconda Prompt"
+      4) Use esse em vez do PowerShell comum
+
+Problema: "Set-ExecutionPolicy não é reconhecido"
+  ❌ Causa: Você abriu o CMD (Prompt de Comando), não o PowerShell
+  ✓ Solução:
+      Você está no CMD. Use este comando em vez disso:
+      powershell -ExecutionPolicy Bypass -File .\build.ps1
+
+Problema: "npm não é reconhecido"
+  ❌ Causa: Node.js não foi instalado ou o terminal foi aberto antes
+  ✓ Solução:
+      1) Feche e reabra o PowerShell
+      2) Verifique: node --version (deve mostrar v18+)
+      3) Se não funcionar, reinstale Node.js de nodejs.org
+
+Problema: build.ps1 diz "frontend\dist not found"
+  ❌ Causa: Você pulou o PASSO 2 (npm run build)
+  ✓ Solução:
+      cd frontend
+      npm install
+      npm run build
+      cd ..
+
+      Depois rode build.ps1 novamente
+
+Problema: "Windows protegeu seu computador" ao abrir InoLabel.exe
+  ❌ Causa: Executável não tem assinatura digital (é normal)
+  ✓ Solução:
+      Clique em "Mais informações" → "Executar assim mesmo"
+
+Problema: "Porta 8765 em uso"
+  ❌ Causa: Outro InoLabel já está rodando na mesma porta
+  ✓ Solução:
+      Opção A: Feche a outra janela do InoLabel
+      Opção B: Abra Gerenciador de Tarefas (Ctrl+Shift+Esc)
+               → Procure "InoLabel.exe"
+               → Clique "Finalizar"
+
+Problema: Navegador abre em branco / "Connection Refused"
+  ❌ Causa: Servidor não iniciou ou está demorando muito
+  ✓ Solução:
+      1) Aguarde 30 segundos (PyTorch pode ser lento na primeira vez)
+      2) Verifique que InoLabel.exe está rodando
+         (procure na barra de tarefas no canto inferior direito)
+      3) Tente acessar manualmente: http://127.0.0.1:8765
+      4) Se ainda não funcionar, feche e reabra InoLabel.exe
+
+Problema: O build demora 30+ minutos
+  ❌ Causa: Conexão lenta ou disco lento
+  ✓ Solução:
+      Isso é normal! PyTorch + Ultralytics = ~2 GB
+      • Em conexão 1 Mbps: 30-60 minutos
+      • Em conexão 10 Mbps: 10-20 minutos
+      • Em SSD: mais rápido; em HD: mais lento
+
+      Não feche o terminal! Veja o progresso das mensagens.
+
+
+LINUX
+-----
+
+Problema: "gcc não encontrado" ou erros de compilação
+  ❌ Causa: Ferramentas de compilação não instaladas
+  ✓ Solução:
+      sudo apt-get install build-essential python3-dev cmake
+
+      Depois rode build.sh novamente
+
+Problema: "libGL não encontrado" ao rodar InoLabel
+  ❌ Causa: OpenGL não está instalado
+  ✓ Solução:
+      sudo apt-get install libgl1
+
+      Depois tente rodar ./InoLabel novamente
+
+Problema: "conda: command not found"
+  ❌ Causa: Miniconda não foi iniciado após instalação
+  ✓ Solução:
+      source $HOME/miniconda3/etc/profile.d/conda.sh
+      conda init
+
+      Feche e abra o terminal.
+      Teste: conda --version
+
+Problema: "Permission denied" ao rodar ./InoLabel
+  ❌ Causa: Arquivo não tem permissão de execução
+  ✓ Solução:
+      chmod +x dist/InoLabel-linux/InoLabel/InoLabel
+
+      Depois: ./InoLabel
+
+Problema: O build demora 30+ minutos
+  ❌ Causa: Conexão lenta (igual ao Windows)
+  ✓ Solução:
+      Aguarde. Você pode ver o progresso:
+      tail -f dist/logs/build.log
+
+
+AMBOS OS SISTEMAS
+-----------------
+
+Problema: "model.pt not found"
+  ❌ Causa: Modelo YOLO não está no lugar certo
+  ✓ Solução:
+      Windows: coloque model.pt em APLICATIVO\InoLabel\model.pt
+      Linux:   coloque model.pt em dist/InoLabel-linux/InoLabel/model.pt
+
+      Depois reinicie o programa e ele detectará automaticamente
+
+Problema: Nenhuma imagem aparece no anotador
+  ❌ Causa: Pasta vazia ou caminho errado
+  ✓ Solução:
+      1) Confira se tem imagens REALMENTE na pasta dataset/
+         (direto em dataset/, não em subpastas)
+      2) Confira que as imagens têm extensão certa:
+         .jpg, .jpeg, .png, .bmp, .tif, .tiff
+      3) Confira que o CAMINHO está correto na tela inicial
+         (deve ser um caminho ABSOLUTO tipo:
+          C:\Projetos\InoLabel\APLICATIVO\InoLabel\dataset)
+
+Problema: Erro ao exportar dataset
+  ❌ Causa: Pasta de saída não tem permissão de escrita
+  ✓ Solução:
+      1) Verifique que outputs/ existe e é escrevível
+      2) Tente usar um caminho diferente na tela de exportação
+      3) Reinicie o programa
+
+Problema: O programa trava ou congela
+  ❌ Causa: Memória insuficiente ou dataset muito grande
+  ✓ Solução:
+      1) Feche outros programas (especialmente navegadores com muitas abas)
+      2) Reinicie o computador
+      3) Tente com um dataset menor
+      4) Se tiver 4 GB RAM, considere fazer upgrade ou usar modo desenvolvimento
+
+NEED HELP?
+----------
+Se nenhuma solução funcionar:
+  1. Abra uma issue em: https://github.com/Inovisao/InoLabel/issues
+  2. Descreva:
+     • Seu sistema (Windows 11, Ubuntu 22.04, etc)
+     • Qual PASSO exato deu erro
+     • A mensagem de ERRO COMPLETA (copie-cole tudo)
+     • O que você já tentou
+
+
+================================================================================
+  DICAS AVANÇADAS (OPCIONAL)
+================================================================================
+
+MUDAR O LOCAL PADRÃO DE SAÍDA
+-----------------------------
+  Por padrão, as anotações são salvas em:
+    Windows: APLICATIVO\InoLabel\outputs\
+    Linux:   dist/InoLabel-linux/InoLabel/outputs\
+
+  Para mudar para outro local (ex: disco externo ou compartilhado):
+
+  Windows (PowerShell):
+    $env:INOLABEL_OUTPUT_BASE = "C:\meus_dados\anotacoes"
+    .\InoLabel.exe
+
+  Linux (terminal):
+    INOLABEL_OUTPUT_BASE="/mnt/disco_externo/anotacoes" ./InoLabel
+
+  Depois todas as anotações serão salvas no novo local.
+
+
+USAR MODELO YOLO CUSTOM
+-----------------------
+  Se você tem um model.pt de um treinamento anterior:
+
+  1. Coloque o arquivo em:
+     Windows: APLICATIVO\InoLabel\model.pt
+     Linux:   dist/InoLabel-linux/InoLabel/model.pt
+
+  2. Reinicie o programa
+
+  3. Na tela inicial, escolha "Usar modelo pré-treinado"
+
+  4. O programa detectará automaticamente
+
+
+ESTRUTURA DO DATASET ANOTADO
+----------------------------
+  Após anotar e exportar, você terá em outputs/:
+
+  outputs/
+  └── deteccao_25.06.14-30/
+      ├── annotations.coco.json        (anotações em formato COCO)
+      ├── images/                      (imagens anotadas)
+      │   ├── img_001.jpg
+      │   ├── img_002.jpg
+      │   └── ...
+      └── yolo_dataset/                (se exportou em YOLO format)
+          ├── data.yaml
+          ├── images/
+          │   ├── train/
+          │   ├── val/
+          │   └── test/
+          └── labels/
+              ├── train/
+              ├── val/
+              └── test/
+
+  Pronto para treinar! Use com YOLOv8:
+    yolo detect train data=outputs/.../yolo_dataset/data.yaml
+
+
+REQUISITOS DE SISTEMA
+---------------------
+  MÍNIMO (vai funcionar mas lento):
+    • Windows 10 ou Ubuntu 20.04+
+    • Processador: i5 ou Ryzen 5
+    • RAM: 4 GB
+    • Disco: 5 GB SSD (para não travar)
+    • Conexão: 2 Mbps para download das dependências
+
+  RECOMENDADO (vai funcionar bem):
+    • Windows 11 ou Ubuntu 22.04+
+    • Processador: i7 / Ryzen 7 ou melhor
+    • RAM: 8-16 GB
+    • Disco: 10+ GB SSD
+    • GPU: RTX 3060 ou melhor (para detecção rápida)
+    • Conexão: 10+ Mbps
+
+  GPU NVIDIA (OPCIONAL, para detecção mais rápida):
+    Se tiver uma GPU NVIDIA com CUDA 11.8:
+    • A detecção rode 5-10x mais rápido
+    • O programa já detectará automaticamente
+    • Não precisa fazer nada especial
+
+
+AMBIENTE DE DESENVOLVIMENTO
+---------------------------
+  Se você quer editar o código e testar localmente:
+
+  1. Clone o repositório e entre:
+     git clone https://github.com/Inovisao/InoLabel.git
+     cd InoLabel
+
+  2. Crie um ambiente virtual:
+     conda create -n inolabel python=3.10 -y
+     conda activate inolabel
+
+  3. Instale dependências:
+     pip install -r requirements.txt
+
+  4. Build do frontend:
+     cd frontend && npm install && npm run build && cd ..
+
+  5. Rode:
+     python main.py
+
+  Você pode editar arquivos em app/ e ver as mudanças em tempo real.
+  Se editar frontend/, faça npm run build novamente.
+
+
+CONTATO E SUPORTE
+================================================================================
+
+Encontrou algum problema?
+  • GitHub Issues: https://github.com/Inovisao/InoLabel/issues
+  • Email: magnumjabreuu@gmail.com
+
+Ao abrir uma issue, inclua:
+  ✓ Seu sistema operacional (Windows 11, Ubuntu 22.04, etc)
+  ✓ O PASSO exato onde deu erro
+  ✓ A mensagem de ERRO COMPLETA (copie e cole)
+  ✓ O que você já tentou resolver
+
+COM ESSES DETALHES, A GENTE CONSEGUE RESOLVER RÁPIDO! 🚀
+
+================================================================================

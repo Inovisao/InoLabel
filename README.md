@@ -1,7 +1,11 @@
 # InoLabel
 
-Ferramenta de anotação de imagens e vídeos desenvolvida pelo **Laboratório de Visão Computacional — Inovisão**.
-Suporta cinco modos de trabalho: tracking, detecção padrão, detecção orientada (OBB), keypoint detection (pose) e classificação de imagens.
+Ferramenta de anotação de imagens desenvolvida pelo **Laboratório de Visão Computacional — Inovisão**.
+Suporta cinco modos de trabalho: rastreamento (tracking), detecção padrão, detecção orientada (OBB),
+keypoints (pose) e classificação de imagens.
+
+O app roda na sua máquina: um servidor local (FastAPI) serve a interface (React), que abre no navegador
+em `http://127.0.0.1:8765`. Nenhuma imagem sai do computador.
 
 ---
 
@@ -12,13 +16,16 @@ Suporta cinco modos de trabalho: tracking, detecção padrão, detecção orient
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-    python3 python3-pip python3-tk \
+    python3 python3-pip \
     build-essential python3-dev cmake \
-    git
+    zenity git
 ```
 
-> `python3-tk` é obrigatório para a interface gráfica.
 > `build-essential`, `python3-dev` e `cmake` são necessários para compilar `lap` e `cython-bbox`.
+> `zenity` (GNOME) ou `kdialog` (KDE) abrem o seletor de pastas do sistema.
+
+Para construir a interface também é preciso o **Node.js 18 ou mais novo** (recomendado 20), por exemplo
+pelo [nodejs.org](https://nodejs.org/) ou pelo `nvm`.
 
 ### 2. Instalar Miniconda (recomendado)
 
@@ -41,6 +48,7 @@ conda activate inolabel
 git clone <url-do-repositorio>
 cd tracking-anotator
 pip install -r requirements.txt
+cd frontend && npm install && npm run build && cd ..
 ```
 
 ### 5. Rodar
@@ -48,6 +56,8 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
+
+O navegador abre sozinho em `http://127.0.0.1:8765`.
 
 ---
 
@@ -76,11 +86,15 @@ Necessário para compilar `lap` e `cython-bbox`.
 1. Acesse [cmake.org/download](https://cmake.org/download/) e baixe o instalador `.msi`
 2. Durante a instalação, selecione **"Add CMake to the system PATH"**
 
-### 4. Instalar Git (opcional, para clonar o repositório)
+### 4. Instalar Node.js
+
+1. Acesse [nodejs.org](https://nodejs.org/) e instale a versão **LTS** (20 ou mais nova)
+
+### 5. Instalar Git (opcional, para clonar o repositório)
 
 1. Acesse [git-scm.com](https://git-scm.com/) e instale com as opções padrão
 
-### 5. Clonar e instalar o projeto
+### 6. Clonar e instalar o projeto
 
 Abra o **Prompt de Comando** ou **PowerShell**:
 
@@ -88,72 +102,54 @@ Abra o **Prompt de Comando** ou **PowerShell**:
 git clone <url-do-repositorio>
 cd tracking-anotator
 pip install -r requirements.txt
+cd frontend
+npm install
+npm run build
+cd ..
 ```
 
-### 6. Rodar
+### 7. Rodar
 
 ```cmd
 python main.py
 ```
 
-> **Problema com Tkinter no WSL?** Configure um X server (VcXsrv ou X410) e a variável `DISPLAY`. Em ambiente Windows nativo (sem WSL) o Tkinter funciona sem configuração adicional.
+O navegador abre sozinho em `http://127.0.0.1:8765`.
 
 ---
 
 ## Gerar executável (build)
 
-O script `build.sh` detecta o sistema operacional automaticamente e gera uma pasta autocontida com o executável.
+| Sistema | Comando | O que faz |
+|---------|---------|-----------|
+| Windows (PowerShell) | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` e `.\scripts\build.ps1` | Cria o ambiente conda `inolabel` se não existir, instala as dependências, roda `npm install` + `npm run build` e o PyInstaller |
+| Linux / Git Bash | `bash scripts/build.sh` | Roda o PyInstaller; exige o frontend já construído (`npm run build` em `frontend/`) |
 
-### Linux
-
-```bash
-bash build.sh
-```
-
-### Windows (Git Bash ou WSL)
-
-```bash
-bash build.sh
-```
-
-### Windows (Prompt de Comando / PowerShell)
-
-```cmd
-pip install pyinstaller
-python -m PyInstaller --noconfirm --onedir --windowed --name InoLabel ^
-    --add-data "assets;assets" ^
-    --hidden-import PIL._tkinter_finder ^
-    --hidden-import cv2 ^
-    --hidden-import ultralytics ^
-    --collect-all ultralytics ^
-    main.py
-```
-
-O executável gerado fica em:
+Saída:
 
 ```
-dist/InoLabel-linux/InoLabel/InoLabel        # Linux
-dist/InoLabel-windows/InoLabel/InoLabel.exe  # Windows
+APLICATIVO/InoLabel/InoLabel.exe           # build.ps1 (Windows)
+dist/InoLabel-linux/InoLabel/InoLabel      # build.sh (Linux)
 ```
 
-> **Importante:** coloque o arquivo `model.pt` e a pasta `dataset/` ao lado do executável antes de rodar. O executável não inclui o modelo nem os dados — apenas o código da aplicação.
-
+> O executável não inclui modelos nem dados — apenas o código da aplicação e a interface.
 > **Tamanho esperado:** entre 1.5 GB e 3 GB (Ultralytics/PyTorch são pesados).
 
 ---
 
 ## Como usar
 
-```bash
-python main.py   # ou execute o binário gerado pelo build
-```
+1. **Workspace** — na primeira vez, escolha a pasta onde os projetos ficam (como um "vault" do Obsidian).
+   Os workspaces recentes aparecem nas próximas aberturas; **Projetos → Trocar workspace** muda de pasta.
+2. **Modo** — escolha um dos cinco modos abaixo.
+3. **Dados** — escolha a pasta do dataset (ou uma imagem) e dê um **nome ao projeto**. O projeto vira uma
+   subpasta do workspace.
+4. **Classes** — adicione as classes. No modo keypoint, defina também os pontos de cada classe.
+5. **Anotar** — as alterações são salvas a cada operação. Para continuar depois, use **Projetos → Continuar**.
+6. **Exportar** — `Ctrl+E` ou o botão de exportação na barra superior.
 
-O wizard de configuração abrirá pedindo:
-
-1. **Modo** — escolha entre os cinco modos abaixo
-2. **Dataset** — pasta, vídeo, imagem única ou lista `.txt`/`.lst`
-3. **Estado de saída** — continuar saída anterior, usar como template ou criar novo. Por padrão os estados são salvos em **`state_saved/`** na raiz da aplicação (a pasta-pai é editável no wizard)
-4. **Modelo e classes** — adicione um ou mais pesos YOLO `.pt` (opcional) e configure as classes da sessão
+As páginas **Projetos** e **Histórico** listam os projetos do workspace (com a contagem de frames anotados);
+**Atalhos** mostra todas as teclas.
 
 ---
 
@@ -161,189 +157,260 @@ O wizard de configuração abrirá pedindo:
 
 | Modo | Descrição |
 |------|-----------|
-| **Tracking** | Mantém identidade dos objetos entre frames via BYTETracker por classe |
-| **Detecção padrão** | Caixas independentes por frame, sem `track_id` |
-| **Detecção orientada (OBB)** | Caixas rotacionadas com ângulo, exportáveis no formato YOLO OBB |
-| **Keypoint detection** | Pontos-chave ordenados por instância, exportáveis em COCO Keypoints e YOLO Pose |
-| **Classificação** | Copia imagens para subpastas por classe ao pressionar o atalho da classe |
+| **Rastreamento** | Caixas com ID do objeto (`track_id`), mantido entre frames |
+| **Detecção padrão** | Caixas independentes por frame, sem ID |
+| **Detecção orientada (OBB)** | Caixas giradas, exportadas no formato YOLO OBB |
+| **Keypoints** | Pontos nomeados por classe, clicados em ordem; exporta YOLO Pose e COCO Keypoints |
+| **Classificação** | Cada imagem é copiada para a pasta da sua classe |
 
-O modelo YOLO é **opcional** em todos os modos — é possível anotar inteiramente de forma manual.
+Em todos os modos de caixa: arraste para desenhar, clique numa caixa para selecioná-la e editar a classe no
+painel lateral, `V` para mover, `Del` para apagar e `N` para marcar um frame **revisado sem objetos**
+(ele entra na exportação como negativo).
 
----
+### Rastreamento
 
-## Modo Keypoint detection (pose)
+- Cada caixa nova recebe o **próximo ID livre**; o painel **ID das próximas caixas** permite fixar um ID
+  para seguir o mesmo objeto entre frames.
+- O ID da caixa selecionada pode ser trocado no painel (**Novo ID** gera o próximo livre).
 
-Cada instância de objeto possui uma **classe** e um conjunto de **keypoints com ordem fixa** (a ordem é semântica e nunca é reordenada automaticamente durante a anotação).
+### Detecção orientada (OBB)
 
-### Configuração
+- Desenhe a caixa reta e gire pela **alça ○** acima dela (com `Shift`, de 15° em 15°), por `Q`/`E` (5°;
+  com `Shift`, 1°) ou pelo campo **Ângulo** no painel.
+- Com `V`, arraste a caixa girada para movê-la. A caixa nunca sai da imagem: perto da borda ela é
+  empurrada para dentro, e uma rotação que não cabe é recusada.
 
-No wizard, ao escolher o modo **Keypoint detection**, defina por classe a lista de keypoints **em ordem**, separados por vírgula (ex: `top_left, top_right, bottom_right, bottom_left`). A configuração é obrigatória — o início é bloqueado se alguma classe não tiver keypoints definidos — e fica salva em `categories[].keypoints` para reabrir e continuar depois.
+### Keypoints (pose)
 
-### Como anotar
+- No wizard, cada classe declara os nomes dos pontos **em ordem**, separados por vírgula (padrão:
+  `top_left, top_right, bottom_right, bottom_left`). Sem pontos em todas as classes, o início fica bloqueado.
+- Clique para marcar os pontos na ordem; um aviso no topo mostra o próximo. Ao marcar o último, a
+  instância é salva.
+- A **bounding box** é calculada a partir dos pontos marcados. Visibilidade (convenção COCO): `0` ausente,
+  `1` oculto (círculo vazado), `2` visível (círculo cheio).
+- Ao retomar um projeto, os pontos de cada classe vêm do próprio projeto. Mudar a quantidade de pontos de
+  uma classe que já tem anotações é recusado.
 
-- Clique para posicionar cada ponto na ordem definida. Ao completar o último ponto da classe, a instância **fecha automaticamente**.
-- Para classes **sem lista fixa** (modo livre), a forma fecha ao clicar novamente sobre o **primeiro ponto** (a partir de 3 pontos) — um anel verde e o texto `fechar` indicam quando o clique vai fechar.
-- A **bounding box** é calculada automaticamente a partir dos pontos com visibilidade `> 0`.
-
-Visibilidade (convenção COCO): `0` ausente, `1` oculto/anotável, `2` visível.
-
-| Tecla / Mouse | Ação (modo keypoint) |
+| Tecla | Ação (modo keypoint) |
 |-------|----------------------|
-| `F` | Finalizar instância atual |
-| `X` | Marcar o ponto atual como ausente (`v=0`) — durante a colocação |
-| `C` | Com um ponto **selecionado**, cicla a visibilidade **desse** ponto (`2 → 1 → 0`); sem seleção, define a visibilidade do **próximo** ponto a colocar |
-| **Clique direito** | Sobre um ponto já anotado: alterna **visível (2) ↔ oculto (1)** |
-| `Backspace` | Remover o último ponto (ou cancelar a instância em construção) |
-| `S` | Selecionar/mover pontos ou instâncias |
-| `Esc` | Cancela a operação atual (instância em construção ou seleção) — não fecha o app |
+| Clique | Marcar o próximo ponto da classe (ferramenta `B`) |
+| `X` | Pular o ponto (fica ausente) |
+| `C` | Alternar visível/oculto — do ponto selecionado ou dos próximos pontos |
+| `F` | Fechar a instância agora (pontos restantes ficam ausentes) |
+| `Backspace` | Desfazer o último ponto da instância em andamento |
+| `Esc` | Cancelar a instância em andamento |
+| `V` + arrastar | Mover um ponto de uma instância salva |
 
-Para corrigir a visibilidade de pontos **já anotados** (ex.: marcar como oclusos os que estão na imagem mas encobertos): clique direito sobre o ponto para alternar `2 ↔ 1`, ou selecione com `S` e use `C` para passar por todos os estados. Pontos oclusos (`v=1`) aparecem como **círculo vazado**.
+### Classificação
 
-### Exportação
+- Clique na classe ou digite o **número** dela (a posição na lista). Até 9 classes a tecla já classifica;
+  acima disso, digite o número e confirme com `Enter` (ele confirma sozinho quando não há ambiguidade).
+- `/` busca a classe pelo nome, `Espaço` pula o frame e `Ctrl+Z` desfaz.
+- Reclassificar **move** a imagem para a nova classe, sem duplicar.
 
-O botão **Exportar dataset** abre a **mesma tela de exportação** dos detectores (seleção de pasta de saída, split train/val/test e data augmentation). Formatos:
+### Pré-anotação por modelo
 
-- **COCO Keypoints** — `keypoints: [x,y,v,...]`, `num_keypoints`, `bbox` e `categories[].keypoints`.
-- **YOLO Pose** — `class cx cy w h x1 y1 v1 ...` (tudo normalizado) e `kpt_shape` no `data.yaml`. Todas as linhas têm o mesmo número de keypoints; pontos ausentes saem como `0 0 0`.
-
-O **data augmentation** transforma também os keypoints (flip, rotação, etc., além das operações fotométricas) e é aplicado apenas na pasta `train`.
-
-### Conserto de anotações antigas
-
-`utils/fix_keypoint_coco.py` repara um COCO Keypoints inconsistente: preenche `categories[].keypoints`, remove ponto de fechamento duplicado e recalcula `bbox`/`num_keypoints`. Por **padrão**, instâncias de 4 pontos são ordenadas em **TL → TR → BR → BL** (ideal para documentos); use `--no-sort-corners` para preservar a ordem original.
-
-```bash
-python utils/fix_keypoint_coco.py outputs/.../annotations_keypoints.coco.json
-```
+O wizard aceita pesos YOLO `.pt` e a confiança mínima, e a API tem a rota de inferência com rastreamento
+(`POST /api/inference/tracking`). **A interface ainda não tem o botão para disparar a inferência** — por
+enquanto a anotação é manual.
 
 ---
 
 ## Atalhos principais
 
-A maioria dos atalhos é **remapeável** pelo editor visual (botão **Atalhos** na barra superior). Os valores abaixo são os padrões do perfil `arrows`. As teclas `1–9` e `Esc` são fixas e não aparecem no editor.
-
 | Tecla | Ação |
 |-------|------|
-| `Enter` | Validar / salvar frame atual |
-| `Espaço` | Rejeitar / avançar frame |
-| `→` / `←` | Navegar entre frames salvos (perfil `arrows`) |
-| `D` / `A` | Navegar entre frames salvos (perfil `wasd`) |
-| `K` | Liga/desliga anotação manual |
-| `S` | Modo de seleção de anotação |
-| `H` | Liga/desliga modo mover imagem (pan) |
-| `R` | Redefinir ROI |
-| `E` | Editar ID de tracking (apenas modo tracking) |
-| `Ctrl+Z` | Desfazer última ação |
-| `Ctrl+0` | Ajustar imagem na tela |
-| `1–9` | Trocar classe ativa |
-| `Scroll` | Zoom centrado no cursor |
-| `Esc` | Sair |
+| `→` / `D` | Próximo frame |
+| `←` / `A` | Frame anterior |
+| `B` | Ferramenta de caixa (ou de pontos, no modo keypoint) |
+| `V` | Ferramenta de seleção / mover |
+| Clique | Selecionar a caixa para editar classe / ID |
+| `Del` | Remover a anotação selecionada |
+| `Esc` | Desmarcar a anotação selecionada |
+| `N` | Marcar frame revisado sem objetos (negativo) |
+| `Q` / `E` | OBB: girar a caixa selecionada |
+| `Ctrl+Z` | Desfazer (volta ao frame da operação, se preciso) |
+| `Ctrl+E` | Abrir a exportação |
+| `Ctrl+,` | Configurações da sessão |
 
-### Editor de atalhos
-
-Clique no botão **Atalhos: arrows** (topbar) para abrir o editor visual. Nele é possível:
-
-- Remapear qualquer ação clicando no botão da tecla e pressionando a nova tecla
-- Criar perfis personalizados ou alternar entre `arrows` e `wasd`
-- Restaurar os padrões de fábrica por perfil
-- Detectar conflitos em tempo real (aviso laranja, não bloqueante)
-
-O perfil ativo é salvo em `.local/keybinds.json` e restaurado automaticamente na próxima sessão.
-
----
-
-## Rotação visual da imagem
-
-Os botões **↺ Girar** e **Girar ↻** na barra lateral rotacionam a exibição em 90° sem alterar a imagem salva nem as coordenadas das bounding boxes. A rotação é desfeita automaticamente ao avançar para o próximo frame. Atalhos de teclado podem ser atribuídos via editor de atalhos (grupo **Imagem**).
-
----
-
-## Fluxo de ROI (Tracking / Detecção / OBB)
-
-1. Ao abrir cada fonte, clique 4 pontos para definir o ROI (ordem livre; o código ordena automaticamente).
-2. A homografia é calculada e `warpPerspective` é aplicado internamente.
-3. A detecção ocorre na imagem retificada; as caixas são mapeadas de volta ao frame original.
-4. Pressione `R` a qualquer momento para redefinir o ROI sem perder anotações já salvas.
+A lista completa, por modo, está na página **Atalhos** do app.
 
 ---
 
 ## Exportação de dataset
 
-Clique em **Exportar dataset** na barra lateral para abrir a tela de exportação. As opções disponíveis são:
-
 | Opção | Descrição |
 |-------|-----------|
-| **Destino / Nome da pasta** | Caminho e nome da pasta de saída |
-| **YOLO** | Exporta imagens + labels `.txt` e `data.yaml` |
-| **COCO (.json)** | Exporta `annotations.coco.json` + pasta `images/` com as imagens |
-| **Split train/val/test** | Divide as imagens em proporções configuráveis |
-| **Data augmentation** | Gera cópias aumentadas por imagem (flip, brilho, ruído, etc.) |
+| **Formatos** | YOLO e/ou COCO, juntos. Nos modos especiais: YOLO OBB e YOLO Pose / COCO Keypoints |
+| **Organização do COCO** | Estilo **Roboflow** (padrão): `_annotations.coco.json` com as imagens na mesma pasta; ou pasta `images/` |
+| **Destino / Nome** | Por padrão, a pasta `exports/` dentro do projeto |
+| **Split train/val/test** | Divide as imagens em proporções configuráveis (somam 100%) |
+| **Data augmentation** | Escolha das transformações e de 1 a 5 cópias por imagem. Só nas imagens de **treino** do YOLO — ligar o augmentation liga o split |
+| **Pacote .zip** | Gera também `<nome>.zip`. As referências são conferidas antes (imagem ↔ label, `file_name` do COCO ↔ imagem) e o `data.yaml` vai sem caminho absoluto, para funcionar em outra máquina |
 
-A exportação roda em **background** — a interface permanece responsiva. Uma barra de progresso exibe o avanço imagem por imagem; ao concluir, ela some automaticamente.
+- As subpastas do dataset são preservadas; as categorias do COCO começam em `1`.
+- Frames marcados como **revisados sem objetos** entram como negativos (imagem sem anotação).
+- No modo keypoint, espelhar a imagem não troca os nomes dos pontos (um ponto "esquerdo" passa a ficar à
+  direita); por isso o espelhamento fica fora do augmentation padrão nesse modo.
+
+A exportação roda em segundo plano, com barra de progresso.
+
+**Proteções do destino:**
+
+- A exportação só apaga e recria pastas criadas por ela mesma (marcadas com o arquivo oculto `.inolabel_export`) ou vazias.
+- Se o nome escolhido já existe e não é uma exportação do InoLabel, a saída vai para `<nome>_<data>` e a pasta existente não é tocada.
+- São recusados como destino: a pasta do projeto e qualquer pasta acima dela, o dataset de origem (dentro, igual ou acima), a pasta pessoal e a raiz do disco, além de nomes como `.` e `..`.
+
+Para conferir um dataset exportado, use `utils/verificar_export.py` (veja Utilitários).
 
 ---
 
 ## Saídas geradas
 
 ```
-outputs/<tarefa>_<DD.MM.HH-MM>/   (ex: detecção_25.05.14-30)
-├── images/                         # frames salvos (originais ou retificados)
-├── annotations.coco.json           # COCO com track_id (tracking) ou bbox simples
-├── annotations_obb.coco.json       # COCO OBB (modo OBB)
-├── annotations_keypoints.coco.json # COCO Keypoints (modo keypoint)
-├── annotations_detection.coco.json # COCO detecção padrão exportado pelo botão
-├── yolo_dataset/                   # dataset YOLO exportado pelo botão
-│   ├── data.yaml
-│   └── images/ labels/ {train,val,test}/
-└── homography.json                 # homografias por fonte (tracking/detecção)
+<workspace>/
+├── .inolabel/workspace.json                 # índice do workspace (reconstruído se sumir)
+└── <projeto>/
+    ├── .inolabel.json                       # manifesto: modo, dataset, classes, pontos, frame atual
+    ├── saved_data_states/                   # estado do projeto (fonte da verdade)
+    │   ├── annotations.coco.json            # detecção / rastreamento (com track_id)
+    │   ├── annotations_obb.coco.json        # modo OBB
+    │   ├── annotations_keypoints.coco.json  # modo keypoint
+    │   └── *.coco.json.bak                  # cópia do último estado, feita ao abrir a sessão
+    ├── labels/                              # espelho .txt no formato YOLO do modo
+    ├── classification_state.json            # modo classificação (+ uma pasta por classe)
+    └── exports/                             # destino padrão da exportação
 ```
 
-Exportação manual via botão cria uma pasta separada (nunca sobrescreve `outputs/`):
-
-```
-<destino>/<nome>/
-├── annotations.coco.json    # formato COCO
-├── images/                  # imagens (cópia)
-└── (ou estrutura YOLO acima)
-```
+O estado COCO segue o formato da versão 1.0.0 (categorias a partir de 1, `bbox` em pixels, `file_name`
+relativo ao dataset) e é a base para os scripts de treino.
 
 ---
 
 ## Utilitários
 
+### Conferir um dataset exportado
+
+Confere um export COCO ou YOLO (incluindo YOLO Pose e COCO Keypoints): imagens × anotações, ids, caixas
+fora da imagem, categorias e pontos. A saída é só agregada, sem nomes de arquivo.
+
+```bash
+python utils/verificar_export.py <pasta exportada>
+```
+
 ### Converter COCO → YOLO
 
 ```bash
-python utils/convert_coco_to_yolo_dataset.py outputs/.../annotations.coco.json \
-    --image-root outputs/.../images \
-    --output-root outputs/.../yolo_dataset \
+python utils/convert_coco_to_yolo_dataset.py <projeto>/saved_data_states/annotations.coco.json \
+    --image-root <pasta das imagens> \
+    --output-root <projeto>/yolo_dataset \
     --train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1
 ```
 
 ### Consolidar splits YOLO em train único
 
 ```bash
-python utils/merge_yolo_splits.py outputs/.../yolo_dataset \
-    --output-root outputs/.../yolo_dataset_train_only
+python utils/merge_yolo_splits.py <projeto>/yolo_dataset \
+    --output-root <projeto>/yolo_dataset_train_only
 ```
 
 ### Converter anotações de tracking → detecção
 
 ```bash
-python utils/convert_coco_tracking_to_detection.py outputs/.../annotations.coco.json
+python utils/convert_coco_tracking_to_detection.py <projeto>/saved_data_states/annotations.coco.json
 ```
+
+### Consertar COCO Keypoints antigo
+
+`utils/fix_keypoint_coco.py` repara um COCO Keypoints inconsistente: preenche `categories[].keypoints`,
+remove ponto de fechamento duplicado e recalcula `bbox`/`num_keypoints`. Por **padrão**, instâncias de 4
+pontos são ordenadas em **TL → TR → BR → BL**; use `--no-sort-corners` para preservar a ordem original.
+
+```bash
+python utils/fix_keypoint_coco.py <projeto>/saved_data_states/annotations_keypoints.coco.json
+```
+
+### Baixar candidatas do Open Images para revisão
+
+Baixa selfies com acessório (um rosto grande com a classe encostando nele) para `openimages_candidates/<classe>/`, sem tocar no dataset. Revise, apague o que não servir e mova as aprovadas para o dataset. O `candidates.csv` de cada pasta guarda a licença (CC BY 2.0: mantenha a atribuição), o autor e as caixas originais.
+
+```bash
+python utils/fetch_openimages.py --classes hat --limit 150
+python utils/fetch_openimages.py --classes hat glasses --splits validation test train  # train: CSV de 2,2 GB lido em streaming
+```
+
+O Open Images não tem classe de máscara.
+
+> **LGPD:** este utilitário baixa fotos de rosto de pessoas reais. A licença CC BY 2.0 cobre direitos autorais, não a proteção de dados pessoais. Antes de usar, registre a finalidade, a base legal e o prazo de retenção do material; mantenha `openimages_candidates/` fora do git (já está no `.gitignore`) e apague as candidatas descartadas. O utilitário não faz parte do executável distribuído.
+
+### Data augmentation de um dataset de saída
+
+```bash
+python utils/augment_output_dataset.py --annotations <projeto>/saved_data_states/annotations.coco.json \
+    --images-dir <pasta das imagens> --rotate90
+```
+
+> `utils/annotation_tool_bytetracked.py` é a ferramenta monolítica antiga, **obsoleta**: tem bugs já corrigidos no app (ex.: recorte de caixas) e não deve ser usada para anotar.
 
 ---
 
-## Configurações em `app/config.py`
+## Privacidade e segurança
 
-| Variável | Descrição |
-|----------|-----------|
-| `CONF_THRESHOLD` | Limiar de confiança do YOLO (padrão `0.40`) |
-| `SAVE_RECTIFIED_FRAMES` | `True` salva frames com warpPerspective; `False` salva originais |
-| `MANUAL_IOU_THRESHOLD` | IoU mínimo para fundir anotação manual com detecção existente |
+- **Tudo local:** o servidor escuta só em `127.0.0.1`; imagens e anotações não saem da máquina.
+- **Logs sem nomes de arquivo:** mensagens no terminal identificam imagens por `image_id` ou por uma referência anônima (`<arquivo 3f2a91c0>`), nunca pelo nome — nomes de arquivo em datasets de pessoas podem conter dados pessoais. A interface continua mostrando o nome ao próprio usuário.
+- **Dados fora do git:** não versione datasets, pastas de projeto nem exportações; mantenha-os fora do repositório.
+- **Pesos de modelo:** arquivos `.pt` usam pickle e executam código ao serem carregados. Abra apenas pesos de origem confiável.
+- **Estado ilegível:** se o `annotations*.coco.json` não puder ser lido, a sessão não abre e o arquivo não é alterado. Restaure o `.bak` ao lado dele (gerado ao abrir cada sessão) ou corrija o JSON.
 
-Os caminhos de dataset, modelo e saída são configurados no wizard — os valores em `config.py` servem apenas como sugestão inicial.
+---
+
+## Configuração
+
+O app web não usa mais os parâmetros do app Tkinter em `app/config.py`. Os caminhos podem ser trocados por
+variáveis de ambiente:
+
+| Variável | Padrão | Uso |
+|----------|--------|-----|
+| `INOLABEL_LOCAL_DIR` | `.local/` ao lado do app | Workspaces recentes e atalhos |
+| `INOLABEL_OUTPUT_BASE` | `outputs/` ao lado do app | Pasta de saída quando nenhuma é informada |
+| `INOLABEL_ASSETS_DIR` | `assets/` | Recursos estáticos |
+| `INOLABEL_ENV=development` | — | `python main.py` com recarga automática do servidor |
+
+---
+
+## Desenvolvimento
+
+O código é organizado por funcionalidade:
+
+```
+app/api/<funcionalidade>/     router.py (HTTP) → service.py (casos de uso) + schemas.py e módulos de domínio
+                              annotations, classification, session, frames, export, inference,
+                              workspace, projects, classes, modes, keybinds, browse
+app/api/common/               schemas compartilhados e erros de regra de negócio (DomainError)
+app/api/state.py              estado em memória da sessão
+app/core/project_state/       estado do projeto em annotations.coco.json
+app/annotation/               exportadores YOLO/COCO, split e augmentation
+frontend/src/features/        annotate, export, wizard, projects, workspace, help
+frontend/src/shared/          cliente da API, tipos, sessão, layout e componentes de UI
+```
+
+Rodar com recarga automática (backend + frontend):
+
+```bash
+INOLABEL_ENV=development python main.py      # API em 127.0.0.1:8765
+cd frontend && npm run dev                   # interface em localhost:5173 (encaminha /api para a 8765)
+```
+
+Testes e verificação:
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest -q tests
+cd frontend && npx tsc --noEmit && npm run build
+```
+
+O CI (`.github/workflows/ci.yml`) roda os testes Python e a checagem de tipos + build do frontend em todo
+push e pull request para a `main`.
 
 ---
 
@@ -351,12 +418,12 @@ Os caminhos de dataset, modelo e saída são configurados no wizard — os valor
 
 | Problema | Solução |
 |----------|---------|
-| Tkinter não abre no WSL | Configure um X server e a variável `DISPLAY`, ou rode em ambiente gráfico nativo |
-| Tkinter ausente no Linux | `sudo apt-get install python3-tk` |
+| Página em branco ou "Not Found" ao abrir | O frontend não foi construído: rode `npm install && npm run build` em `frontend/` |
+| Seletor de pasta não abre no Linux | Instale `zenity` (GNOME) ou `kdialog` (KDE) |
+| Porta 8765 em uso | Feche a outra instância do InoLabel (ou o processo que usa a porta) |
 | `lap`/`cython_bbox` falhando no Linux | Instale `build-essential python3-dev cmake` e tente novamente |
 | `lap`/`cython_bbox` falhando no Windows | Instale o Visual C++ Build Tools e CMake conforme descrito acima |
-| Logo não aparece na tela inicial | Verifique se `assets/inovisao.png` existe e se `Pillow` está instalado |
-| Atalhos não respondem após remapear | Verifique conflitos no editor de atalhos (aviso laranja) |
+| Sessão não abre com erro do `annotations.coco.json` | Estado ilegível: restaure o `.bak` ao lado do arquivo |
 
 ---
 
