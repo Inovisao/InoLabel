@@ -1,0 +1,3 @@
+# Ferramentas de teste. httpx e exigido pelo TestClient do FastAPI (testes de tests/test_api_*.py).
+pytest==8.4.2
+httpx==0.28.1
