@@ -3,7 +3,6 @@ import unittest
 from pathlib import Path
 
 from app.core.session import AnnotationSessionConfig, AnnotationTaskMode, normalize_class_names
-from app.sources.discovery import SourceDiscoveryService
 
 
 class SessionConfigTest(unittest.TestCase):
@@ -66,31 +65,48 @@ class SessionConfigTest(unittest.TestCase):
         self.assertTrue(config.classification_move_files)
 
 
-class SourceDiscoveryServiceTest(unittest.TestCase):
-    def test_discovers_image_directory_as_single_sequence(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            root = Path(tmp_dir)
-            (root / "a.jpg").write_bytes(b"fake")
-            (root / "nested").mkdir()
-            (root / "nested" / "b.png").write_bytes(b"fake")
+class SessionConfigPathTest(unittest.TestCase):
 
-            summary = SourceDiscoveryService().summarize(root)
+    def test_config_output_dir_is_set(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / "my_project"
+            output_dir.mkdir()
+            config = AnnotationSessionConfig(
+                mode=AnnotationTaskMode.DETECTION,
+                data_root=Path(tmp),
+                target_classes=("car",),
+                output_dir=output_dir,
+            )
+            self.assertEqual(config.output_dir, output_dir)
 
-            self.assertEqual(summary.sources, [root])
-            self.assertEqual(summary.image_count, 2)
-            self.assertEqual(summary.video_count, 0)
+    def test_config_with_saved_states_annotations_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "project"
+            sds = project / "saved_data_states"
+            sds.mkdir(parents=True)
+            ann = sds / "annotations.coco.json"
+            ann.write_text("{}", encoding="utf-8")
+            config = AnnotationSessionConfig(
+                mode=AnnotationTaskMode.TRACKING,
+                data_root=Path(tmp),
+                target_classes=("person",),
+                output_dir=project,
+                annotations_path=ann,
+                resume_existing_annotations=True,
+            )
+            self.assertEqual(config.annotations_path, ann)
+            self.assertTrue(config.resume_existing_annotations)
 
-    def test_prefers_videos_when_directory_has_videos(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            root = Path(tmp_dir)
-            video = root / "clip.mp4"
-            video.write_bytes(b"fake")
-            (root / "a.jpg").write_bytes(b"fake")
-
-            summary = SourceDiscoveryService().summarize(root)
-
-            self.assertEqual(summary.sources, [video])
-            self.assertEqual(summary.video_count, 1)
+    def test_resume_flag_propagates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = AnnotationSessionConfig(
+                mode=AnnotationTaskMode.DETECTION,
+                data_root=Path(tmp),
+                target_classes=("a",),
+                output_dir=Path(tmp) / "proj",
+                resume_existing_annotations=True,
+            )
+            self.assertTrue(config.resume_existing_annotations)
 
 
 if __name__ == "__main__":

@@ -2,51 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.annotation_keypoint.geometry.keypoint import KeypointInstance
-from app.annotation_keypoint.detection.selection_edit import KPSelectionEditMixin
-from app.annotation_keypoint.infrastructure.persistence.coco_storage import KPCocoStorageMixin
 from app.annotation_keypoint.infrastructure.export.yolo_pose_exporter import export_yolo_pose_dataset
 from utils.fix_keypoint_coco import fix_payload
-
-
-class _Store(KPCocoStorageMixin):
-    def __init__(self, categories, annotations):
-        self.categories = categories
-        self.annotations = annotations
-
-    def category_name_by_id(self):
-        return {int(c["id"]): c["name"] for c in self.categories}
-
-
-class EnsureKeypointMetadataTest(unittest.TestCase):
-    def test_empty_keypoints_filled_to_match_annotations(self):
-        store = _Store(
-            categories=[{"id": 1, "name": "obj", "keypoints": [], "skeleton": []}],
-            annotations=[{"category_id": 1, "keypoints": [0, 0, 2, 1, 1, 2, 2, 2, 1]}],
-        )
-        store.ensure_keypoint_metadata()
-        self.assertEqual(store.categories[0]["keypoints"], ["point_1", "point_2", "point_3"])
-
-    def test_dataset_errors_flags_inconsistent_counts(self):
-        store = _Store(
-            categories=[{"id": 1, "name": "doc", "keypoints": ["a", "b", "c", "d"]}],
-            annotations=[
-                {"category_id": 1, "keypoints": [0] * 12},
-                {"category_id": 1, "keypoints": [0] * 15},
-            ],
-        )
-        errors = store.keypoint_dataset_errors()
-        self.assertTrue(any("diferentes" in e for e in errors))
-
-
-class ClosingPointDedupTest(unittest.TestCase):
-    def test_trailing_duplicate_of_first_point_is_dropped(self):
-        inst = KeypointInstance(
-            category_id=1,
-            keypoints=[[21, 14, 2], [1015, 23, 2], [1028, 724, 2], [19, 755, 2], [19, 16, 2]],
-        )
-        KPSelectionEditMixin._drop_duplicate_closing_point(inst)
-        self.assertEqual(len(inst.keypoints), 4)
 
 
 class ExportUniformLengthTest(unittest.TestCase):

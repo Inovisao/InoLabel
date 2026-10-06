@@ -1,1 +1,0 @@
-"""Estado do modo OBB."""
