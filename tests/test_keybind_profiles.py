@@ -80,3 +80,49 @@ def test_profiles_http_round_trip(keybinds_file):
 
     data["profiles"]["Custom"]["tool_box"] = ["V"]
     assert client.put("/api/keybinds/profiles", json=data).status_code == 422
+
+
+def _custom_profile(**changes):
+    data = storage.DEFAULT_PROFILES.model_copy(deep=True)
+    data.profiles["Custom"] = {key: list(value) for key, value in storage.DEFAULT_PROFILE.items()}
+    data.profiles["Custom"].update(changes)
+    data.active_profile = "Custom"
+    return data
+
+
+def test_zoom_and_pan_defaults_fill_profiles_saved_before_them(keybinds_file):
+    old = {key: value for key, value in storage.DEFAULT_PROFILE.items() if key not in {"zoom_wheel", "zoom_fit", "pan_drag", "pan_hold"}}
+    keybinds_file.write_text(json.dumps({"active_profile": "Antigo", "profiles": {"Antigo": old}}), encoding="utf-8")
+
+    profile = storage.load_profiles().profiles["Antigo"]
+
+    assert profile["zoom_wheel"] == ["Ctrl+Wheel"]
+    assert profile["zoom_fit"] == ["Ctrl+0"]
+    assert profile["pan_drag"] == ["MiddleDrag"]
+    assert profile["pan_hold"] == ["H"]
+
+
+def test_remapped_mouse_gestures_persist(keybinds_file):
+    data = _custom_profile(zoom_wheel=["Alt+Wheel"], pan_drag=["RightDrag", "Alt+LeftDrag"], pan_hold=["G"])
+
+    storage.save_profiles(data)
+
+    assert storage.load_profiles().profiles["Custom"]["pan_drag"] == ["RightDrag", "Alt+LeftDrag"]
+
+
+@pytest.mark.parametrize("action, keys", [
+    ("zoom_wheel", ["Ctrl+Z"]),        # tecla numa ação da roda
+    ("zoom_wheel", ["MiddleDrag"]),    # arraste numa ação da roda
+    ("pan_drag", ["Ctrl+Wheel"]),      # roda numa ação de arraste
+    ("pan_drag", ["LeftDrag"]),        # é o gesto de desenhar caixas
+    ("next_frame", ["MiddleDrag"]),    # gesto numa ação de teclado
+])
+def test_rejects_gesture_of_wrong_kind(keybinds_file, action, keys):
+    with pytest.raises(ValueError, match="não serve"):
+        storage.save_profiles(_custom_profile(**{action: keys}))
+    assert not keybinds_file.exists()
+
+
+def test_pan_hold_key_conflicts_with_other_actions(keybinds_file):
+    with pytest.raises(ValueError, match="atribuída"):
+        storage.save_profiles(_custom_profile(pan_hold=["B"]))

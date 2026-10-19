@@ -27,6 +27,9 @@ export function useKeyboardShortcuts(options: Options = {}) {
       // Estado lido na hora da tecla, para não religar o listener a cada mudança.
       const s = useAnnotationStore.getState();
 
+      // Zoom e pan são do canvas (useCanvasViewport); a tecla não segue para os modos.
+      if (matches(e, binds, "zoom_fit") || matches(e, binds, "pan_hold")) return;
+
       if (matches(e, binds, "save")) { e.preventDefault(); onSave?.(); return; }
       if (matches(e, binds, "export")) { e.preventDefault(); onExport?.(); return; }
       if (matches(e, binds, "settings")) { e.preventDefault(); onSettings?.(); return; }

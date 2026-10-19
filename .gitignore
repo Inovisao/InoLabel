@@ -64,3 +64,4 @@ docs_agents/
 .ai-jail
 # Sem package.json na raiz: um lock aqui só aparece por "npm install" na pasta errada.
 /package-lock.json
+frontend/.test-build/

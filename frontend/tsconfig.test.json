@@ -1,0 +1,14 @@
+{
+  "//": "Testes unitários de módulos puros: transpila para .test-build e roda com node --test (npm test).",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rewriteRelativeImportExtensions": true,
+    "noCheck": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": ".test-build"
+  },
+  "include": ["tests"]
+}

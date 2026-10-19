@@ -16,8 +16,14 @@ import {
 import KeypointLayer from "./KeypointLayer";
 import ObbShape from "./ObbShape";
 import { DEFAULT_DRAW_COLOR, shapeStyle } from "./shapeStyle";
+import { activeBinds, useKeybindStore } from "../../keybinds/store";
 import { useCanvasPointer } from "./useCanvasPointer";
+import { useCanvasViewport } from "./useCanvasViewport";
 import { useImageFit } from "./useImageFit";
+import type { View } from "./viewport";
+
+/** A partir daqui (px de tela por px da imagem) os pixels aparecem nítidos, sem suavizar. */
+const PIXELATED_FROM_SCALE = 4;
 
 /** Área de anotação: imagem do frame, formas do modo atual e avisos por cima. */
 export default function AnnotationCanvas() {
@@ -25,11 +31,15 @@ export default function AnnotationCanvas() {
   const { frame, classes, selectedClassId, selectedAnnotationId, tool, error } = store;
   const mode = useSessionStore((s) => s.mode);
   const [confirmAnnId, setConfirmAnnId] = useState<number | null>(null);
+  const [view, setView] = useState<View | null>(null);
+  const binds = useKeybindStore((s) => activeBinds(s.data));
 
-  const { containerRef, size, img, fit, toImageCoords, isInsideImage } = useImageFit(
+  const { containerRef, size, img, fit, base, toImageCoords, isInsideImage } = useImageFit(
     frame?.image_b64,
-    store.setImageSize
+    store.setImageSize,
+    view
   );
+  const viewport = useCanvasViewport({ containerRef, base, binds, view, setView, resetKey: frame?.index });
   const pointer = useCanvasPointer({
     mode,
     tool,
@@ -86,7 +96,13 @@ export default function AnnotationCanvas() {
           background: "var(--color-canvas-bg)",
           overflow: "hidden",
           position: "relative",
-          cursor: img && mode !== "classification" && tool === "box" ? "crosshair" : "default",
+          cursor: viewport.panning
+            ? "grabbing"
+            : viewport.panReady && img
+              ? "grab"
+              : img && mode !== "classification" && tool === "box"
+                ? "crosshair"
+                : "default",
         }}
       >
         {error && <ErrorToast error={error} onClose={store.clearError} />}
@@ -98,7 +114,7 @@ export default function AnnotationCanvas() {
           onMouseMove={pointer.onMouseMove}
           onMouseUp={pointer.onMouseUp}
         >
-          <Layer>
+          <Layer imageSmoothingEnabled={fit.scale < PIXELATED_FROM_SCALE}>
             {img && <KonvaImage image={img} x={fit.offsetX} y={fit.offsetY} width={fit.shownW} height={fit.shownH} />}
             {mode === "keypoint" && img && (
               <KeypointLayer offsetX={fit.offsetX} offsetY={fit.offsetY} scale={fit.scale} imgW={fit.imgW} imgH={fit.imgH} />
