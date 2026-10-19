@@ -121,5 +121,5 @@ export function useCanvasPointer(o: Options) {
     reset();
   };
 
-  return { drawing, onMouseDown, onMouseMove, onMouseUp };
+  return { drawing, annotationAt, onMouseDown, onMouseMove, onMouseUp };
 }

@@ -21,6 +21,8 @@ interface Props {
   /** Grava o ângulo final; a pré-visualização some só depois. */
   onRotateTo: (angle: number) => Promise<void>;
   onRequestRemove: () => void;
+  /** Etiqueta transparente (ponteiro sobre ela ou sobre a forma que ela invade). */
+  labelFaded?: boolean;
 }
 
 /**
@@ -28,7 +30,7 @@ interface Props {
  * rotação acima do lado superior (Shift encaixa de 15° em 15°). Enquanto a alça é
  * arrastada, a rotação é só pré-visualização; o PATCH sai ao soltar.
  */
-export default function ObbShape({ ann, fit, color, label, selected, movable, onChange, onRotateTo, onRequestRemove }: Props) {
+export default function ObbShape({ ann, fit, color, label, selected, movable, onChange, onRotateTo, onRequestRemove, labelFaded }: Props) {
   const [preview, setPreview] = useState<OBBGeometry | null>(null);
   const geometry = (selected && preview) || ann.obb;
   const points = obbCorners(geometry);
@@ -67,7 +69,7 @@ export default function ObbShape({ ann, fit, color, label, selected, movable, on
         fill="transparent"
         listening={true}
       />
-      <ShapeLabel x={labelX} y={labelY} label={label} color={color} fontSize={labelFontSize(ann.bbox[2] * fit.scale)} />
+      <ShapeLabel x={labelX} y={labelY} label={label} color={color} fontSize={labelFontSize(ann.bbox[2] * fit.scale)} faded={labelFaded} />
       {selected && (
         <>
           <Line points={[topMidX, topMidY, handleX, handleY]} stroke={color} strokeWidth={1.5} listening={false} />
