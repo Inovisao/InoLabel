@@ -10,6 +10,7 @@ export const DEFAULT_BINDS = {
   zoom_wheel: ["Ctrl+Wheel"], zoom_fit: ["Ctrl+0"], pan_drag: ["MiddleDrag"], pan_hold: ["H"],
   copy: ["Ctrl+C"], paste: ["Ctrl+V"], select_all: ["Ctrl+A"],
   nudge_left: ["Alt+ArrowLeft"], nudge_right: ["Alt+ArrowRight"], nudge_up: ["Alt+ArrowUp"], nudge_down: ["Alt+ArrowDown"],
+  rotate_view_cw: ["R"], rotate_view_ccw: ["Alt+R"],
 } as const;
 
 export type Action = keyof typeof DEFAULT_BINDS;
@@ -61,6 +62,7 @@ export const GROUPS: { title: string; actions: { id: Action; label: string }[] }
   ] },
   { title: "Visualização", actions: [
     { id: "zoom_wheel", label: "Zoom (roda do mouse)" }, { id: "zoom_fit", label: "Ajustar imagem à tela" },
+    { id: "rotate_view_cw", label: "Girar imagem 90° (horário)" }, { id: "rotate_view_ccw", label: "Girar imagem 90° (anti-horário)" },
     { id: "pan_drag", label: "Mover imagem (arrastar)" }, { id: "pan_hold", label: "Segurar e arrastar para mover" },
   ] },
 ];

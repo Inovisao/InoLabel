@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import { Image as KonvaImage, Layer, Rect, Stage } from "react-konva";
 import type { Annotation, OBBGeometry } from "../../../shared/api/types";
@@ -20,9 +20,10 @@ import { obbCorners } from "./obbGeometry";
 import ObbShape from "./ObbShape";
 import { DEFAULT_DRAW_COLOR, shapeStyle } from "./shapeStyle";
 import { activeBinds, useKeybindStore } from "../../keybinds/store";
-import { useCanvasPointer } from "./useCanvasPointer";
+import { localPointer, useCanvasPointer } from "./useCanvasPointer";
 import { useCanvasViewport } from "./useCanvasViewport";
-import { useImageFit } from "./useImageFit";
+import { toScreen, useImageFit } from "./useImageFit";
+import { layerTransform } from "./viewRotation";
 import type { View } from "./viewport";
 
 /** A partir daqui (px de tela por px da imagem) os pixels aparecem nítidos, sem suavizar. */
@@ -31,18 +32,23 @@ const PIXELATED_FROM_SCALE = 4;
 /** Área de anotação: imagem do frame, formas do modo atual e avisos por cima. */
 export default function AnnotationCanvas() {
   const store = useAnnotationStore();
-  const { frame, classes, selectedClassId, selectedAnnotationId, tool, error } = store;
+  const { frame, classes, selectedClassId, selectedAnnotationId, tool, error, viewRotation } = store;
   const mode = useSessionStore((s) => s.mode);
   const [confirmAnnId, setConfirmAnnId] = useState<number | null>(null);
   const [view, setView] = useState<View | null>(null);
   const binds = useKeybindStore((s) => activeBinds(s.data));
 
-  const { containerRef, size, img, fit, base, toImageCoords, isInsideImage } = useImageFit(
-    frame?.image_b64,
-    store.setImageSize,
-    view
-  );
-  const viewport = useCanvasViewport({ containerRef, base, binds, view, setView, resetKey: frame?.index });
+  const imageFit = useImageFit(frame?.image_b64, view, viewRotation);
+  const { containerRef, size, img, fit, base, toImageCoords, isInsideImage, ready: imageReady } = imageFit;
+  // Tamanho real da imagem do frame atual (colar, mover e girar usam). Só com a imagem
+  // do frame já carregada; frames com a mesma imagem (vídeo parado) também atualizam.
+  useEffect(() => {
+    if (imageReady && img && frame) store.setImageSize({ width: img.width, height: img.height, frameIndex: frame.index });
+  }, [imageReady, img, frame?.index]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Trocar de frame ou girar a exibição volta ao ajuste.
+  const viewport = useCanvasViewport({
+    containerRef, base, binds, view, setView, rotation: viewRotation, resetKey: `${frame?.index}:${viewRotation}`,
+  });
   const pointer = useCanvasPointer({
     mode,
     tool,
@@ -64,21 +70,24 @@ export default function AnnotationCanvas() {
     onSelectPoint: store.selectKeypoint,
   });
 
-  // Etiquetas transparentes sob o ponteiro: a geometria de tela de cada forma (contorno e
-  // etiqueta) e, no movimento do mouse, só muda o estado quando o conjunto muda.
+  // Etiquetas transparentes sob o ponteiro: a geometria de cada forma (contorno e etiqueta)
+  // na tela, onde a etiqueta é desenhada em pé, e no movimento do mouse só muda o estado
+  // quando o conjunto muda.
   const shapeGeometry = useMemo(() => {
     if (!frame || mode === "classification" || mode === "keypoint") return [];
     return frame.annotations.map((ann) => {
       const { label } = shapeStyle(ann, classes.find((c) => c.id === ann.category_id), mode);
-      const toStage = ([x, y]: [number, number]): [number, number] => [fit.offsetX + x * fit.scale, fit.offsetY + y * fit.scale];
+      const onScreen = ([x, y]: [number, number]): [number, number] => {
+        const p = toScreen(fit, { x: fit.offsetX + x * fit.scale, y: fit.offsetY + y * fit.scale });
+        return [p.x, p.y];
+      };
       const [bx, by, bw, bh] = ann.bbox;
-      const bounds: ScreenRect =
-        mode === "obb" && ann.obb
-          ? boundsOf(obbCorners(ann.obb).map(toStage))
-          : { x: fit.offsetX + bx * fit.scale, y: fit.offsetY + by * fit.scale, w: bw * fit.scale, h: bh * fit.scale };
+      const corners: [number, number][] =
+        mode === "obb" && ann.obb ? obbCorners(ann.obb) : [[bx, by], [bx + bw, by], [bx + bw, by + bh], [bx, by + bh]];
+      const bounds: ScreenRect = boundsOf(corners.map(onScreen));
       return { id: ann.id, bounds, rect: labelRect(bounds.x, bounds.y, label, labelFontSize(bw * fit.scale)) };
     });
-  }, [frame, classes, mode, fit.offsetX, fit.offsetY, fit.scale]);
+  }, [frame, classes, mode, fit]);
   const geometryRef = useRef(shapeGeometry);
   geometryRef.current = shapeGeometry;
   const [fadedKey, setFadedKey] = useState("");
@@ -86,7 +95,8 @@ export default function AnnotationCanvas() {
 
   const updateFadedLabels = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const pos = e.target.getStage()?.getPointerPosition() ?? null;
-    const hoveredId = pos ? pointer.annotationAt(pos.x, pos.y)?.id : undefined;
+    const local = localPointer(e);
+    const hoveredId = local ? pointer.annotationAt(local.x, local.y)?.id : undefined;
     const hovered = geometryRef.current.find((g) => g.id === hoveredId) ?? null;
     setFadedKey(fadedLabelIds(geometryRef.current, pos, hovered).join(","));
   };
@@ -177,10 +187,13 @@ export default function AnnotationCanvas() {
           onMouseLeave={() => setFadedKey("")}
           onMouseUp={pointer.onMouseUp}
         >
-          <Layer imageSmoothingEnabled={fit.scale < PIXELATED_FROM_SCALE}>
+          <Layer
+            imageSmoothingEnabled={fit.scale < PIXELATED_FROM_SCALE}
+            {...layerTransform(size.width, size.height, viewRotation)}
+          >
             {img && <KonvaImage image={img} x={fit.offsetX} y={fit.offsetY} width={fit.shownW} height={fit.shownH} />}
             {mode === "keypoint" && img && (
-              <KeypointLayer offsetX={fit.offsetX} offsetY={fit.offsetY} scale={fit.scale} imgW={fit.imgW} imgH={fit.imgH} />
+              <KeypointLayer offsetX={fit.offsetX} offsetY={fit.offsetY} scale={fit.scale} imgW={fit.imgW} imgH={fit.imgH} fit={fit} />
             )}
             {showsShapes && frame?.annotations.map(renderShape)}
             {pointer.marquee && pointer.marquee.w > 2 && pointer.marquee.h > 2 && (

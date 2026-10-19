@@ -26,6 +26,7 @@ export const useAnnotationStore = create<AnnotationState>()((...a) => {
         selectedAnnotationId: null,
         selectedIds: [],
         clipboard: null,
+        viewRotation: 0,
         undoStack: [],
         pinnedTrackId: null,
         classKeyBuffer: "",

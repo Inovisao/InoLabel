@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetSta
 import type { Binds } from "../../keybinds/defaults";
 import { baseKey, dragForEvent, keyForEvent, matches, matchesGesture, wheelForEvent } from "../../keybinds/keys";
 import { panBy, wheelPixels, wheelZoomFactor, zoomAt, type View, type ViewBase } from "./viewport";
+import { screenToLocal, vectorToLocal, type Rotation } from "./viewRotation";
 
 const isTyping = (target: EventTarget | null) => {
   const el = target as HTMLElement | null;
@@ -15,6 +16,8 @@ interface Options {
   binds: Binds;
   view: View | null;
   setView: Dispatch<SetStateAction<View | null>>;
+  /** Exibição girada: cursor e deslocamentos da tela são levados ao espaço local. */
+  rotation: Rotation;
   /** Muda a cada frame: a vista volta ao ajuste. */
   resetKey: unknown;
 }
@@ -25,14 +28,16 @@ interface Options {
  * O pan intercepta o clique antes do Konva (fase de captura): não desenha nem arrasta
  * forma.
  */
-export function useCanvasViewport({ containerRef, base, binds, view, setView, resetKey }: Options) {
+export function useCanvasViewport({ containerRef, base, binds, view, setView, rotation, resetKey }: Options) {
   const [panReady, setPanReady] = useState(false);
   const [panning, setPanning] = useState(false);
   // Os ouvintes nativos leem o estado atual sem serem religados a cada render.
   const baseRef = useRef(base);
   const bindsRef = useRef(binds);
   const viewRef = useRef(view);
+  const rotationRef = useRef(rotation);
   const holdRef = useRef(false);
+  rotationRef.current = rotation;
   baseRef.current = base;
   bindsRef.current = binds;
   viewRef.current = view;
@@ -85,7 +90,8 @@ export function useCanvasViewport({ containerRef, base, binds, view, setView, re
         if (e.buttons & 1) return;
         const rect = el.getBoundingClientRect();
         const factor = wheelZoomFactor(wheelPixels(e.deltaY || e.deltaX, e.deltaMode));
-        setView((v) => zoomAt(v, b, e.clientX - rect.left, e.clientY - rect.top, factor));
+        const at = screenToLocal({ x: e.clientX - rect.left, y: e.clientY - rect.top }, el.clientWidth, el.clientHeight, rotationRef.current);
+        setView((v) => zoomAt(v, b, at.x, at.y, factor));
         return;
       }
       // Sem o gesto de zoom, a roda rola a imagem ampliada (Shift: na horizontal).
@@ -94,7 +100,8 @@ export function useCanvasViewport({ containerRef, base, binds, view, setView, re
       const sideways = e.shiftKey && !e.deltaX;
       const dx = wheelPixels(sideways ? e.deltaY : e.deltaX, e.deltaMode);
       const dy = sideways ? 0 : wheelPixels(e.deltaY, e.deltaMode);
-      setView((v) => panBy(v, b, -dx, -dy));
+      const d = vectorToLocal({ x: -dx, y: -dy }, rotationRef.current);
+      setView((v) => panBy(v, b, d.x, d.y));
     };
 
     const startsPan = (e: MouseEvent) =>
@@ -116,10 +123,9 @@ export function useCanvasViewport({ containerRef, base, binds, view, setView, re
     };
     const onPointerMove = (e: PointerEvent) => {
       if (!last) return;
-      const dx = e.clientX - last.x;
-      const dy = e.clientY - last.y;
+      const d = vectorToLocal({ x: e.clientX - last.x, y: e.clientY - last.y }, rotationRef.current);
       last = { x: e.clientX, y: e.clientY };
-      setView((v) => panBy(v, baseRef.current, dx, dy));
+      setView((v) => panBy(v, baseRef.current, d.x, d.y));
     };
     const onPointerUp = () => {
       if (!last) return;

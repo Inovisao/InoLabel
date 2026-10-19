@@ -67,6 +67,7 @@ const CONTEXT: Record<Action, string> = {
   zoom_wheel: "all", zoom_fit: "all", pan_drag: "all", pan_hold: "all",
   copy: "edit", paste: "edit", select_all: "edit",
   nudge_left: "edit", nudge_right: "edit", nudge_up: "edit", nudge_down: "edit",
+  rotate_view_cw: "all", rotate_view_ccw: "all",
 };
 
 export function conflict(binds: Binds, action: Action, key: string): Action | null {

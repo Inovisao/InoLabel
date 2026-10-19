@@ -1,6 +1,7 @@
 import { Group, Line, Circle, Text } from "react-konva";
 import { useAnnotationStore } from "../store";
 import type { Annotation, ClassItem, Keypoint } from "../../../shared/api/types";
+import { toLocal, toScreen, type ImageFit } from "./useImageFit";
 
 interface Props {
   offsetX: number;
@@ -9,6 +10,8 @@ interface Props {
   /** Tamanho da imagem em pixels (para prender os pontos arrastados dentro dela). */
   imgW: number;
   imgH: number;
+  /** Para converter as posições de arraste (tela) com a exibição girada. */
+  fit: ImageFit;
 }
 
 const POINT_RADIUS = 4;
@@ -32,7 +35,7 @@ function links(points: Keypoint[], skeleton: [number, number][] | undefined): [n
  * ligações e a instância em andamento. Com a ferramenta de seleção (V), clicar num
  * ponto seleciona a instância e o ponto; arrastar move o ponto.
  */
-export default function KeypointLayer({ offsetX, offsetY, scale, imgW, imgH }: Props) {
+export default function KeypointLayer({ offsetX, offsetY, scale, imgW, imgH, fit }: Props) {
   const { frame, classes, selectedAnnotationId, selectedIds, selectedKpIndex, kpWip, tool, selectKeypoint, kpMovePoint } =
     useAnnotationStore();
 
@@ -88,10 +91,13 @@ export default function KeypointLayer({ offsetX, offsetY, scale, imgW, imgH }: P
               stroke={isSelectedPoint ? "#fff" : color}
               strokeWidth={p[2] === 2 ? 1.5 : 2}
               draggable={editable}
-              dragBoundFunc={(pos) => ({
-                x: Math.min(Math.max(pos.x, offsetX), offsetX + imgW * scale),
-                y: Math.min(Math.max(pos.y, offsetY), offsetY + imgH * scale),
-              })}
+              dragBoundFunc={(pos) => {
+                const local = toLocal(fit, pos);
+                return toScreen(fit, {
+                  x: Math.min(Math.max(local.x, offsetX), offsetX + imgW * scale),
+                  y: Math.min(Math.max(local.y, offsetY), offsetY + imgH * scale),
+                });
+              }}
               onMouseDown={(e) => {
                 if (!editable || ann.id === undefined) return;
                 e.cancelBubble = true;

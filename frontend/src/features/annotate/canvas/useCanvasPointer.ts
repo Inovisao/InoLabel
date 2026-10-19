@@ -33,6 +33,14 @@ interface Options {
   onSelectPoint: (annId: number, index: number) => void;
 }
 
+/**
+ * Ponteiro no espaço local da camada (onde estão a imagem e as formas). Com a exibição
+ * girada ele difere da posição na tela.
+ */
+export function localPointer(e: Konva.KonvaEventObject<MouseEvent>) {
+  return e.target.getStage()?.getLayers()[0]?.getRelativePointerPosition() ?? null;
+}
+
 /** Menor caixa movida ao arrastar menos que isso (px de tela) é tratada como clique. */
 const MIN_DRAG_PX = 5;
 
@@ -84,7 +92,7 @@ export function useCanvasPointer(o: Options) {
 
   const onMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.evt.button !== 0 || !o.hasImage || o.mode === "classification") return;
-    const pos = e.target.getStage()?.getPointerPosition();
+    const pos = localPointer(e);
     if (!pos) return;
     const shift = e.evt.shiftKey;
     // Shift+clique numa forma já selecionada (arrastável) a tira da seleção.
@@ -119,7 +127,7 @@ export function useCanvasPointer(o: Options) {
   };
 
   const onMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    const pos = e.target.getStage()?.getPointerPosition();
+    const pos = localPointer(e);
     if (marquee && pos) {
       setMarquee({ ...marquee, rect: rectFromCorners(marquee.start, pos) });
       return;

@@ -2,6 +2,7 @@ import { api } from "../../../shared/api/client";
 import type { Annotation, AnnotationPatch } from "../../../shared/api/types";
 import { useSessionStore } from "../../../shared/session/store";
 import { normalizeAngle, rotateTo } from "../canvas/obbGeometry";
+import { rotateBy } from "../canvas/viewRotation";
 import { beforeMovePatch, boxDelta, movedPatch, pastePayload, toggleId } from "./selection";
 import type { EditSlice, Slice } from "./types";
 import { pushUndo } from "./undoSlice";
@@ -23,6 +24,8 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
   selectedAnnotationId: null,
   selectedIds: [],
   clipboard: null,
+  viewRotation: 0,
+  rotateView: (step) => set((s) => ({ viewRotation: rotateBy(s.viewRotation, step) })),
   tool: "box",
   pinnedTrackId: null,
 
@@ -125,12 +128,18 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
   copySelection: () => {
     const { frame, selectedIds } = get();
     const block = frame?.annotations.filter((a) => selectedIds.includes(a.id)) ?? [];
-    if (block.length) set({ clipboard: block });
+    const { imageSize } = get();
+    if (block.length && imageSize) set({ clipboard: { annotations: block, width: imageSize.width, height: imageSize.height } });
   },
 
   pasteClipboard: async () => {
     const { frame, clipboard, imageSize } = get();
-    if (!frame || !clipboard?.length || !imageSize) return;
+    if (!frame || !clipboard?.annotations.length) return;
+    // Logo depois de trocar de frame o tamanho ainda é o da imagem anterior.
+    if (!imageSize || imageSize.frameIndex !== frame.index) {
+      set({ error: "A imagem ainda está carregando; cole de novo em seguida." });
+      return;
+    }
     const { annotations, skipped } = pastePayload(clipboard, imageSize.width, imageSize.height);
     if (!annotations.length) {
       set({ error: "Nenhuma anotação copiada cabe nesta imagem." });
@@ -163,7 +172,7 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
   moveSelection: async (dx, dy) => {
     const { frame, selectedIds, imageSize } = get();
     const selected = frame?.annotations.filter((a) => selectedIds.includes(a.id)) ?? [];
-    if (!frame || !selected.length || !imageSize) return;
+    if (!frame || !selected.length || !imageSize || imageSize.frameIndex !== frame.index) return;
     // Cada caixa presa à imagem por conta própria; as já encostadas na borda ficam paradas.
     const moves = selected
       .map((ann) => ({ ann, d: boxDelta(ann.bbox, dx, dy, imageSize.width, imageSize.height) }))

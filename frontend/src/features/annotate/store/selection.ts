@@ -65,18 +65,59 @@ export function beforeMovePatch(ann: Annotation): AnnotationPatch {
   return { bbox: ann.bbox };
 }
 
-/** Corpo do POST em lote para colar: copia classe, geometria e ID; sem id/score do original. */
-export function pastePayload(clipboard: Annotation[], imgW: number, imgH: number) {
-  const inside = clipboard.filter(({ bbox: [x, y, w, h] }) => x < imgW && y < imgH && x + w > 0 && y + h > 0);
+/** Bloco copiado, com o tamanho da imagem de onde saiu. */
+export interface Clipboard {
+  annotations: Annotation[];
+  width: number;
+  height: number;
+}
+
+/** Corpo do POST para recriar a anotação: classe, geometria e ID; sem id/score do original. */
+export function createPayload(ann: Annotation) {
   return {
-    skipped: clipboard.length - inside.length,
-    annotations: inside.map((ann) => ({
-      category_id: ann.category_id,
-      bbox: ann.bbox,
-      source: "manual",
-      ...(ann.obb ? { obb: ann.obb } : {}),
-      ...(ann.keypoints ? { keypoints: ann.keypoints } : {}),
-      ...(ann.track_id != null ? { track_id: ann.track_id } : {}),
-    })),
+    category_id: ann.category_id,
+    bbox: ann.bbox,
+    source: "manual",
+    ...(ann.obb ? { obb: ann.obb } : {}),
+    ...(ann.keypoints ? { keypoints: ann.keypoints } : {}),
+    ...(ann.track_id != null ? { track_id: ann.track_id } : {}),
+  };
+}
+
+/**
+ * Anotação levada para uma imagem de outro tamanho, na mesma posição relativa (um campo
+ * a 30% da largura continua a 30%). A OBB girada com escalas diferentes em x e y é
+ * aproximada: o ângulo fica e cada lado escala pela sua direção.
+ */
+export function scaleAnnotation(ann: Annotation, sx: number, sy: number): Annotation {
+  if (sx === 1 && sy === 1) return ann;
+  const [x, y, w, h] = ann.bbox;
+  const scaled: Annotation = { ...ann, bbox: [x * sx, y * sy, w * sx, h * sy] };
+  if (ann.obb) {
+    const t = (ann.obb.angle * Math.PI) / 180;
+    scaled.obb = {
+      ...ann.obb,
+      cx: ann.obb.cx * sx,
+      cy: ann.obb.cy * sy,
+      width: ann.obb.width * Math.hypot(sx * Math.cos(t), sy * Math.sin(t)),
+      height: ann.obb.height * Math.hypot(sx * Math.sin(t), sy * Math.cos(t)),
+    };
+  }
+  if (ann.keypoints) scaled.keypoints = ann.keypoints.map(([px, py, v]) => [px * sx, py * sy, v]);
+  return scaled;
+}
+
+/**
+ * Corpo do POST em lote para colar numa imagem de `imgW`×`imgH`: escala o bloco se a
+ * imagem de origem tinha outro tamanho e descarta o que ficar fora da imagem.
+ */
+export function pastePayload(clipboard: Clipboard, imgW: number, imgH: number) {
+  const sx = clipboard.width ? imgW / clipboard.width : 1;
+  const sy = clipboard.height ? imgH / clipboard.height : 1;
+  const scaled = clipboard.annotations.map((ann) => scaleAnnotation(ann, sx, sy));
+  const inside = scaled.filter(({ bbox: [x, y, w, h] }) => x < imgW && y < imgH && x + w > 0 && y + h > 0);
+  return {
+    skipped: scaled.length - inside.length,
+    annotations: inside.map(createPayload),
   };
 }

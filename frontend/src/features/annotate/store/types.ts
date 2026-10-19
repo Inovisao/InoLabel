@@ -1,4 +1,6 @@
 import type { StateCreator } from "zustand";
+import type { Rotation } from "../canvas/viewRotation";
+import type { Clipboard } from "./selection";
 import type {
   Annotation,
   AnnotationPatch,
@@ -9,6 +11,13 @@ import type {
 } from "../../../shared/api/types";
 
 export type Tool = "box" | "select";
+
+/** Tamanho real da imagem exibida e de qual frame ela é (a do frame novo carrega depois). */
+export interface ImageSize {
+  width: number;
+  height: number;
+  frameIndex: number;
+}
 
 /** Modo keypoint: instância sendo marcada, ponto a ponto, na ordem da classe. */
 export interface KeypointWip {
@@ -36,7 +45,7 @@ export interface FrameSlice {
   frame: FrameResponse | null;
   classes: ClassItem[];
   /** Tamanho da imagem exibida (px), para manter caixas OBB dentro dela. */
-  imageSize: { width: number; height: number } | null;
+  imageSize: ImageSize | null;
   loading: boolean;
   error: string | null;
   fetchFrame: () => Promise<void>;
@@ -48,7 +57,7 @@ export interface FrameSlice {
   renameClass: (id: number, name: string) => Promise<boolean>;
   /** Remove a classe e as anotações dela no projeto; limpa o desfazer (ids mudam). */
   removeClass: (id: number) => Promise<boolean>;
-  setImageSize: (size: { width: number; height: number } | null) => void;
+  setImageSize: (size: ImageSize | null) => void;
   /** Marca/desmarca o frame como revisado (negativo: revisado sem objetos). */
   toggleReviewed: () => Promise<void>;
   clearError: () => void;
@@ -60,8 +69,11 @@ export interface EditSlice {
   selectedAnnotationId: number | null;
   /** Todas as selecionadas (Shift+clique, retângulo, selecionar tudo); inclui a principal. */
   selectedIds: number[];
+  /** Exibição girada (só visual, como na 1.0); vale para os próximos frames. */
+  viewRotation: Rotation;
+  rotateView: (step: 90 | -90) => void;
   /** Bloco copiado; continua disponível ao trocar de frame. */
-  clipboard: Annotation[] | null;
+  clipboard: Clipboard | null;
   tool: Tool;
   /** ID fixo para as próximas caixas no tracking; null = próximo ID livre. */
   pinnedTrackId: number | null;

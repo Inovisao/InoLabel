@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import type Konva from "konva";
 import { Group, Rect, Transformer } from "react-konva";
 import type { Annotation } from "../../../shared/api/types";
-import { bboxFromScreen, boundResize } from "./resize";
+import { bboxFromScreen, boundResize, type ScreenBox } from "./resize";
 import ShapeLabel, { labelFontSize } from "./ShapeLabel";
-import type { ImageFit } from "./useImageFit";
+import { toLocal, toScreen, type ImageFit } from "./useImageFit";
+import { labelAnchor } from "./viewRotation";
 
 interface Props {
   ann: Annotation;
@@ -42,7 +43,7 @@ export default function BoxShape({
   const rectRef = useRef<Konva.Rect>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   // Caixa durante o redimensionamento: a etiqueta acompanha as alças.
-  const [live, setLive] = useState<{ x: number; y: number; w: number } | null>(null);
+  const [live, setLive] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   // Geometria das props mais recentes: se a gravação falhar, a caixa volta a ela.
   const latest = useRef({ x: sx, y: sy, width: sw, height: sh });
   latest.current = { x: sx, y: sy, width: sw, height: sh };
@@ -52,6 +53,19 @@ export default function BoxShape({
     transformerRef.current.nodes([rectRef.current]);
     transformerRef.current.getLayer()?.batchDraw();
   }, [resizable]);
+
+  // Com a exibição girada, o Konva entrega posições na tela: os limites valem no espaço local.
+  const boxToLocal = (b: ScreenBox): ScreenBox => ({ ...b, ...toLocal(fit, b), rotation: 0 });
+  const imageArea = { x: fit.offsetX, y: fit.offsetY, w: fit.shownW, h: fit.shownH };
+  const lx = live?.x ?? sx;
+  const ly = live?.y ?? sy;
+  const lw = live?.w ?? sw;
+  const anchor = labelAnchor(
+    [[lx, ly], [lx + lw, ly], [lx + lw, ly + (live?.h ?? sh)], [lx, ly + (live?.h ?? sh)]],
+    fit.stageW,
+    fit.stageH,
+    fit.rotation
+  );
 
   const finishResize = async (node: Konva.Rect) => {
     // O Transformer muda a escala; a caixa guarda o tamanho real e volta à escala 1.
@@ -81,10 +95,13 @@ export default function BoxShape({
         fill="transparent"
         listening={true}
         draggable={movable}
-        dragBoundFunc={(p) => ({
-          x: Math.max(fit.offsetX, Math.min(p.x, fit.offsetX + fit.shownW - sw)),
-          y: Math.max(fit.offsetY, Math.min(p.y, fit.offsetY + fit.shownH - sh)),
-        })}
+        dragBoundFunc={(p) => {
+          const local = toLocal(fit, p);
+          return toScreen(fit, {
+            x: Math.max(fit.offsetX, Math.min(local.x, fit.offsetX + fit.shownW - sw)),
+            y: Math.max(fit.offsetY, Math.min(local.y, fit.offsetY + fit.shownH - sh)),
+          });
+        }}
         onDragMove={(e) => onGroupDragMove?.(e.target.x() - sx, e.target.y() - sy)}
         onDragEnd={(e) => {
           if (onGroupDragEnd) {
@@ -100,17 +117,18 @@ export default function BoxShape({
         }}
         onTransform={(e) => {
           const node = e.target;
-          setLive({ x: node.x(), y: node.y(), w: node.width() * node.scaleX() });
+          setLive({ x: node.x(), y: node.y(), w: node.width() * node.scaleX(), h: node.height() * node.scaleY() });
         }}
         onTransformEnd={(e) => finishResize(e.target as Konva.Rect)}
       />
       <ShapeLabel
-        x={live?.x ?? sx}
-        y={live?.y ?? sy}
+        x={anchor.local.x}
+        y={anchor.local.y}
         label={label}
         color={color}
-        fontSize={labelFontSize(live?.w ?? sw)}
+        fontSize={labelFontSize(lw)}
         faded={labelFaded}
+        rotation={fit.rotation}
       />
       {resizable && (
         <Transformer
@@ -126,14 +144,12 @@ export default function BoxShape({
           anchorStroke="#3B82F6"
           anchorFill="#fff"
           // Recorta à imagem e não deixa a caixa ficar menor que 1 px da imagem.
-          boundBoxFunc={(oldBox, newBox) =>
-            boundResize(
-              oldBox,
-              newBox,
-              { x: fit.offsetX, y: fit.offsetY, w: fit.shownW, h: fit.shownH },
-              Math.max(2, fit.scale)
-            )
-          }
+          boundBoxFunc={(oldBox, newBox) => {
+            const oldLocal = boxToLocal(oldBox);
+            const bounded = boundResize(oldLocal, boxToLocal(newBox), imageArea, Math.max(2, fit.scale));
+            if (bounded === oldLocal) return oldBox;
+            return { ...newBox, ...toScreen(fit, bounded), width: bounded.width, height: bounded.height };
+          }}
         />
       )}
     </Group>
