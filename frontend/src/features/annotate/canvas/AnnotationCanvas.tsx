@@ -134,7 +134,16 @@ export default function AnnotationCanvas() {
         />
       );
     }
-    return <BoxShape key={ann.id} ann={ann} {...common} onMove={(bbox) => store.updateAnnotation(ann.id, { bbox })} />;
+    return (
+      <BoxShape
+        key={ann.id}
+        ann={ann}
+        {...common}
+        // Redimensionar: só com uma caixa selecionada (no bloco, arrastar move todas).
+        resizable={selected && tool === "select" && !isGroup && !groupDrag}
+        onMove={(bbox) => store.updateAnnotation(ann.id, { bbox })}
+      />
+    );
   };
 
   return (
