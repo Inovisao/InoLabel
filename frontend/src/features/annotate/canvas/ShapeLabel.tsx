@@ -1,4 +1,10 @@
 import { Rect, Text } from "react-konva";
+import { labelRect } from "./labelOverlap";
+
+export { labelFontSize } from "./labelOverlap";
+
+/** Opacidade da etiqueta com o ponteiro sobre ela ou sobre a forma que ela invade. */
+const FADED_OPACITY = 0.15;
 
 interface Props {
   x: number;
@@ -6,19 +12,24 @@ interface Props {
   label: string;
   color: string;
   fontSize: number;
+  /** Transparente para mostrar a imagem atrás (ver labelOverlap). */
+  faded?: boolean;
 }
 
 /** Etiqueta da classe acima da forma (fundo na cor da forma, texto branco). */
-export default function ShapeLabel({ x, y, label, color, fontSize }: Props) {
+export default function ShapeLabel({ x, y, label, color, fontSize, faded = false }: Props) {
+  const rect = labelRect(x, y, label, fontSize);
+  const opacity = faded ? FADED_OPACITY : 1;
   return (
     <>
       <Rect
-        x={x}
-        y={Math.max(0, y - fontSize - 4)}
-        width={label.length * fontSize * 0.6 + 8}
-        height={fontSize + 4}
+        x={rect.x}
+        y={rect.y}
+        width={rect.w}
+        height={rect.h}
         fill={color}
         cornerRadius={3}
+        opacity={opacity}
         listening={false}
       />
       <Text
@@ -29,13 +40,10 @@ export default function ShapeLabel({ x, y, label, color, fontSize }: Props) {
         fontFamily="Inter, sans-serif"
         fontStyle="600"
         fill="#fff"
+        opacity={opacity}
         listening={false}
       />
     </>
   );
 }
 
-/** Tamanho da etiqueta proporcional à largura da forma (entre 10 e 14 px). */
-export function labelFontSize(shapeWidth: number) {
-  return Math.max(10, Math.min(14, shapeWidth * 0.12));
-}

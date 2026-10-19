@@ -13,10 +13,12 @@ interface Props {
   movable: boolean;
   onMove: (bbox: [number, number, number, number]) => void;
   onRequestRemove: () => void;
+  /** Etiqueta transparente (ponteiro sobre ela ou sobre a forma que ela invade). */
+  labelFaded?: boolean;
 }
 
 /** Caixa alinhada aos eixos (detecção e rastreamento). */
-export default function BoxShape({ ann, fit, color, label, selected, movable, onMove, onRequestRemove }: Props) {
+export default function BoxShape({ ann, fit, color, label, selected, movable, onMove, onRequestRemove, labelFaded }: Props) {
   const [bx, by, bw, bh] = ann.bbox;
   const sx = fit.offsetX + bx * fit.scale;
   const sy = fit.offsetY + by * fit.scale;
@@ -46,7 +48,7 @@ export default function BoxShape({ ann, fit, color, label, selected, movable, on
           onMove([nx, ny, bw, bh]);
         }}
       />
-      <ShapeLabel x={sx} y={sy} label={label} color={color} fontSize={labelFontSize(sw)} />
+      <ShapeLabel x={sx} y={sy} label={label} color={color} fontSize={labelFontSize(sw)} faded={labelFaded} />
     </Group>
   );
 }
