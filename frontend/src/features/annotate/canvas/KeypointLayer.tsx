@@ -33,7 +33,7 @@ function links(points: Keypoint[], skeleton: [number, number][] | undefined): [n
  * ponto seleciona a instância e o ponto; arrastar move o ponto.
  */
 export default function KeypointLayer({ offsetX, offsetY, scale, imgW, imgH }: Props) {
-  const { frame, classes, selectedAnnotationId, selectedKpIndex, kpWip, tool, selectKeypoint, kpMovePoint } =
+  const { frame, classes, selectedAnnotationId, selectedIds, selectedKpIndex, kpWip, tool, selectKeypoint, kpMovePoint } =
     useAnnotationStore();
 
   const toStage = (x: number, y: number) => [offsetX + x * scale, offsetY + y * scale] as const;
@@ -42,7 +42,7 @@ export default function KeypointLayer({ offsetX, offsetY, scale, imgW, imgH }: P
   const renderInstance = (
     key: string,
     ann: Pick<Annotation, "category_id" | "keypoints"> & { id?: number },
-    opts: { selected: boolean; wip: boolean }
+    opts: { selected: boolean; wip: boolean; primary?: boolean }
   ) => {
     const points = ann.keypoints ?? [];
     const cls = classOf(ann.category_id);
@@ -53,7 +53,8 @@ export default function KeypointLayer({ offsetX, offsetY, scale, imgW, imgH }: P
     const labelAt = marked.length
       ? toStage(Math.min(...marked.map((p) => p[0])), Math.min(...marked.map((p) => p[1])))
       : null;
-    const selectedPoint = opts.selected && selectedKpIndex !== null ? points[selectedKpIndex] : undefined;
+    // O ponto selecionado é só da instância principal; as outras selecionadas só ficam destacadas.
+    const selectedPoint = opts.primary && selectedKpIndex !== null ? points[selectedKpIndex] : undefined;
 
     return (
       <Group key={key}>
@@ -75,7 +76,7 @@ export default function KeypointLayer({ offsetX, offsetY, scale, imgW, imgH }: P
         {points.map((p, i) => {
           if (p[2] <= 0) return null;
           const [sx, sy] = toStage(p[0], p[1]);
-          const isSelectedPoint = opts.selected && selectedKpIndex === i;
+          const isSelectedPoint = !!opts.primary && selectedKpIndex === i;
           return (
             <Circle
               key={`p${i}`}
@@ -148,7 +149,11 @@ export default function KeypointLayer({ offsetX, offsetY, scale, imgW, imgH }: P
   return (
     <Group>
       {frame?.annotations.map((ann) =>
-        renderInstance(`a${ann.id}`, ann, { selected: ann.id === selectedAnnotationId, wip: false })
+        renderInstance(`a${ann.id}`, ann, {
+          selected: selectedIds.includes(ann.id),
+          primary: ann.id === selectedAnnotationId,
+          wip: false,
+        })
       )}
       {kpWip &&
         renderInstance(

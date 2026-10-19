@@ -169,6 +169,6 @@ function hintText(mode: TaskMode | null, tool: Tool, hasSelection: boolean, bind
     return `Arraste a alça ○ para girar (Shift: 15°) · ${key("rotate_left")} / ${key("rotate_right")} giram 5° · ${key("tool_select")} e arraste para mover · ${key("delete_annotation")} remove`;
   }
   return tool === "select"
-    ? `Clique para selecionar · arraste a caixa selecionada para mover · ${key("delete_annotation")} remove · ${key("tool_box")} volta a desenhar`
+    ? `Clique seleciona · Shift+clique ou arraste no vazio seleciona várias · ${key("copy")} / ${key("paste")} copia e cola · ${key("delete_annotation")} remove · ${key("tool_box")} volta a desenhar`
     : `Arraste para anotar · clique numa caixa para editar · ${key("mark_negative")} marca frame sem objetos · ${key("undo")} desfaz`;
 }

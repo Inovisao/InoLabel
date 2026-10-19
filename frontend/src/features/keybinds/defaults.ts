@@ -8,6 +8,8 @@ export const DEFAULT_BINDS = {
   classification_skip: ["Space"], search_class: ["Slash"],
   save: ["Ctrl+S"], export: ["Ctrl+E"], settings: ["Ctrl+Comma"], undo: ["Ctrl+Z"],
   zoom_wheel: ["Ctrl+Wheel"], zoom_fit: ["Ctrl+0"], pan_drag: ["MiddleDrag"], pan_hold: ["H"],
+  copy: ["Ctrl+C"], paste: ["Ctrl+V"], select_all: ["Ctrl+A"],
+  nudge_left: ["Alt+ArrowLeft"], nudge_right: ["Alt+ArrowRight"], nudge_up: ["Alt+ArrowUp"], nudge_down: ["Alt+ArrowDown"],
 } as const;
 
 export type Action = keyof typeof DEFAULT_BINDS;
@@ -48,6 +50,14 @@ export const GROUPS: { title: string; actions: { id: Action; label: string }[] }
     { id: "search_class", label: "Buscar classe" }, { id: "save", label: "Salvar frame" },
     { id: "export", label: "Exportar" }, { id: "settings", label: "Configurações" },
     { id: "undo", label: "Desfazer" },
+  ] },
+  { title: "Seleção e cópia", actions: [
+    { id: "select_all", label: "Selecionar todas do frame" }, { id: "copy", label: "Copiar seleção" },
+    { id: "paste", label: "Colar no frame atual" },
+    { id: "nudge_left", label: "Mover seleção à esquerda (Shift: 10 px)" },
+    { id: "nudge_right", label: "Mover seleção à direita (Shift: 10 px)" },
+    { id: "nudge_up", label: "Mover seleção para cima (Shift: 10 px)" },
+    { id: "nudge_down", label: "Mover seleção para baixo (Shift: 10 px)" },
   ] },
   { title: "Visualização", actions: [
     { id: "zoom_wheel", label: "Zoom (roda do mouse)" }, { id: "zoom_fit", label: "Ajustar imagem à tela" },

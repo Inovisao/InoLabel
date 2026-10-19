@@ -24,6 +24,7 @@ export const createKeypointSlice: Slice<KeypointSlice> = (set, get) => {
       set((s) => ({
         frame: s.frame ? { ...s.frame, annotations: [...s.frame.annotations, ann], is_saved: true } : null,
         selectedAnnotationId: ann.id,
+        selectedIds: [ann.id],
         selectedKpIndex: null,
         undoStack: pushUndo(s.undoStack, { kind: "add", index: frame.index, annId: ann.id }),
       }));
@@ -56,7 +57,7 @@ export const createKeypointSlice: Slice<KeypointSlice> = (set, get) => {
       }
       const current = wip;
       const points = current.points.map((p, i) => (i === current.index ? ([x, y, kpNextVisibility] as Keypoint) : p));
-      set({ selectedAnnotationId: null, selectedKpIndex: null });
+      set({ selectedAnnotationId: null, selectedIds: [], selectedKpIndex: null });
       await advance({ ...current, points, index: current.index + 1 });
     },
 
@@ -106,6 +107,6 @@ export const createKeypointSlice: Slice<KeypointSlice> = (set, get) => {
       await get().updateAnnotation(annId, { keypoints });
     },
 
-    selectKeypoint: (annId, index) => set({ selectedAnnotationId: annId, selectedKpIndex: index }),
+    selectKeypoint: (annId, index) => set({ selectedAnnotationId: annId, selectedIds: [annId], selectedKpIndex: index }),
   };
 };

@@ -15,13 +15,21 @@ interface Props {
   onRequestRemove: () => void;
   /** Etiqueta transparente (ponteiro sobre ela ou sobre a forma que ela invade). */
   labelFaded?: boolean;
+  /** Parte de um bloco selecionado sendo arrastado por outra caixa (px de tela). */
+  groupOffset?: { dx: number; dy: number };
+  /** Bloco: arrastar esta caixa move a seleção inteira (delta em px de tela). */
+  onGroupDragMove?: (dx: number, dy: number) => void;
+  onGroupDragEnd?: (dx: number, dy: number) => void;
 }
 
 /** Caixa alinhada aos eixos (detecção e rastreamento). */
-export default function BoxShape({ ann, fit, color, label, selected, movable, onMove, onRequestRemove, labelFaded }: Props) {
+export default function BoxShape({
+  ann, fit, color, label, selected, movable, onMove, onRequestRemove, labelFaded,
+  groupOffset, onGroupDragMove, onGroupDragEnd,
+}: Props) {
   const [bx, by, bw, bh] = ann.bbox;
-  const sx = fit.offsetX + bx * fit.scale;
-  const sy = fit.offsetY + by * fit.scale;
+  const sx = fit.offsetX + bx * fit.scale + (groupOffset?.dx ?? 0);
+  const sy = fit.offsetY + by * fit.scale + (groupOffset?.dy ?? 0);
   const sw = bw * fit.scale;
   const sh = bh * fit.scale;
 
@@ -42,7 +50,15 @@ export default function BoxShape({ ann, fit, color, label, selected, movable, on
           x: Math.max(fit.offsetX, Math.min(p.x, fit.offsetX + fit.shownW - sw)),
           y: Math.max(fit.offsetY, Math.min(p.y, fit.offsetY + fit.shownH - sh)),
         })}
+        onDragMove={(e) => onGroupDragMove?.(e.target.x() - sx, e.target.y() - sy)}
         onDragEnd={(e) => {
+          if (onGroupDragEnd) {
+            const [dx, dy] = [e.target.x() - sx, e.target.y() - sy];
+            // Volta ao lugar: o bloco inteiro é desenhado deslocado até o backend responder.
+            e.target.position({ x: sx, y: sy });
+            onGroupDragEnd(dx, dy);
+            return;
+          }
           const nx = (e.target.x() - fit.offsetX) / fit.scale;
           const ny = (e.target.y() - fit.offsetY) / fit.scale;
           onMove([nx, ny, bw, bh]);

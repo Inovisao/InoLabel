@@ -23,6 +23,13 @@ interface Props {
   onRequestRemove: () => void;
   /** Etiqueta transparente (ponteiro sobre ela ou sobre a forma que ela invade). */
   labelFaded?: boolean;
+  /** Alça de rotação: só na selecionada principal (a rotação vale para ela). */
+  rotatable?: boolean;
+  /** Parte de um bloco selecionado sendo arrastado por outra forma (px de tela). */
+  groupOffset?: { dx: number; dy: number };
+  /** Bloco: arrastar esta forma move a seleção inteira (delta em px de tela). */
+  onGroupDragMove?: (dx: number, dy: number) => void;
+  onGroupDragEnd?: (dx: number, dy: number) => void;
 }
 
 /**
@@ -30,7 +37,10 @@ interface Props {
  * rotação acima do lado superior (Shift encaixa de 15° em 15°). Enquanto a alça é
  * arrastada, a rotação é só pré-visualização; o PATCH sai ao soltar.
  */
-export default function ObbShape({ ann, fit, color, label, selected, movable, onChange, onRotateTo, onRequestRemove, labelFaded }: Props) {
+export default function ObbShape({
+  ann, fit, color, label, selected, movable, onChange, onRotateTo, onRequestRemove, labelFaded,
+  groupOffset, onGroupDragMove, onGroupDragEnd, rotatable = true,
+}: Props) {
   const [preview, setPreview] = useState<OBBGeometry | null>(null);
   const geometry = (selected && preview) || ann.obb;
   const points = obbCorners(geometry);
@@ -49,10 +59,21 @@ export default function ObbShape({ ann, fit, color, label, selected, movable, on
 
   return (
     <Group
+      x={groupOffset?.dx ?? 0}
+      y={groupOffset?.dy ?? 0}
       onDblClick={onRequestRemove}
       draggable={movable}
+      onDragMove={(e) => {
+        if (e.target === e.currentTarget) onGroupDragMove?.(e.target.x(), e.target.y());
+      }}
       onDragEnd={(e) => {
         if (e.target !== e.currentTarget) return;
+        if (onGroupDragEnd) {
+          const [dx, dy] = [e.target.x(), e.target.y()];
+          e.target.position({ x: 0, y: 0 });
+          onGroupDragEnd(dx, dy);
+          return;
+        }
         const dx = e.target.x() / fit.scale;
         const dy = e.target.y() / fit.scale;
         e.target.position({ x: 0, y: 0 });
@@ -70,7 +91,7 @@ export default function ObbShape({ ann, fit, color, label, selected, movable, on
         listening={true}
       />
       <ShapeLabel x={labelX} y={labelY} label={label} color={color} fontSize={labelFontSize(ann.bbox[2] * fit.scale)} faded={labelFaded} />
-      {selected && (
+      {selected && rotatable && (
         <>
           <Line points={[topMidX, topMidY, handleX, handleY]} stroke={color} strokeWidth={1.5} listening={false} />
           <Circle

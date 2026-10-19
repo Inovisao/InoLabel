@@ -12,6 +12,10 @@ from app.api.annotations.labels import load_labels_from_txt, reset_label_dir_cac
 from app.api.annotations.persistence import autosave
 from app.api.annotations.project_state import frame_dims, save_project_state
 from app.api.annotations.schemas import (
+    AnnotationBatchCreate,
+    AnnotationBatchCreated,
+    AnnotationBatchDelete,
+    AnnotationBatchUpdate,
     AnnotationPatch,
     AnnotationUpsert,
     FrameReviewState,
@@ -76,13 +80,51 @@ def get_annotations(image_id: int) -> List[Annotation]:
 def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
     session = _require_session()
     mode_rules.check_new(session, body)
-    # frame_paths quando a sessão já carregou os frames; senão, o total declarado.
-    total = len(_state.frame_paths) or session.total_frames
-    if total and image_id >= total:
-        raise BadRequest(f"image_id {image_id} fora do intervalo (sessão tem {total} frames, índices 0–{total - 1}).")
-    bbox, obb, keypoints = mode_rules.geometry_for_new(session, body, frame_dims(image_id))
+    _check_frame_index(session, image_id)
+    geometry = mode_rules.geometry_for_new(session, body, frame_dims(image_id))
 
     ensure_loaded_from_disk(image_id)
+    ann = _append_new(image_id, body, geometry)
+    autosave(image_id)
+    return ann
+
+
+def add_annotations(image_id: int, body: AnnotationBatchCreate) -> AnnotationBatchCreated:
+    """Cria um bloco de anotações (colar) com uma gravação só; tudo ou nada.
+
+    No rastreamento, track_id repetido no frame (ou dentro do bloco) recebe o próximo
+    ID livre do projeto: dois objetos no mesmo frame não podem ter o mesmo ID.
+    """
+    session = _require_session()
+    _check_frame_index(session, image_id)
+    ensure_loaded_from_disk(image_id)
+    dims = frame_dims(image_id)
+    items = list(body.annotations)
+    for item in items:
+        mode_rules.check_new(session, item)
+        if item.category_id >= len(session.classes):
+            raise InvalidInput(f"category_id {item.category_id} fora do intervalo de classes.")
+
+    renumbered = 0
+    if session.mode == "tracking":
+        used = {a.track_id for a in _state.annotation_store.get(image_id, []) if a.track_id is not None}
+        next_free = max([next_track_id().next_track_id, *(i.track_id + 1 for i in items if i.track_id is not None)])
+        for pos, item in enumerate(items):
+            if item.track_id is None or item.track_id in used:
+                renumbered += item.track_id is not None
+                items[pos] = item = item.model_copy(update={"track_id": next_free})
+                next_free += 1
+            used.add(item.track_id)
+
+    # Valida a geometria de todas antes de gravar qualquer uma.
+    geometries = [mode_rules.geometry_for_new(session, item, dims) for item in items]
+    created = [_append_new(image_id, item, geometry) for item, geometry in zip(items, geometries)]
+    autosave(image_id)
+    return AnnotationBatchCreated(annotations=created, renumbered_track_ids=renumbered)
+
+
+def _append_new(image_id: int, body: AnnotationUpsert, geometry) -> Annotation:
+    bbox, obb, keypoints = geometry
     ann = Annotation(
         id=_state.next_ann_id[0],
         image_id=image_id,
@@ -96,8 +138,14 @@ def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
     )
     _state.annotation_store.setdefault(image_id, []).append(ann)
     _state.next_ann_id[0] += 1
-    autosave(image_id)
     return ann
+
+
+def _check_frame_index(session, image_id: int) -> None:
+    # frame_paths quando a sessão já carregou os frames; senão, o total declarado.
+    total = len(_state.frame_paths) or session.total_frames
+    if total and image_id >= total:
+        raise BadRequest(f"image_id {image_id} fora do intervalo (sessão tem {total} frames, índices 0–{total - 1}).")
 
 
 def set_reviewed(image_id: int, body: ReviewedUpdate) -> FrameReviewState:
@@ -136,6 +184,38 @@ def update_annotation(image_id: int, ann_id: int, body: AnnotationPatch) -> Anno
     anns[pos] = anns[pos].model_copy(update=changes)
     autosave(image_id)
     return anns[pos]
+
+
+def update_annotations(image_id: int, body: AnnotationBatchUpdate) -> List[Annotation]:
+    """Edita várias anotações do frame (mover o bloco) com uma gravação só; tudo ou nada."""
+    session = _require_session()
+    anns = _state.annotation_store.get(image_id, [])
+    position = {a.id: i for i, a in enumerate(anns)}
+    dims = frame_dims(image_id)
+    staged = []
+    for update in body.updates:
+        pos = position.get(update.id)
+        if pos is None:
+            raise NotFound(f"Anotação {update.id} não encontrada no frame {image_id}.")
+        changes = update.changes.model_dump(exclude_unset=True)
+        mode_rules.check_patch(session, changes)
+        staged.append((pos, mode_rules.coherent_patch(session, anns[pos], changes, dims)))
+    for pos, changes in staged:
+        anns[pos] = anns[pos].model_copy(update=changes)
+    autosave(image_id)
+    return [anns[pos] for pos, _ in staged]
+
+
+def delete_annotations(image_id: int, body: AnnotationBatchDelete) -> dict:
+    """Apaga várias anotações do frame com uma gravação só."""
+    ids = set(body.ids)
+    anns = _state.annotation_store.get(image_id, [])
+    kept = [a for a in anns if a.id not in ids]
+    if len(kept) == len(anns):
+        raise NotFound("Nenhuma das anotações foi encontrada.")
+    _state.annotation_store[image_id] = kept
+    autosave(image_id)
+    return {"ok": True, "removed": len(anns) - len(kept)}
 
 
 def delete_annotation(image_id: int, ann_id: int) -> dict:

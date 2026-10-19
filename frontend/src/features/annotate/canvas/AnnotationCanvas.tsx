@@ -57,6 +57,9 @@ export default function AnnotationCanvas() {
     }),
     onDrawBox: store.addAnnotation,
     onSelect: store.selectAnnotation,
+    onToggleSelect: store.toggleInSelection,
+    onSelectMany: (ids, additive) =>
+      store.selectMany(additive ? [...store.selectedIds, ...ids.filter((id) => !store.selectedIds.includes(id))] : ids),
     onPlacePoint: store.kpPlacePoint,
     onSelectPoint: store.selectKeypoint,
   });
@@ -92,9 +95,15 @@ export default function AnnotationCanvas() {
   const drawColor = selectedClass?.color ?? DEFAULT_DRAW_COLOR;
   const showsShapes = mode !== "classification" && mode !== "keypoint";
 
+  // Bloco selecionado sendo arrastado: as outras formas seguem com o mesmo deslocamento
+  // (px de tela) até o backend gravar. `draggedId` null = todas deslocadas (gravando).
+  const [groupDrag, setGroupDrag] = useState<{ draggedId: number | null; dx: number; dy: number } | null>(null);
+  const isGroup = store.selectedIds.length > 1;
+
   const renderShape = (ann: Annotation) => {
     const { color, label } = shapeStyle(ann, classes.find((c) => c.id === ann.category_id), mode);
-    const selected = ann.id === selectedAnnotationId;
+    const selected = store.selectedIds.includes(ann.id);
+    const inGroup = isGroup && selected;
     const common = {
       fit,
       color,
@@ -103,6 +112,15 @@ export default function AnnotationCanvas() {
       movable: selected && tool === "select",
       onRequestRemove: () => setConfirmAnnId(ann.id),
       labelFaded: fadedIds.has(ann.id),
+      groupOffset: inGroup && groupDrag && groupDrag.draggedId !== ann.id ? groupDrag : undefined,
+      onGroupDragMove: inGroup ? (dx: number, dy: number) => setGroupDrag({ draggedId: ann.id, dx, dy }) : undefined,
+      onGroupDragEnd: inGroup
+        ? async (dx: number, dy: number) => {
+            setGroupDrag({ draggedId: null, dx, dy });
+            await store.moveSelection(dx / fit.scale, dy / fit.scale);
+            setGroupDrag(null);
+          }
+        : undefined,
     };
     if (mode === "obb" && ann.obb) {
       return (
@@ -112,6 +130,7 @@ export default function AnnotationCanvas() {
           {...common}
           onChange={(obb) => store.updateAnnotation(ann.id, { obb })}
           onRotateTo={(angle) => store.rotateSelected({ angle })}
+          rotatable={ann.id === selectedAnnotationId}
         />
       );
     }
@@ -155,6 +174,19 @@ export default function AnnotationCanvas() {
               <KeypointLayer offsetX={fit.offsetX} offsetY={fit.offsetY} scale={fit.scale} imgW={fit.imgW} imgH={fit.imgH} />
             )}
             {showsShapes && frame?.annotations.map(renderShape)}
+            {pointer.marquee && pointer.marquee.w > 2 && pointer.marquee.h > 2 && (
+              <Rect
+                x={pointer.marquee.x}
+                y={pointer.marquee.y}
+                width={pointer.marquee.w}
+                height={pointer.marquee.h}
+                stroke="#3B82F6"
+                strokeWidth={1}
+                fill="rgba(59, 130, 246, 0.08)"
+                dash={[4, 3]}
+                listening={false}
+              />
+            )}
             {pointer.drawing && pointer.drawing.w > 2 && pointer.drawing.h > 2 && (
               <Rect
                 x={pointer.drawing.x}

@@ -8,6 +8,10 @@ from fastapi import APIRouter
 
 from app.api.annotations import service
 from app.api.annotations.schemas import (
+    AnnotationBatchCreate,
+    AnnotationBatchCreated,
+    AnnotationBatchDelete,
+    AnnotationBatchUpdate,
     AnnotationPatch,
     AnnotationUpsert,
     FrameReviewState,
@@ -38,6 +42,24 @@ def get_annotations(image_id: int) -> List[Annotation]:
 @router.post("/{image_id}", response_model=Annotation)
 def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
     return service.add_annotation(image_id, body)
+
+
+# Rotas de lote antes de /{image_id}/{ann_id}: senão "batch" seria lido como ann_id.
+@router.post("/{image_id}/batch", response_model=AnnotationBatchCreated)
+def add_annotations(image_id: int, body: AnnotationBatchCreate) -> AnnotationBatchCreated:
+    """Cria um bloco de anotações (colar) numa gravação só."""
+    return service.add_annotations(image_id, body)
+
+
+@router.patch("/{image_id}/batch", response_model=List[Annotation])
+def update_annotations(image_id: int, body: AnnotationBatchUpdate) -> List[Annotation]:
+    """Edita várias anotações (mover o bloco) numa gravação só."""
+    return service.update_annotations(image_id, body)
+
+
+@router.post("/{image_id}/batch-delete")
+def delete_annotations(image_id: int, body: AnnotationBatchDelete) -> dict:
+    return service.delete_annotations(image_id, body)
 
 
 @router.post("/{image_id}/reviewed", response_model=FrameReviewState)

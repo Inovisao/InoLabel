@@ -24,6 +24,8 @@ export const useAnnotationStore = create<AnnotationState>()((...a) => {
     resetSessionUi: () =>
       set({
         selectedAnnotationId: null,
+        selectedIds: [],
+        clipboard: null,
         undoStack: [],
         pinnedTrackId: null,
         classKeyBuffer: "",

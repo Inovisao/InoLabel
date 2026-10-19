@@ -26,7 +26,11 @@ export type UndoEntry =
   | { kind: "add"; index: number; annId: number }
   | { kind: "remove"; index: number; ann: Annotation }
   | { kind: "update"; index: number; annId: number; before: AnnotationPatch }
-  | { kind: "classify"; index: number };
+  | { kind: "classify"; index: number }
+  // Bloco (colar, mover, apagar a seleção): um Ctrl+Z desfaz tudo.
+  | { kind: "addMany"; index: number; annIds: number[] }
+  | { kind: "updateMany"; index: number; before: { id: number; changes: AnnotationPatch }[] }
+  | { kind: "removeMany"; index: number; anns: Annotation[] };
 
 export interface FrameSlice {
   frame: FrameResponse | null;
@@ -52,8 +56,12 @@ export interface FrameSlice {
 
 export interface EditSlice {
   selectedClassId: number;
-  /** Anotação selecionada para editar (classe, ID, mover, apagar). */
+  /** Anotação selecionada para editar (classe, ID, mover, apagar): a principal da seleção. */
   selectedAnnotationId: number | null;
+  /** Todas as selecionadas (Shift+clique, retângulo, selecionar tudo); inclui a principal. */
+  selectedIds: number[];
+  /** Bloco copiado; continua disponível ao trocar de frame. */
+  clipboard: Annotation[] | null;
   tool: Tool;
   /** ID fixo para as próximas caixas no tracking; null = próximo ID livre. */
   pinnedTrackId: number | null;
@@ -62,6 +70,16 @@ export interface EditSlice {
   updateAnnotation: (annId: number, patch: AnnotationPatch) => Promise<void>;
   removeAnnotation: (annId: number, opts?: { skipUndo?: boolean }) => Promise<void>;
   selectAnnotation: (annId: number | null) => void;
+  /** Shift+clique: liga/desliga a anotação na seleção. */
+  toggleInSelection: (annId: number) => void;
+  selectMany: (ids: number[]) => void;
+  selectAll: () => void;
+  copySelection: () => void;
+  /** Cola o bloco copiado no frame atual; as coladas ficam selecionadas. */
+  pasteClipboard: () => Promise<void>;
+  /** Move a seleção inteira (px da imagem), presa aos limites da imagem. */
+  moveSelection: (dx: number, dy: number) => Promise<void>;
+  removeSelection: () => Promise<void>;
   setTool: (tool: Tool) => void;
   setPinnedTrackId: (id: number | null) => void;
   fetchNextTrackId: () => Promise<number | null>;
@@ -122,6 +140,7 @@ export type Slice<T> = StateCreator<AnnotationState, [], [], T>;
 export const FRAME_CHANGE_RESET = {
   classificationResult: null,
   selectedAnnotationId: null,
+  selectedIds: [] as number[],
   selectedKpIndex: null,
   kpWip: null,
 } as const;
