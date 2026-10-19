@@ -36,19 +36,17 @@ export function idsInRect(annotations: Annotation[], rect: ImageRect): number[] 
 }
 
 /**
- * Deslocamento possível para o bloco inteiro sem nenhuma caixa sair da imagem: o bloco
- * anda junto, então o limite é o da caixa mais perto da borda.
+ * Deslocamento de uma caixa do bloco, preso à imagem só para ela: a caixa encostada na
+ * borda fica parada contra ela e as outras seguem. (Prender o bloco inteiro pela caixa
+ * mais perto da borda travava tudo quando uma caixa encostava na borda.) Caixa que já
+ * passa da borda não é empurrada para dentro, só não sai mais.
  */
-export function clampDelta(boxes: Annotation[], dx: number, dy: number, imgW: number, imgH: number) {
-  if (!boxes.length) return { dx: 0, dy: 0 };
-  const left = Math.min(...boxes.map((a) => a.bbox[0]));
-  const top = Math.min(...boxes.map((a) => a.bbox[1]));
-  const right = Math.max(...boxes.map((a) => a.bbox[0] + a.bbox[2]));
-  const bottom = Math.max(...boxes.map((a) => a.bbox[1] + a.bbox[3]));
-  return {
-    dx: Math.max(-left, Math.min(dx, imgW - right)),
-    dy: Math.max(-top, Math.min(dy, imgH - bottom)),
-  };
+export function boxDelta(bbox: number[], dx: number, dy: number, imgW: number, imgH: number) {
+  const [x, y, w, h] = bbox;
+  const axis = (d: number, start: number, size: number, limit: number) =>
+    // `|| 0`: sem isso uma caixa na borda zero devolve -0.
+    Math.max(Math.min(0, -start), Math.min(d, Math.max(0, limit - start - size))) || 0;
+  return { dx: axis(dx, x, w, imgW), dy: axis(dy, y, h, imgH) };
 }
 
 /** PATCH que desloca a anotação: caixa e OBB pela bbox (o backend translada o OBB); keypoint pelos pontos. */

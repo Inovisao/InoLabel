@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Annotation } from "../src/shared/api/types.ts";
 import {
-  beforeMovePatch, clampDelta, idsInRect, movedPatch, pastePayload, rectFromCorners, toggleId,
+  beforeMovePatch, boxDelta, idsInRect, movedPatch, pastePayload, rectFromCorners, toggleId,
 } from "../src/features/annotate/store/selection.ts";
 
 const box = (id: number, bbox: [number, number, number, number], extra: Partial<Annotation> = {}): Annotation =>
@@ -22,11 +22,23 @@ test("retângulo de seleção pega quem tem o centro dentro, de qualquer canto",
   assert.deepEqual(idsInRect(anns, rect), [1, 2]);
 });
 
-test("o bloco anda junto e para na borda pela caixa mais próxima dela", () => {
-  const block = [box(1, [10, 10, 20, 20]), box(2, [150, 50, 30, 30])];
-  assert.deepEqual(clampDelta(block, 50, 0, 200, 100), { dx: 20, dy: 0 });
-  assert.deepEqual(clampDelta(block, -50, -50, 200, 100), { dx: -10, dy: -10 });
-  assert.deepEqual(clampDelta([], 5, 5, 200, 100), { dx: 0, dy: 0 });
+test("cada caixa do bloco para na borda sozinha; as outras continuam andando", () => {
+  // Bug: uma caixa encostada na borda direita travava o bloco inteiro.
+  assert.deepEqual(boxDelta([170, 10, 30, 20], 15, 5, 200, 100), { dx: 0, dy: 5 });
+  assert.deepEqual(boxDelta([10, 10, 20, 20], 15, 5, 200, 100), { dx: 15, dy: 5 });
+  assert.deepEqual(boxDelta([150, 10, 30, 20], 50, 0, 200, 100), { dx: 20, dy: 0 });
+  assert.deepEqual(boxDelta([5, 5, 20, 20], -50, -50, 200, 100), { dx: -5, dy: -5 });
+});
+
+test("caixa do tamanho da imagem não anda, mas não trava as outras", () => {
+  assert.deepEqual(boxDelta([0, 0, 200, 100], 10, 10, 200, 100), { dx: 0, dy: 0 });
+  assert.deepEqual(boxDelta([0, 0, 200, 100], -10, -10, 200, 100), { dx: 0, dy: 0 });
+});
+
+test("caixa que já passa da borda não é empurrada para dentro nem sai mais", () => {
+  // OBB girada pode ter o envelope além da imagem.
+  assert.deepEqual(boxDelta([190, 10, 30, 20], -5, 0, 200, 100), { dx: -5, dy: 0 });
+  assert.deepEqual(boxDelta([190, 10, 30, 20], 5, 0, 200, 100), { dx: 0, dy: 0 });
 });
 
 test("mover: caixa e OBB pela bbox; keypoint pelos pontos marcados", () => {
