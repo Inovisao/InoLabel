@@ -4,11 +4,51 @@ const SPECIAL: Record<string, string> = { " ": "Space", "/": "Slash", ",": "Comm
 
 export const sameShortcut = (a: string, b: string): boolean => a.replace("Shift+", "") === b.replace("Shift+", "");
 
+type Modifiers = Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "altKey" | "shiftKey">;
+
+const modifiers = (e: Modifiers) => `${e.ctrlKey || e.metaKey ? "Ctrl+" : ""}${e.altKey ? "Alt+" : ""}${e.shiftKey ? "Shift+" : ""}`;
+
 export function keyForEvent(event: KeyboardEvent): string | null {
   if (["Control", "Meta", "Alt", "Shift"].includes(event.key)) return null;
   const key = SPECIAL[event.key] ?? (event.key.length === 1 ? event.key.toUpperCase() : event.key);
-  return `${event.ctrlKey || event.metaKey ? "Ctrl+" : ""}${event.altKey ? "Alt+" : ""}${event.shiftKey ? "Shift+" : ""}${key}`;
+  return `${modifiers(event)}${key}`;
 }
+
+/** Tecla sem modificadores (o keyup de "Ctrl+H" pode chegar já sem o Ctrl). */
+export const baseKey = (key: string): string => key.replace(/^(Ctrl\+|Alt\+|Shift\+)+(?=.)/, "");
+
+/** Ações acionadas pelo mouse: a roda (zoom) e o arraste (mover a imagem). */
+export const MOUSE_ACTIONS: Partial<Record<Action, "wheel" | "drag">> = { zoom_wheel: "wheel", pan_drag: "drag" };
+
+/** Roda do mouse com modificadores, ex.: "Ctrl+Wheel". */
+export const wheelForEvent = (event: Modifiers): string => `${modifiers(event)}Wheel`;
+
+const BUTTONS = ["Left", "Middle", "Right"];
+
+/** Arraste com um botão do mouse, ex.: "MiddleDrag", "Alt+LeftDrag". */
+export function dragForEvent(event: Modifiers & { button: number }): string | null {
+  const button = BUTTONS[event.button];
+  return button ? `${modifiers(event)}${button}Drag` : null;
+}
+
+export const isMouseShortcut = (key: string): boolean => /(Wheel|Drag)$/.test(key);
+
+/** Arraste com o botão esquerdo sem modificador é o gesto de desenhar caixas. */
+export const PLAIN_LEFT_DRAG = "LeftDrag";
+
+const LABELS: Record<string, string> = {
+  Wheel: "Roda", LeftDrag: "Botão esquerdo", MiddleDrag: "Botão do meio", RightDrag: "Botão direito",
+};
+
+/** Texto do atalho na tela: os gestos de mouse em português, as teclas como estão. */
+export function shortcutLabel(key: string): string {
+  const mods = key.match(/^(Ctrl\+|Alt\+|Shift\+)*/)?.[0] ?? "";
+  const rest = key.slice(mods.length);
+  return LABELS[rest] ? `${mods}${LABELS[rest]}` : key;
+}
+
+export const matchesGesture = (gesture: string | null, binds: Binds, action: Action): boolean =>
+  gesture !== null && binds[action].includes(gesture);
 
 export function matches(event: KeyboardEvent, binds: Binds, action: Action): boolean {
   const key = keyForEvent(event);
@@ -24,6 +64,7 @@ const CONTEXT: Record<Action, string> = {
   rotate_right: "obb", kp_skip: "kp", kp_visibility: "kp", kp_finish: "kp",
   kp_undo: "kp", kp_cancel: "kp", classification_skip: "classification",
   search_class: "all", save: "all", export: "all", settings: "all", undo: "all",
+  zoom_wheel: "all", zoom_fit: "all", pan_drag: "all", pan_hold: "all",
 };
 
 export function conflict(binds: Binds, action: Action, key: string): Action | null {

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from filelock import FileLock
@@ -24,6 +25,7 @@ DEFAULT_PROFILE = {
     "classification_skip": ["Space"], "search_class": ["Slash"],
     "save": ["Ctrl+S"], "export": ["Ctrl+E"],
     "settings": ["Ctrl+Comma"], "undo": ["Ctrl+Z"],
+    "zoom_wheel": ["Ctrl+Wheel"], "zoom_fit": ["Ctrl+0"], "pan_drag": ["MiddleDrag"], "pan_hold": ["H"],
 }
 DEFAULT_PROFILES = KeybindProfiles(active_profile="Padrão", profiles={"Padrão": DEFAULT_PROFILE})
 _ALIASES = {"next": "next_frame", "prev": "prev_frame"}
@@ -44,7 +46,24 @@ _CONTEXT = {
     "kp_finish": "kp", "kp_undo": "kp", "kp_cancel": "kp",
     "classification_skip": "classification", "search_class": "all", "save": "all",
     "export": "all", "settings": "all", "undo": "all",
+    "zoom_wheel": "all", "zoom_fit": "all", "pan_drag": "all", "pan_hold": "all",
 }
+# Ações do mouse e o sufixo do gesto aceito em cada uma (ex.: "Ctrl+Wheel", "MiddleDrag").
+_MOUSE_ACTIONS = {"zoom_wheel": "Wheel", "pan_drag": "Drag"}
+_MODIFIERS = r"(?:Ctrl\+)?(?:Alt\+)?(?:Shift\+)?"
+_GESTURES = {
+    "Wheel": re.compile(_MODIFIERS + "Wheel"),
+    "Drag": re.compile(_MODIFIERS + "(?:Left|Middle|Right)Drag"),
+}
+
+
+def _valid_kind(action: str, key: str) -> bool:
+    """Gesto de mouse só em ação de mouse, e tecla só em ação de teclado."""
+    gesture = _MOUSE_ACTIONS.get(action)
+    if gesture is None:
+        return not key.endswith(("Wheel", "Drag"))
+    # Arrastar com o botão esquerdo sem modificador é desenhar caixa.
+    return bool(_GESTURES[gesture].fullmatch(key)) and key != "LeftDrag"
 
 
 def _overlap(a: str, b: str) -> bool:
@@ -108,6 +127,8 @@ def save_profiles(body: KeybindProfiles) -> KeybindProfiles:
             if not keys or len(keys) > 2 or any(not key.strip() or key != key.strip() for key in keys) or len(set(keys)) != len(keys) or len(keys) == 2 and _same_shortcut(*keys):
                 raise ValueError(f"Teclas inválidas para {action} no perfil {name}.")
             for key in keys:
+                if not _valid_kind(action, key):
+                    raise ValueError(f"O atalho {key} não serve para {action} no perfil {name}.")
                 if _CONTEXT[action] in {"all", "classification"} and (key in "0123456789" or key in {"Enter", "Backspace", "Escape"}):
                     raise ValueError(f"A tecla {key} é reservada para digitar classes na classificação.")
                 other = next((previous for previous_key, previous in used.items() if _same_shortcut(previous_key, key)), None)

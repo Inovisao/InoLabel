@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { clampView, type View, type ViewBase } from "./viewport";
 
 /** Imagem encaixada no canvas: escala e deslocamento entre pixels da imagem e da tela. */
 export interface ImageFit {
@@ -15,9 +16,14 @@ export interface ImageFit {
 
 /**
  * Carrega a imagem do frame e a encaixa no container (mantém a proporção, centraliza).
- * `onImageSize` recebe o tamanho real quando a imagem carrega.
+ * Com `view` (zoom), escala e posição seguem a vista. `onImageSize` recebe o tamanho
+ * real quando a imagem carrega.
  */
-export function useImageFit(imageB64: string | undefined, onImageSize: (size: { width: number; height: number }) => void) {
+export function useImageFit(
+  imageB64: string | undefined,
+  onImageSize: (size: { width: number; height: number }) => void,
+  view: View | null = null
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
   const [img, setImg] = useState<HTMLImageElement | null>(null);
@@ -43,13 +49,16 @@ export function useImageFit(imageB64: string | undefined, onImageSize: (size: { 
     };
   }, [imageB64]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const scale = img ? Math.min(size.width / img.width, size.height / img.height) : 1;
+  const fitScale = img ? Math.min(size.width / img.width, size.height / img.height) : 1;
+  const base: ViewBase = { fitScale, width: size.width, height: size.height, imgW: img?.width ?? 0, imgH: img?.height ?? 0 };
+  const shown = view && img ? clampView(view, base) : null;
+  const scale = fitScale * (shown?.zoom ?? 1);
   const shownW = img ? img.width * scale : 0;
   const shownH = img ? img.height * scale : 0;
   const fit: ImageFit = {
     scale,
-    offsetX: (size.width - shownW) / 2,
-    offsetY: (size.height - shownH) / 2,
+    offsetX: shown?.offsetX ?? (size.width - shownW) / 2,
+    offsetY: shown?.offsetY ?? (size.height - shownH) / 2,
     shownW,
     shownH,
     imgW: img?.width ?? 0,
@@ -68,5 +77,5 @@ export function useImageFit(imageB64: string | undefined, onImageSize: (size: { 
   const isInsideImage = (x: number, y: number) =>
     x >= fit.offsetX && x <= fit.offsetX + shownW && y >= fit.offsetY && y <= fit.offsetY + shownH;
 
-  return { containerRef, size, img, fit, toImageCoords, isInsideImage };
+  return { containerRef, size, img, fit, base, toImageCoords, isInsideImage };
 }

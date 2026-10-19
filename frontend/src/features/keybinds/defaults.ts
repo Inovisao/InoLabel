@@ -7,6 +7,7 @@ export const DEFAULT_BINDS = {
   kp_undo: ["Backspace"], kp_cancel: ["Escape"],
   classification_skip: ["Space"], search_class: ["Slash"],
   save: ["Ctrl+S"], export: ["Ctrl+E"], settings: ["Ctrl+Comma"], undo: ["Ctrl+Z"],
+  zoom_wheel: ["Ctrl+Wheel"], zoom_fit: ["Ctrl+0"], pan_drag: ["MiddleDrag"], pan_hold: ["H"],
 } as const;
 
 export type Action = keyof typeof DEFAULT_BINDS;
@@ -47,5 +48,9 @@ export const GROUPS: { title: string; actions: { id: Action; label: string }[] }
     { id: "search_class", label: "Buscar classe" }, { id: "save", label: "Salvar frame" },
     { id: "export", label: "Exportar" }, { id: "settings", label: "Configurações" },
     { id: "undo", label: "Desfazer" },
+  ] },
+  { title: "Visualização", actions: [
+    { id: "zoom_wheel", label: "Zoom (roda do mouse)" }, { id: "zoom_fit", label: "Ajustar imagem à tela" },
+    { id: "pan_drag", label: "Mover imagem (arrastar)" }, { id: "pan_hold", label: "Segurar e arrastar para mover" },
   ] },
 ];

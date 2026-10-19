@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Keyboard, Plus, Save, Trash2, RotateCcw, X } from "lucide-react";
 import PageShell from "../../shared/layout/PageShell";
 import { DEFAULT_PROFILES, freshDefaults, GROUPS, restoreDefaults, type Action, type Profiles } from "../keybinds/defaults";
-import { conflict, keyForEvent, reserved, sameShortcut } from "../keybinds/keys";
+import {
+  conflict, dragForEvent, keyForEvent, MOUSE_ACTIONS, PLAIN_LEFT_DRAG, reserved, sameShortcut, shortcutLabel, wheelForEvent,
+} from "../keybinds/keys";
 import { useKeybindStore } from "../keybinds/store";
 
 interface Props { activeNav: string; onNavigate: (id: string) => void }
@@ -32,8 +34,17 @@ export default function ShortcutsPage({ activeNav, onNavigate }: Props) {
   function capture(event: React.KeyboardEvent<HTMLButtonElement>, action: Action, index: number) {
     event.preventDefault();
     event.stopPropagation();
+    if (MOUSE_ACTIONS[action]) {
+      // Gesto de mouse: o teclado só cancela (Esc) a captura.
+      if (event.key === "Escape") setCapturing(null);
+      else setMessage(MOUSE_ACTIONS[action] === "wheel" ? "Gire a roda do mouse (com os modificadores desejados) ou Esc para cancelar." : "Pressione o botão do mouse (com os modificadores desejados) ou Esc para cancelar.");
+      return;
+    }
     const key = keyForEvent(event.nativeEvent);
-    if (!key) return;
+    if (key) assign(action, index, key);
+  }
+
+  function assign(action: Action, index: number, key: string) {
     if (reserved(action, key)) {
       setMessage(`A tecla ${key} é reservada para digitar classes na classificação.`);
       return;
@@ -41,7 +52,7 @@ export default function ShortcutsPage({ activeNav, onNavigate }: Props) {
     const existing = conflict(current, action, key);
     if (existing || current[action].some((value, i) => i !== index && sameShortcut(value, key))) {
       const label = GROUPS.flatMap((group) => group.actions).find((item) => item.id === existing)?.label ?? "esta ação";
-      setMessage(`A tecla ${key} já está atribuída a ${label}.`);
+      setMessage(`O atalho ${shortcutLabel(key)} já está atribuído a ${label}.`);
       return;
     }
     const keys = [...current[action]];
@@ -50,6 +61,43 @@ export default function ShortcutsPage({ activeNav, onNavigate }: Props) {
     update(action, keys);
     setCapturing(null);
   }
+
+  // Captura de gesto do mouse: a próxima roda ou clique na página vira o atalho.
+  useEffect(() => {
+    if (!capturing) return;
+    const split = capturing.lastIndexOf("-");
+    const action = capturing.slice(0, split) as Action;
+    const index = Number(capturing.slice(split + 1));
+    const kind = MOUSE_ACTIONS[action];
+    if (!kind) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      assign(action, index, wheelForEvent(event));
+    };
+    const onMouseDown = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const gesture = dragForEvent(event);
+      if (!gesture) return;
+      if (gesture === PLAIN_LEFT_DRAG) {
+        setMessage("Arrastar com o botão esquerdo desenha caixas. Use outro botão ou segure um modificador.");
+        setCapturing(null);
+        return;
+      }
+      assign(action, index, gesture);
+    };
+    const onContextMenu = (event: MouseEvent) => event.preventDefault();
+    if (kind === "wheel") window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    else {
+      window.addEventListener("mousedown", onMouseDown, { capture: true });
+      window.addEventListener("contextmenu", onContextMenu, { capture: true });
+    }
+    return () => {
+      window.removeEventListener("wheel", onWheel, { capture: true });
+      window.removeEventListener("mousedown", onMouseDown, { capture: true });
+      window.removeEventListener("contextmenu", onContextMenu, { capture: true });
+    };
+  });
 
   function createProfile() {
     const next = name.trim();
@@ -83,7 +131,7 @@ export default function ShortcutsPage({ activeNav, onNavigate }: Props) {
     }} breadcrumb="Atalhos">
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
         <Keyboard size={24} color="var(--color-primary)" />
-        <h1 className="text-display">Atalhos de teclado</h1>
+        <h1 className="text-display">Atalhos de teclado e mouse</h1>
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "end", gap: 10, marginBottom: 18 }}>
@@ -114,15 +162,15 @@ export default function ShortcutsPage({ activeNav, onNavigate }: Props) {
             <span style={{ minWidth: 0 }}>{label}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", justifyContent: "end" }}>
               {current[id].map((key, index) => <span key={`${id}-${index}`} style={{ display: "inline-flex", alignItems: "center" }}>
-                <button className="btn-secondary" style={{ minWidth: 42, padding: "4px 7px", fontFamily: "var(--font-mono)", fontSize: 11 }} disabled={!editable} onClick={() => { setCapturing(`${id}-${index}`); setMessage(""); }} onKeyDown={(event) => { if (capturing === `${id}-${index}`) capture(event, id, index); }} title={editable ? `Alterar atalho de ${label}` : "Crie um perfil para editar"}>{capturing === `${id}-${index}` ? "…" : key}</button>
-                {editable && current[id].length > 1 && <button className="btn-icon" onClick={() => update(id, current[id].filter((_, i) => i !== index))} title={`Remover ${key}`} aria-label={`Remover ${key}`}><X size={13} /></button>}
+                <button className="btn-secondary" style={{ minWidth: 42, padding: "4px 7px", fontFamily: "var(--font-mono)", fontSize: 11 }} disabled={!editable} onClick={() => { setCapturing(`${id}-${index}`); setMessage(""); }} onKeyDown={(event) => { if (capturing === `${id}-${index}`) capture(event, id, index); }} title={editable ? `Alterar atalho de ${label}` : "Crie um perfil para editar"}>{capturing === `${id}-${index}` ? "…" : shortcutLabel(key)}</button>
+                {editable && current[id].length > 1 && <button className="btn-icon" onClick={() => update(id, current[id].filter((_, i) => i !== index))} title={`Remover ${shortcutLabel(key)}`} aria-label={`Remover ${shortcutLabel(key)}`}><X size={13} /></button>}
               </span>)}
               {editable && current[id].length < 2 && <button className="btn-icon" onClick={() => { setCapturing(`${id}-${current[id].length}`); setMessage(""); }} onKeyDown={(event) => { if (capturing === `${id}-${current[id].length}`) capture(event, id, current[id].length); }} title={`Adicionar atalho para ${label}`} aria-label={`Adicionar atalho para ${label}`}><Plus size={15} /></button>}
             </div>
           </div>)}
         </section>)}
       </div>
-      <p className="text-helper" style={{ marginTop: 20 }}>Na classificação, as teclas 1–9 escolhem a classe pela posição. Atalhos ficam inativos em campos de texto.</p>
+      <p className="text-helper" style={{ marginTop: 20 }}>Na classificação, as teclas 1–9 escolhem a classe pela posição. Atalhos ficam inativos em campos de texto. Para trocar um gesto do mouse, clique no atalho e faça o gesto (gire a roda ou aperte o botão), com os modificadores desejados.</p>
     </PageShell>
   );
 }
