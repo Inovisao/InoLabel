@@ -1,5 +1,6 @@
 import { api } from "../../../shared/api/client";
 import type { ClassItem, FrameResponse } from "../../../shared/api/types";
+import { selectedAfterRemoval } from "./classEdits";
 import { FRAME_CHANGE_RESET, type FrameSlice, type Slice } from "./types";
 
 export const createFrameSlice: Slice<FrameSlice> = (set, get) => {
@@ -31,6 +32,41 @@ export const createFrameSlice: Slice<FrameSlice> = (set, get) => {
         set({ classes, selectedClassId: classes[0]?.id ?? 0 });
       } catch (e) {
         set({ error: (e as Error).message });
+      }
+    },
+
+    addClass: async (name, keypoints = []) => {
+      try {
+        const classes = await api.post<ClassItem[]>("/classes/", { name, keypoints });
+        // A classe nova já fica ativa para desenhar.
+        set({ classes, selectedClassId: classes[classes.length - 1]?.id ?? 0 });
+        return true;
+      } catch (e) {
+        set({ error: (e as Error).message });
+        return false;
+      }
+    },
+
+    renameClass: async (id, name) => {
+      try {
+        set({ classes: await api.patch<ClassItem[]>(`/classes/${id}`, { name }) });
+        return true;
+      } catch (e) {
+        set({ error: (e as Error).message });
+        return false;
+      }
+    },
+
+    removeClass: async (id) => {
+      try {
+        const classes = await api.delete<ClassItem[]>(`/classes/${id}`);
+        // Os ids acima do removido mudaram: o desfazer guardaria ids velhos.
+        set((s) => ({ classes, selectedClassId: selectedAfterRemoval(s.selectedClassId, id), undoStack: [] }));
+        await loadFrame(() => api.get<FrameResponse>("/frames/current"));
+        return true;
+      } catch (e) {
+        set({ error: (e as Error).message });
+        return false;
       }
     },
 

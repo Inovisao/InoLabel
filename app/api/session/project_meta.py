@@ -51,6 +51,16 @@ def update_on_stop(session) -> None:
     _write(session.output_path, meta)
 
 
+def update_classes(session) -> None:
+    """Classes editadas durante a anotação: o projeto retomado já abre com elas."""
+    meta = read(session.output_path)
+    meta["classes"] = list(session.classes)
+    if session.keypoint_specs:
+        meta["keypoint_classes"] = [{"name": name, **spec} for name, spec in zip(session.classes, session.keypoint_specs)]
+    meta["last_modified"] = _now()
+    _write(session.output_path, meta)
+
+
 def _write(output_path: Path, meta: dict) -> None:
     # Falhar aqui não impede anotar: a página de Projetos só não verá a sessão.
     try:

@@ -39,6 +39,11 @@ export interface FrameSlice {
   nextFrame: () => Promise<void>;
   prevFrame: () => Promise<void>;
   fetchClasses: () => Promise<void>;
+  /** Edição das classes no meio da anotação; devolvem false (e `error`) se o backend recusar. */
+  addClass: (name: string, keypoints?: string[]) => Promise<boolean>;
+  renameClass: (id: number, name: string) => Promise<boolean>;
+  /** Remove a classe e as anotações dela no projeto; limpa o desfazer (ids mudam). */
+  removeClass: (id: number) => Promise<boolean>;
   setImageSize: (size: { width: number; height: number } | null) => void;
   /** Marca/desmarca o frame como revisado (negativo: revisado sem objetos). */
   toggleReviewed: () => Promise<void>;

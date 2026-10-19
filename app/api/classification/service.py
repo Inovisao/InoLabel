@@ -60,6 +60,12 @@ def _write_classification(session, state_file, records, class_directories) -> No
     session.annotation_count = len(records)
 
 
+def sync_class_directories(session) -> None:
+    """Cria a pasta das classes novas e grava a lista no estado da classificação."""
+    state_file, records, class_directories = _classification_context(session)
+    _write_classification(session, state_file, records, class_directories)
+
+
 def _require_classification_frame(image_id: int):
     session = _state.active_session()
     if session is None:
