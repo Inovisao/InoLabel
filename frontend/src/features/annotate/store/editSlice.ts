@@ -2,7 +2,7 @@ import { api } from "../../../shared/api/client";
 import type { Annotation, AnnotationPatch } from "../../../shared/api/types";
 import { useSessionStore } from "../../../shared/session/store";
 import { normalizeAngle, rotateTo } from "../canvas/obbGeometry";
-import { beforeMovePatch, clampDelta, movedPatch, pastePayload, toggleId } from "./selection";
+import { beforeMovePatch, boxDelta, movedPatch, pastePayload, toggleId } from "./selection";
 import type { EditSlice, Slice } from "./types";
 import { pushUndo } from "./undoSlice";
 
@@ -162,13 +162,17 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
 
   moveSelection: async (dx, dy) => {
     const { frame, selectedIds, imageSize } = get();
-    const block = frame?.annotations.filter((a) => selectedIds.includes(a.id)) ?? [];
-    if (!frame || !block.length || !imageSize) return;
-    const delta = clampDelta(block, dx, dy, imageSize.width, imageSize.height);
-    if (!delta.dx && !delta.dy) return;
+    const selected = frame?.annotations.filter((a) => selectedIds.includes(a.id)) ?? [];
+    if (!frame || !selected.length || !imageSize) return;
+    // Cada caixa presa à imagem por conta própria; as já encostadas na borda ficam paradas.
+    const moves = selected
+      .map((ann) => ({ ann, d: boxDelta(ann.bbox, dx, dy, imageSize.width, imageSize.height) }))
+      .filter(({ d }) => d.dx || d.dy);
+    if (!moves.length) return;
+    const block = moves.map(({ ann }) => ann);
     try {
       const updated = await api.patch<Annotation[]>(`/annotations/${frame.index}/batch`, {
-        updates: block.map((ann) => ({ id: ann.id, changes: movedPatch(ann, delta.dx, delta.dy) })),
+        updates: moves.map(({ ann, d }) => ({ id: ann.id, changes: movedPatch(ann, d.dx, d.dy) })),
       });
       const byId = new Map(updated.map((a) => [a.id, a]));
       set((s) => ({
