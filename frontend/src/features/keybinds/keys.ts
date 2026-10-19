@@ -65,6 +65,8 @@ const CONTEXT: Record<Action, string> = {
   kp_undo: "kp", kp_cancel: "kp", classification_skip: "classification",
   search_class: "all", save: "all", export: "all", settings: "all", undo: "all",
   zoom_wheel: "all", zoom_fit: "all", pan_drag: "all", pan_hold: "all",
+  copy: "edit", paste: "edit", select_all: "edit",
+  nudge_left: "edit", nudge_right: "edit", nudge_up: "edit", nudge_down: "edit",
 };
 
 export function conflict(binds: Binds, action: Action, key: string): Action | null {

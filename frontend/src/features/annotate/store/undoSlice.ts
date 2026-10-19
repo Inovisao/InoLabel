@@ -1,5 +1,6 @@
 import { api } from "../../../shared/api/client";
 import type { Annotation, FrameResponse } from "../../../shared/api/types";
+import { pastePayload } from "./selection";
 import { FRAME_CHANGE_RESET, type Slice, type UndoEntry, type UndoSlice } from "./types";
 
 const UNDO_LIMIT = 100;
@@ -39,6 +40,7 @@ export const createUndoSlice: Slice<UndoSlice> = (set, get) => ({
         set((s) => ({
           frame: s.frame ? { ...s.frame, annotations: [...s.frame.annotations, restored], is_saved: true } : null,
           selectedAnnotationId: restored.id,
+          selectedIds: [restored.id],
         }));
       } else if (entry.kind === "update") {
         const updated = await api.patch<Annotation>(`/annotations/${entry.index}/${entry.annId}`, entry.before);
@@ -46,6 +48,29 @@ export const createUndoSlice: Slice<UndoSlice> = (set, get) => ({
           frame: s.frame
             ? { ...s.frame, annotations: s.frame.annotations.map((a) => (a.id === entry.annId ? updated : a)) }
             : null,
+        }));
+      } else if (entry.kind === "addMany") {
+        await api.post(`/annotations/${entry.index}/batch-delete`, { ids: entry.annIds });
+        set((s) => ({
+          frame: s.frame ? { ...s.frame, annotations: s.frame.annotations.filter((a) => !entry.annIds.includes(a.id)) } : null,
+          selectedIds: [],
+          selectedAnnotationId: null,
+        }));
+      } else if (entry.kind === "updateMany") {
+        const updated = await api.patch<Annotation[]>(`/annotations/${entry.index}/batch`, { updates: entry.before });
+        const byId = new Map(updated.map((a) => [a.id, a]));
+        set((s) => ({
+          frame: s.frame ? { ...s.frame, annotations: s.frame.annotations.map((a) => byId.get(a.id) ?? a) } : null,
+        }));
+      } else if (entry.kind === "removeMany") {
+        const res = await api.post<{ annotations: Annotation[] }>(`/annotations/${entry.index}/batch`, {
+          annotations: pastePayload(entry.anns, Infinity, Infinity).annotations,
+        });
+        const ids = res.annotations.map((a) => a.id);
+        set((s) => ({
+          frame: s.frame ? { ...s.frame, annotations: [...s.frame.annotations, ...res.annotations], is_saved: true } : null,
+          selectedIds: ids,
+          selectedAnnotationId: ids[ids.length - 1] ?? null,
         }));
       } else {
         await api.delete(`/annotations/${entry.index}/classification`);

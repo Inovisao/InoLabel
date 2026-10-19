@@ -2,6 +2,7 @@ import { useState } from "react";
 import type Konva from "konva";
 import type { Annotation, TaskMode } from "../../../shared/api/types";
 import type { Tool } from "../store";
+import { idsInRect, rectFromCorners } from "../store/selection";
 import { keypointAt } from "./KeypointLayer";
 import { obbCorners, pointInPolygon } from "./obbGeometry";
 
@@ -24,6 +25,10 @@ interface Options {
   clampToImage: (x: number, y: number) => { x: number; y: number };
   onDrawBox: (bbox: [number, number, number, number]) => Promise<void>;
   onSelect: (annId: number | null) => void;
+  /** Shift+clique: liga/desliga a anotação na seleção. */
+  onToggleSelect: (annId: number) => void;
+  /** Retângulo de seleção: `additive` (Shift) soma à seleção atual. */
+  onSelectMany: (ids: number[], additive: boolean) => void;
   onPlacePoint: (x: number, y: number) => void;
   onSelectPoint: (annId: number, index: number) => void;
 }
@@ -33,11 +38,14 @@ const MIN_DRAG_PX = 5;
 
 /**
  * Gestos do mouse no canvas: desenhar caixa (B), selecionar (V ou clique), e no modo
- * keypoint marcar pontos (B) ou selecionar ponto (V).
+ * keypoint marcar pontos (B) ou selecionar ponto (V). Com V, Shift+clique soma ou tira
+ * da seleção e arrastar num espaço vazio seleciona o que estiver dentro do retângulo.
  */
 export function useCanvasPointer(o: Options) {
   const [drawing, setDrawing] = useState<DrawingRect | null>(null);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
+  /** Retângulo de seleção (ferramenta V arrastando num espaço vazio), em px de tela. */
+  const [marquee, setMarquee] = useState<{ start: { x: number; y: number }; rect: DrawingRect; additive: boolean } | null>(null);
 
   /** Anotação sob o ponteiro (a menor, para formas sobrepostas). No OBB, pelo polígono girado. */
   const annotationAt = (stageX: number, stageY: number): Annotation | null => {
@@ -60,12 +68,31 @@ export function useCanvasPointer(o: Options) {
   const reset = () => {
     setDrawing(null);
     setStartPos(null);
+    setMarquee(null);
+  };
+
+  /** Ferramenta V: Shift+clique alterna; clique em vazio começa o retângulo de seleção. */
+  const startSelect = (pos: { x: number; y: number }, shift: boolean, hit: Annotation | null) => {
+    if (hit) {
+      if (shift) o.onToggleSelect(hit.id);
+      else o.onSelect(hit.id);
+      return;
+    }
+    if (!shift) o.onSelect(null);
+    setMarquee({ start: pos, rect: { x: pos.x, y: pos.y, w: 0, h: 0 }, additive: shift });
   };
 
   const onMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.evt.button !== 0 || !o.hasImage || o.mode === "classification") return;
     const pos = e.target.getStage()?.getPointerPosition();
     if (!pos) return;
+    const shift = e.evt.shiftKey;
+    // Shift+clique numa forma já selecionada (arrastável) a tira da seleção.
+    if (shift && o.tool === "select" && (e.target.draggable() || e.target.getParent()?.draggable())) {
+      const hit = annotationAt(pos.x, pos.y);
+      if (hit) o.onToggleSelect(hit.id);
+      return;
+    }
     // Alça de rotação ou forma arrastável: o gesto é delas, não desenha nem seleciona.
     if (e.target.draggable() || e.target.getParent()?.draggable()) return;
 
@@ -78,12 +105,12 @@ export function useCanvasPointer(o: Options) {
       }
       // V: clique perto de um ponto seleciona instância + ponto; senão, pela bbox.
       const hit = keypointAt(o.annotations, x, y, 10 / o.scale);
-      if (hit) o.onSelectPoint(hit.annId, hit.index);
-      else o.onSelect(annotationAt(pos.x, pos.y)?.id ?? null);
+      if (hit && !shift) o.onSelectPoint(hit.annId, hit.index);
+      else startSelect(pos, shift, hit ? o.annotations.find((a) => a.id === hit.annId) ?? null : annotationAt(pos.x, pos.y));
       return;
     }
     if (o.tool === "select") {
-      o.onSelect(annotationAt(pos.x, pos.y)?.id ?? null);
+      startSelect(pos, shift, annotationAt(pos.x, pos.y));
       return;
     }
     if (!o.isInsideImage(pos.x, pos.y)) return;
@@ -92,8 +119,12 @@ export function useCanvasPointer(o: Options) {
   };
 
   const onMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!startPos || !o.hasImage || o.mode === "classification") return;
     const pos = e.target.getStage()?.getPointerPosition();
+    if (marquee && pos) {
+      setMarquee({ ...marquee, rect: rectFromCorners(marquee.start, pos) });
+      return;
+    }
+    if (!startPos || !o.hasImage || o.mode === "classification") return;
     if (!pos) return;
     const c = o.clampToImage(pos.x, pos.y);
     setDrawing({
@@ -109,6 +140,16 @@ export function useCanvasPointer(o: Options) {
       reset();
       return;
     }
+    if (marquee) {
+      const { rect, additive } = marquee;
+      if (rect.w >= MIN_DRAG_PX && rect.h >= MIN_DRAG_PX) {
+        const a = o.toImageCoords(rect.x, rect.y);
+        const b = o.toImageCoords(rect.x + rect.w, rect.y + rect.h);
+        o.onSelectMany(idsInRect(o.annotations, rectFromCorners(a, b)), additive);
+      }
+      reset();
+      return;
+    }
     if (!drawing || !startPos || drawing.w < MIN_DRAG_PX || drawing.h < MIN_DRAG_PX) {
       // Clique sem arrastar também seleciona a caixa sob o ponteiro.
       if (startPos) o.onSelect(annotationAt(startPos.x, startPos.y)?.id ?? null);
@@ -121,5 +162,5 @@ export function useCanvasPointer(o: Options) {
     reset();
   };
 
-  return { drawing, annotationAt, onMouseDown, onMouseMove, onMouseUp };
+  return { drawing, marquee: marquee?.rect ?? null, annotationAt, onMouseDown, onMouseMove, onMouseUp };
 }

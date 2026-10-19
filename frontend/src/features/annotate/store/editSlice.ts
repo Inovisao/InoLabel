@@ -2,6 +2,7 @@ import { api } from "../../../shared/api/client";
 import type { Annotation, AnnotationPatch } from "../../../shared/api/types";
 import { useSessionStore } from "../../../shared/session/store";
 import { normalizeAngle, rotateTo } from "../canvas/obbGeometry";
+import { beforeMovePatch, clampDelta, movedPatch, pastePayload, toggleId } from "./selection";
 import type { EditSlice, Slice } from "./types";
 import { pushUndo } from "./undoSlice";
 
@@ -20,6 +21,8 @@ function previousValues(current: Annotation, patch: AnnotationPatch): Annotation
 export const createEditSlice: Slice<EditSlice> = (set, get) => ({
   selectedClassId: 0,
   selectedAnnotationId: null,
+  selectedIds: [],
+  clipboard: null,
   tool: "box",
   pinnedTrackId: null,
 
@@ -51,6 +54,7 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
       set((s) => ({
         frame: s.frame ? { ...s.frame, annotations: [...s.frame.annotations, ann], is_saved: true } : null,
         selectedAnnotationId: ann.id,
+        selectedIds: [ann.id],
         undoStack: pushUndo(s.undoStack, { kind: "add", index: frame.index, annId: ann.id }),
       }));
     } catch (e) {
@@ -92,6 +96,7 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
         return {
           frame: { ...s.frame, annotations: remaining, is_saved: remaining.length > 0 || !!s.frame.reviewed },
           selectedAnnotationId: s.selectedAnnotationId === annId ? null : s.selectedAnnotationId,
+          selectedIds: s.selectedIds.filter((id) => id !== annId),
           undoStack:
             removed && !opts?.skipUndo
               ? pushUndo(s.undoStack, { kind: "remove", index: frame.index, ann: removed })
@@ -103,7 +108,103 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
     }
   },
 
-  selectAnnotation: (annId) => set({ selectedAnnotationId: annId, selectedKpIndex: null }),
+  selectAnnotation: (annId) =>
+    set({ selectedAnnotationId: annId, selectedIds: annId === null ? [] : [annId], selectedKpIndex: null }),
+
+  toggleInSelection: (annId) =>
+    set((s) => {
+      const selectedIds = toggleId(s.selectedIds, annId);
+      // A principal (painéis de edição) é a última adicionada ainda selecionada.
+      return { selectedIds, selectedAnnotationId: selectedIds[selectedIds.length - 1] ?? null, selectedKpIndex: null };
+    }),
+
+  selectMany: (ids) => set({ selectedIds: ids, selectedAnnotationId: ids[ids.length - 1] ?? null, selectedKpIndex: null }),
+
+  selectAll: () => get().selectMany(get().frame?.annotations.map((a) => a.id) ?? []),
+
+  copySelection: () => {
+    const { frame, selectedIds } = get();
+    const block = frame?.annotations.filter((a) => selectedIds.includes(a.id)) ?? [];
+    if (block.length) set({ clipboard: block });
+  },
+
+  pasteClipboard: async () => {
+    const { frame, clipboard, imageSize } = get();
+    if (!frame || !clipboard?.length || !imageSize) return;
+    const { annotations, skipped } = pastePayload(clipboard, imageSize.width, imageSize.height);
+    if (!annotations.length) {
+      set({ error: "Nenhuma anotação copiada cabe nesta imagem." });
+      return;
+    }
+    try {
+      const res = await api.post<{ annotations: Annotation[]; renumbered_track_ids: number }>(
+        `/annotations/${frame.index}/batch`,
+        { annotations }
+      );
+      const ids = res.annotations.map((a) => a.id);
+      const notes = [
+        skipped ? `${skipped} anotação(ões) fora da imagem não foram coladas.` : "",
+        res.renumbered_track_ids ? `${res.renumbered_track_ids} ID(s) já existiam neste frame e foram trocados.` : "",
+      ].filter(Boolean);
+      set((s) => ({
+        frame: s.frame ? { ...s.frame, annotations: [...s.frame.annotations, ...res.annotations], is_saved: true } : null,
+        selectedIds: ids,
+        selectedAnnotationId: ids[ids.length - 1] ?? null,
+        // Colar já deixa pronto para ajustar o bloco com a ferramenta de seleção.
+        tool: "select",
+        undoStack: pushUndo(s.undoStack, { kind: "addMany", index: frame.index, annIds: ids }),
+        ...(notes.length ? { error: notes.join(" ") } : {}),
+      }));
+    } catch (e) {
+      set({ error: `Erro ao colar anotações: ${(e as Error).message}` });
+    }
+  },
+
+  moveSelection: async (dx, dy) => {
+    const { frame, selectedIds, imageSize } = get();
+    const block = frame?.annotations.filter((a) => selectedIds.includes(a.id)) ?? [];
+    if (!frame || !block.length || !imageSize) return;
+    const delta = clampDelta(block, dx, dy, imageSize.width, imageSize.height);
+    if (!delta.dx && !delta.dy) return;
+    try {
+      const updated = await api.patch<Annotation[]>(`/annotations/${frame.index}/batch`, {
+        updates: block.map((ann) => ({ id: ann.id, changes: movedPatch(ann, delta.dx, delta.dy) })),
+      });
+      const byId = new Map(updated.map((a) => [a.id, a]));
+      set((s) => ({
+        frame: s.frame ? { ...s.frame, annotations: s.frame.annotations.map((a) => byId.get(a.id) ?? a) } : null,
+        undoStack: pushUndo(s.undoStack, {
+          kind: "updateMany",
+          index: frame.index,
+          before: block.map((ann) => ({ id: ann.id, changes: beforeMovePatch(ann) })),
+        }),
+      }));
+    } catch (e) {
+      set({ error: `Erro ao mover anotações: ${(e as Error).message}` });
+    }
+  },
+
+  removeSelection: async () => {
+    const { frame, selectedIds } = get();
+    const block = frame?.annotations.filter((a) => selectedIds.includes(a.id)) ?? [];
+    if (!frame || !block.length) return;
+    if (block.length === 1) return get().removeAnnotation(block[0].id);
+    try {
+      await api.post(`/annotations/${frame.index}/batch-delete`, { ids: block.map((a) => a.id) });
+      set((s) => {
+        if (!s.frame) return {};
+        const remaining = s.frame.annotations.filter((a) => !selectedIds.includes(a.id));
+        return {
+          frame: { ...s.frame, annotations: remaining, is_saved: remaining.length > 0 || !!s.frame.reviewed },
+          selectedIds: [],
+          selectedAnnotationId: null,
+          undoStack: pushUndo(s.undoStack, { kind: "removeMany", index: frame.index, anns: block }),
+        };
+      });
+    } catch (e) {
+      set({ error: `Erro ao remover anotações: ${(e as Error).message}` });
+    }
+  },
 
   setTool: (tool) => set({ tool }),
 

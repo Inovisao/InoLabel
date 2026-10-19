@@ -26,6 +26,9 @@ DEFAULT_PROFILE = {
     "save": ["Ctrl+S"], "export": ["Ctrl+E"],
     "settings": ["Ctrl+Comma"], "undo": ["Ctrl+Z"],
     "zoom_wheel": ["Ctrl+Wheel"], "zoom_fit": ["Ctrl+0"], "pan_drag": ["MiddleDrag"], "pan_hold": ["H"],
+    "copy": ["Ctrl+C"], "paste": ["Ctrl+V"], "select_all": ["Ctrl+A"],
+    "nudge_left": ["Alt+ArrowLeft"], "nudge_right": ["Alt+ArrowRight"],
+    "nudge_up": ["Alt+ArrowUp"], "nudge_down": ["Alt+ArrowDown"],
 }
 DEFAULT_PROFILES = KeybindProfiles(active_profile="Padrão", profiles={"Padrão": DEFAULT_PROFILE})
 _ALIASES = {"next": "next_frame", "prev": "prev_frame"}
@@ -47,6 +50,8 @@ _CONTEXT = {
     "classification_skip": "classification", "search_class": "all", "save": "all",
     "export": "all", "settings": "all", "undo": "all",
     "zoom_wheel": "all", "zoom_fit": "all", "pan_drag": "all", "pan_hold": "all",
+    "copy": "edit", "paste": "edit", "select_all": "edit",
+    "nudge_left": "edit", "nudge_right": "edit", "nudge_up": "edit", "nudge_down": "edit",
 }
 # Ações do mouse e o sufixo do gesto aceito em cada uma (ex.: "Ctrl+Wheel", "MiddleDrag").
 _MOUSE_ACTIONS = {"zoom_wheel": "Wheel", "pan_drag": "Drag"}

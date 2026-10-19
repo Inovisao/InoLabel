@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.api.common.schemas import OBBGeometry
+from app.api.common.schemas import Annotation, OBBGeometry
 
 
 class AnnotationUpsert(BaseModel):
@@ -58,6 +58,35 @@ class AnnotationPatch(BaseModel):
     bbox: Optional[List[float]] = None
     obb: Optional[OBBGeometry] = None
     keypoints: Optional[List[List[float]]] = None
+
+# ── lote (copiar/colar e editar várias anotações de uma vez) ─────────────────
+
+# Teto de um lote: um bloco colado tem dezenas de caixas, não milhares.
+MAX_BATCH = 1000
+
+
+class AnnotationBatchCreate(BaseModel):
+    annotations: List[AnnotationUpsert] = Field(min_length=1, max_length=MAX_BATCH)
+
+
+class AnnotationBatchCreated(BaseModel):
+    annotations: List[Annotation]
+    # Rastreamento: caixas cujo track_id já existia no frame e receberam um ID novo.
+    renumbered_track_ids: int = 0
+
+
+class AnnotationBatchUpdateItem(BaseModel):
+    id: int
+    changes: AnnotationPatch
+
+
+class AnnotationBatchUpdate(BaseModel):
+    updates: List[AnnotationBatchUpdateItem] = Field(min_length=1, max_length=MAX_BATCH)
+
+
+class AnnotationBatchDelete(BaseModel):
+    ids: List[int] = Field(min_length=1, max_length=MAX_BATCH)
+
 
 class NextTrackId(BaseModel):
     next_track_id: int
