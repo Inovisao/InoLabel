@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Annotation } from "../src/shared/api/types.ts";
 import {
-  beforeMovePatch, boxDelta, idsInRect, movedPatch, pastePayload, rectFromCorners, toggleId,
+  beforeMovePatch, boxDelta, idsInRect, movedPatch, pastePayload, rectFromCorners, scaleAnnotation, toggleId,
 } from "../src/features/annotate/store/selection.ts";
 
 const box = (id: number, bbox: [number, number, number, number], extra: Partial<Annotation> = {}): Annotation =>
@@ -53,12 +53,30 @@ test("desfazer o movimento devolve a geometria original no formato do PATCH", ()
   assert.deepEqual(beforeMovePatch(box(1, [1, 2, 3, 4])), { bbox: [1, 2, 3, 4] });
 });
 
-test("colar copia classe, geometria e ID; descarta o que não cabe na imagem", () => {
-  const clip = [
-    box(1, [10, 10, 5, 5], { category_id: 1, track_id: 7, score: 0.9, source: "model" }),
-    box(2, [500, 500, 5, 5]),
-  ];
+test("colar copia classe, geometria e ID; descarta o que já estava fora da imagem", () => {
+  const clip = {
+    width: 100,
+    height: 100,
+    annotations: [box(1, [10, 10, 5, 5], { category_id: 1, track_id: 7, score: 0.9, source: "model" }), box(2, [500, 500, 5, 5])],
+  };
   const { annotations, skipped } = pastePayload(clip, 100, 100);
   assert.equal(skipped, 1);
   assert.deepEqual(annotations, [{ category_id: 1, bbox: [10, 10, 5, 5], source: "manual", track_id: 7 }]);
+});
+
+test("colar numa imagem de outro tamanho mantém a posição relativa (bug: caixas fora da imagem)", () => {
+  // Copiado de uma imagem 2000×1000, colado numa de 1000×500: tudo cabe, na mesma proporção.
+  const clip = { width: 2000, height: 1000, annotations: [box(1, [1800, 800, 100, 100]), box(2, [200, 100, 400, 50])] };
+  const { annotations, skipped } = pastePayload(clip, 1000, 500);
+  assert.equal(skipped, 0);
+  assert.deepEqual(annotations.map((a) => a.bbox), [[900, 400, 50, 50], [100, 50, 200, 25]]);
+});
+
+test("escala leva OBB e keypoints junto; sem mudança de tamanho, a anotação fica igual", () => {
+  const obb = { cx: 100, cy: 50, width: 40, height: 10, angle: 0 };
+  const scaled = scaleAnnotation(box(1, [80, 45, 40, 10], { obb, keypoints: [[10, 20, 2]] }), 0.5, 0.5);
+  assert.deepEqual(scaled.obb, { cx: 50, cy: 25, width: 20, height: 5, angle: 0 });
+  assert.deepEqual(scaled.keypoints, [[5, 10, 2]]);
+  const same = box(2, [1, 2, 3, 4]);
+  assert.equal(scaleAnnotation(same, 1, 1), same);
 });

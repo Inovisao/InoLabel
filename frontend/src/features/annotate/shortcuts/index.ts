@@ -1,6 +1,6 @@
 import type { TaskMode } from "../../../shared/api/types";
 import { classificationKeys } from "./classificationKeys";
-import { editKeys, obbRotationKeys, selectionKeys } from "./editKeys";
+import { editKeys, obbRotationKeys, selectionKeys, viewKeys } from "./editKeys";
 import { keypointKeys } from "./keypointKeys";
 import { navigationKeys } from "./navigationKeys";
 import type { KeyHandler } from "./types";
@@ -15,5 +15,5 @@ export function handlersFor(mode: TaskMode | null): KeyHandler[] {
         : mode === "obb"
           ? [obbRotationKeys, selectionKeys, editKeys]
           : [selectionKeys, editKeys];
-  return [...byMode, navigationKeys];
+  return [viewKeys, ...byMode, navigationKeys];
 }

@@ -29,6 +29,7 @@ DEFAULT_PROFILE = {
     "copy": ["Ctrl+C"], "paste": ["Ctrl+V"], "select_all": ["Ctrl+A"],
     "nudge_left": ["Alt+ArrowLeft"], "nudge_right": ["Alt+ArrowRight"],
     "nudge_up": ["Alt+ArrowUp"], "nudge_down": ["Alt+ArrowDown"],
+    "rotate_view_cw": ["R"], "rotate_view_ccw": ["Alt+R"],
 }
 DEFAULT_PROFILES = KeybindProfiles(active_profile="Padrão", profiles={"Padrão": DEFAULT_PROFILE})
 _ALIASES = {"next": "next_frame", "prev": "prev_frame"}
@@ -52,6 +53,7 @@ _CONTEXT = {
     "zoom_wheel": "all", "zoom_fit": "all", "pan_drag": "all", "pan_hold": "all",
     "copy": "edit", "paste": "edit", "select_all": "edit",
     "nudge_left": "edit", "nudge_right": "edit", "nudge_up": "edit", "nudge_down": "edit",
+    "rotate_view_cw": "all", "rotate_view_ccw": "all",
 }
 # Ações do mouse e o sufixo do gesto aceito em cada uma (ex.: "Ctrl+Wheel", "MiddleDrag").
 _MOUSE_ACTIONS = {"zoom_wheel": "Wheel", "pan_drag": "Drag"}

@@ -1,6 +1,6 @@
 import { api } from "../../../shared/api/client";
 import type { Annotation, FrameResponse } from "../../../shared/api/types";
-import { pastePayload } from "./selection";
+import { createPayload } from "./selection";
 import { FRAME_CHANGE_RESET, type Slice, type UndoEntry, type UndoSlice } from "./types";
 
 const UNDO_LIMIT = 100;
@@ -64,7 +64,7 @@ export const createUndoSlice: Slice<UndoSlice> = (set, get) => ({
         }));
       } else if (entry.kind === "removeMany") {
         const res = await api.post<{ annotations: Annotation[] }>(`/annotations/${entry.index}/batch`, {
-          annotations: pastePayload(entry.anns, Infinity, Infinity).annotations,
+          annotations: entry.anns.map(createPayload),
         });
         const ids = res.annotations.map((a) => a.id);
         set((s) => ({

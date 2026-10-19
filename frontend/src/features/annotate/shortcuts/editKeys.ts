@@ -1,5 +1,6 @@
 import type { KeyHandler } from "./types";
 import { matches } from "../../keybinds/keys";
+import { vectorToLocal } from "../canvas/viewRotation";
 
 /** OBB: Q/E giram a caixa selecionada 5° (Shift: ajuste fino de 1°). */
 export const obbRotationKeys: KeyHandler = (e, s, binds) => {
@@ -27,7 +28,7 @@ export const selectionKeys: KeyHandler = (e, s, binds) => {
     return true;
   }
   if (matches(e, binds, "paste")) {
-    if (s.clipboard?.length) { e.preventDefault(); s.pasteClipboard(); }
+    if (s.clipboard?.annotations.length) { e.preventDefault(); s.pasteClipboard(); }
     return true;
   }
   for (const [action, x, y] of NUDGES) {
@@ -35,9 +36,18 @@ export const selectionKeys: KeyHandler = (e, s, binds) => {
     // Alt+seta também é "voltar página" no navegador: sempre bloqueado aqui.
     e.preventDefault();
     const step = e.shiftKey ? 10 : 1;
-    if (s.selectedIds.length) s.moveSelection(x * step, y * step);
+    // A direção é a da tela: com a exibição girada, converte para os eixos da imagem.
+    const d = vectorToLocal({ x: x * step, y: y * step }, s.viewRotation);
+    if (s.selectedIds.length) s.moveSelection(d.x, d.y);
     return true;
   }
+  return false;
+};
+
+/** Girar a exibição 90° (vale em todos os modos, inclusive classificação). */
+export const viewKeys: KeyHandler = (e, s, binds) => {
+  if (matches(e, binds, "rotate_view_cw")) { e.preventDefault(); s.rotateView(90); return true; }
+  if (matches(e, binds, "rotate_view_ccw")) { e.preventDefault(); s.rotateView(-90); return true; }
   return false;
 };
 

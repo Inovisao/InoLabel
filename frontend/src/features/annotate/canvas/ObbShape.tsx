@@ -4,6 +4,7 @@ import type { Annotation, OBBGeometry } from "../../../shared/api/types";
 import { angleFromCenter, fitInsideImage, obbCorners, rotateTo } from "./obbGeometry";
 import ShapeLabel, { labelFontSize } from "./ShapeLabel";
 import type { ImageFit } from "./useImageFit";
+import { labelAnchor } from "./viewRotation";
 
 /** Distância (px de tela) da alça de rotação até o lado superior da caixa. */
 const ROTATE_HANDLE_OFFSET = 28;
@@ -47,8 +48,13 @@ export default function ObbShape({
   const toStage = (x: number, y: number) => [fit.offsetX + x * fit.scale, fit.offsetY + y * fit.scale] as const;
 
   const scaled = points.flatMap(([px, py]) => toStage(px, py));
-  const labelX = Math.min(...points.map(([px]) => toStage(px, 0)[0]));
-  const labelY = Math.min(...points.map(([, py]) => toStage(0, py)[1]));
+  // Etiqueta no canto superior esquerdo do contorno na tela (em pé com a exibição girada).
+  const anchor = labelAnchor(
+    points.map(([px, py]) => toStage(px, py) as [number, number]),
+    fit.stageW,
+    fit.stageH,
+    fit.rotation
+  ).local;
 
   // Alça: acima do meio do lado superior, na direção "para cima" da caixa.
   const upAngle = ((geometry.angle - 90) * Math.PI) / 180;
@@ -90,7 +96,15 @@ export default function ObbShape({
         fill="transparent"
         listening={true}
       />
-      <ShapeLabel x={labelX} y={labelY} label={label} color={color} fontSize={labelFontSize(ann.bbox[2] * fit.scale)} faded={labelFaded} />
+      <ShapeLabel
+        x={anchor.x}
+        y={anchor.y}
+        label={label}
+        color={color}
+        fontSize={labelFontSize(ann.bbox[2] * fit.scale)}
+        faded={labelFaded}
+        rotation={fit.rotation}
+      />
       {selected && rotatable && (
         <>
           <Line points={[topMidX, topMidY, handleX, handleY]} stroke={color} strokeWidth={1.5} listening={false} />
@@ -111,7 +125,8 @@ export default function ObbShape({
               if (c) c.style.cursor = "";
             }}
             onDragMove={(e) => {
-              const pos = e.target.getStage()?.getPointerPosition();
+              // No espaço local (o da caixa), também com a exibição girada.
+              const pos = e.target.getLayer()?.getRelativePointerPosition();
               if (!pos) return;
               // +90: a alça fica no "para cima" da caixa (ângulo − 90°).
               let angle = angleFromCenter(centerX, centerY, pos.x, pos.y) + 90;
