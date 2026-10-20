@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Annotation } from "../src/shared/api/types.ts";
 import {
-  beforeMovePatch, boxDelta, idsInRect, movedPatch, pastePayload, rectFromCorners, scaleAnnotation, toggleId,
+  beforeMovePatch, boxDelta, idsInRect, movedPatch, pastePayload, rectFromCorners, toggleId, transformAnnotation,
 } from "../src/features/annotate/store/selection.ts";
 
 const box = (id: number, bbox: [number, number, number, number], extra: Partial<Annotation> = {}): Annotation =>
@@ -57,26 +57,61 @@ test("colar copia classe, geometria e ID; descarta o que já estava fora da imag
   const clip = {
     width: 100,
     height: 100,
+    rotation: 0 as const,
     annotations: [box(1, [10, 10, 5, 5], { category_id: 1, track_id: 7, score: 0.9, source: "model" }), box(2, [500, 500, 5, 5])],
   };
-  const { annotations, skipped } = pastePayload(clip, 100, 100);
+  const { annotations, skipped } = pastePayload(clip, { width: 100, height: 100, rotation: 0 });
   assert.equal(skipped, 1);
   assert.deepEqual(annotations, [{ category_id: 1, bbox: [10, 10, 5, 5], source: "manual", track_id: 7 }]);
 });
 
 test("colar numa imagem de outro tamanho mantém a posição relativa (bug: caixas fora da imagem)", () => {
   // Copiado de uma imagem 2000×1000, colado numa de 1000×500: tudo cabe, na mesma proporção.
-  const clip = { width: 2000, height: 1000, annotations: [box(1, [1800, 800, 100, 100]), box(2, [200, 100, 400, 50])] };
-  const { annotations, skipped } = pastePayload(clip, 1000, 500);
+  const clip = { width: 2000, height: 1000, rotation: 0 as const, annotations: [box(1, [1800, 800, 100, 100]), box(2, [200, 100, 400, 50])] };
+  const { annotations, skipped } = pastePayload(clip, { width: 1000, height: 500, rotation: 0 });
   assert.equal(skipped, 0);
   assert.deepEqual(annotations.map((a) => a.bbox), [[900, 400, 50, 50], [100, 50, 200, 25]]);
 });
 
-test("escala leva OBB e keypoints junto; sem mudança de tamanho, a anotação fica igual", () => {
+const space = (width: number, height: number, rotation: 0 | 90 | 180 | 270 = 0) => ({ width, height, rotation });
+const round = (xs: number[]) => xs.map((v) => Math.round(v * 1000) / 1000 || 0);
+
+test("escala leva OBB e keypoints junto; sem mudança de tamanho nem rotação, a anotação fica igual", () => {
   const obb = { cx: 100, cy: 50, width: 40, height: 10, angle: 0 };
-  const scaled = scaleAnnotation(box(1, [80, 45, 40, 10], { obb, keypoints: [[10, 20, 2]] }), 0.5, 0.5);
-  assert.deepEqual(scaled.obb, { cx: 50, cy: 25, width: 20, height: 5, angle: 0 });
+  const scaled = transformAnnotation(box(1, [80, 45, 40, 10], { obb, keypoints: [[10, 20, 2]] }), space(200, 100), space(100, 50));
+  const o = scaled.obb!;
+  assert.deepEqual(round([o.cx, o.cy, o.width, o.height, o.angle]), [50, 25, 20, 5, 0]);
   assert.deepEqual(scaled.keypoints, [[5, 10, 2]]);
   const same = box(2, [1, 2, 3, 4]);
-  assert.equal(scaleAnnotation(same, 1, 1), same);
+  assert.equal(transformAnnotation(same, space(10, 10), space(10, 10)), same);
+});
+
+test("colar acompanha a rotação: copiado em pé, colado num documento deitado lido em 90°", () => {
+  // Origem 1000×500 em pé (0°); destino é o mesmo documento deitado no arquivo (500×1000),
+  // lido com a exibição girada 90°. Na tela, o campo aparece no mesmo lugar.
+  // Em 90° horário, o canto superior esquerdo da tela é o inferior esquerdo da imagem.
+  const field = box(1, [100, 50, 300, 40]);
+  const moved = transformAnnotation(field, space(1000, 500, 0), space(500, 1000, 90));
+  assert.deepEqual(round(moved.bbox), [50, 600, 40, 300]);
+});
+
+test("ida e volta entre rotações devolve a mesma caixa", () => {
+  const field = box(1, [100, 50, 300, 40]);
+  for (const r of [90, 180, 270] as const) {
+    const dst = r === 180 ? space(1000, 500, r) : space(500, 1000, r);
+    const back = transformAnnotation(transformAnnotation(field, space(1000, 500, 0), dst), dst, space(1000, 500, 0));
+    assert.deepEqual(round(back.bbox), [100, 50, 300, 40], `r=${r}`);
+  }
+});
+
+test("rotação leva OBB (ângulo soma a diferença) e keypoints", () => {
+  const obb = { cx: 200, cy: 100, width: 80, height: 20, angle: 0 };
+  const ann = box(1, [160, 90, 80, 20], { obb, keypoints: [[200, 100, 2], [0, 0, 0]] });
+  // Mesma imagem quadrada, origem em 0° e destino exibido em 90°. O centro aparecia no alto
+  // e no meio da tela (0,5; 0,25); em 90° esse lugar da tela mostra o ponto (100, 200).
+  const moved = transformAnnotation(ann, space(400, 400, 0), space(400, 400, 90));
+  const o = moved.obb!;
+  assert.deepEqual(round([o.cx, o.cy, o.width, o.height]), [100, 200, 80, 20]);
+  assert.equal(Math.round(Math.abs(o.angle)), 90);
+  assert.deepEqual(moved.keypoints, [[100, 200, 2], [0, 400, 0]]);
 });

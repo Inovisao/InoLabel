@@ -129,7 +129,9 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
     const { frame, selectedIds } = get();
     const block = frame?.annotations.filter((a) => selectedIds.includes(a.id)) ?? [];
     const { imageSize } = get();
-    if (block.length && imageSize) set({ clipboard: { annotations: block, width: imageSize.width, height: imageSize.height } });
+    if (block.length && imageSize) {
+      set({ clipboard: { annotations: block, width: imageSize.width, height: imageSize.height, rotation: get().viewRotation } });
+    }
   },
 
   pasteClipboard: async () => {
@@ -140,7 +142,12 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
       set({ error: "A imagem ainda está carregando; cole de novo em seguida." });
       return;
     }
-    const { annotations, skipped } = pastePayload(clipboard, imageSize.width, imageSize.height);
+    // Cola como o bloco aparecia na tela: acompanha a rotação da exibição de cada imagem.
+    const { annotations, skipped } = pastePayload(clipboard, {
+      width: imageSize.width,
+      height: imageSize.height,
+      rotation: get().viewRotation,
+    });
     if (!annotations.length) {
       set({ error: "Nenhuma anotação copiada cabe nesta imagem." });
       return;
