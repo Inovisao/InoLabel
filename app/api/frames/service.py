@@ -12,6 +12,7 @@ from app.api.classification.service import current_classification_id
 from app.api.common.errors import BadRequest, NotFound
 from app.api.frames import image_cache
 from app.api.frames.schemas import FrameResponse
+from app.api.session import project_meta
 from app.config import IMAGE_EXTENSIONS
 
 _IMAGE_EXTS = set(IMAGE_EXTENSIONS)
@@ -91,6 +92,7 @@ def _go_to(index: int) -> FrameResponse:
     session = _state.active_session()
     if session is not None:
         session.current_frame = index
+        project_meta.update_current_frame(session)
     return _response(index)
 
 
