@@ -51,6 +51,19 @@ def update_on_stop(session) -> None:
     _write(session.output_path, meta)
 
 
+def update_current_frame(session) -> None:
+    """Frame exibido, gravado a cada troca de frame.
+
+    Só no encerramento não basta: fechar a janela ou o app não encerra a sessão, e o
+    projeto reabria no primeiro frame em vez de onde a anotação parou.
+    """
+    meta = read(session.output_path)
+    if meta.get("current_frame") == session.current_frame:
+        return
+    meta["current_frame"] = session.current_frame
+    _write(session.output_path, meta)
+
+
 def update_classes(session) -> None:
     """Classes editadas durante a anotação: o projeto retomado já abre com elas."""
     meta = read(session.output_path)
