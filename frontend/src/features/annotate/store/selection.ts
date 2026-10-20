@@ -3,6 +3,7 @@
  * imagem (testadas em frontend/tests). Só `import type`, para rodar no node --test.
  */
 import type { Annotation, AnnotationPatch } from "../../../shared/api/types";
+import type { Rotation } from "../canvas/viewRotation";
 
 export interface ImageRect {
   x: number;
@@ -65,11 +66,19 @@ export function beforeMovePatch(ann: Annotation): AnnotationPatch {
   return { bbox: ann.bbox };
 }
 
-/** Bloco copiado, com o tamanho da imagem de onde saiu. */
+/** Bloco copiado, com o tamanho da imagem de onde saiu e a rotação da exibição na cópia. */
 export interface Clipboard {
   annotations: Annotation[];
   width: number;
   height: number;
+  rotation: Rotation;
+}
+
+/** Imagem e rotação da exibição de um lado da cópia (origem ou destino). */
+export interface PasteSpace {
+  width: number;
+  height: number;
+  rotation: Rotation;
 }
 
 /** Corpo do POST para recriar a anotação: classe, geometria e ID; sem id/score do original. */
@@ -84,37 +93,73 @@ export function createPayload(ann: Annotation) {
   };
 }
 
-/**
- * Anotação levada para uma imagem de outro tamanho, na mesma posição relativa (um campo
- * a 30% da largura continua a 30%). A OBB girada com escalas diferentes em x e y é
- * aproximada: o ângulo fica e cada lado escala pela sua direção.
- */
-export function scaleAnnotation(ann: Annotation, sx: number, sy: number): Annotation {
-  if (sx === 1 && sy === 1) return ann;
-  const [x, y, w, h] = ann.bbox;
-  const scaled: Annotation = { ...ann, bbox: [x * sx, y * sy, w * sx, h * sy] };
-  if (ann.obb) {
-    const t = (ann.obb.angle * Math.PI) / 180;
-    scaled.obb = {
-      ...ann.obb,
-      cx: ann.obb.cx * sx,
-      cy: ann.obb.cy * sy,
-      width: ann.obb.width * Math.hypot(sx * Math.cos(t), sy * Math.sin(t)),
-      height: ann.obb.height * Math.hypot(sx * Math.sin(t), sy * Math.cos(t)),
-    };
-  }
-  if (ann.keypoints) scaled.keypoints = ann.keypoints.map(([px, py, v]) => [px * sx, py * sy, v]);
-  return scaled;
+// Ponto normalizado da imagem (0..1) → posição na tela girada `r` (horário), e o inverso.
+const TO_VIEW: Record<Rotation, (a: number, b: number) => [number, number]> = {
+  0: (a, b) => [a, b],
+  90: (a, b) => [1 - b, a],
+  180: (a, b) => [1 - a, 1 - b],
+  270: (a, b) => [b, 1 - a],
+};
+const FROM_VIEW: Record<Rotation, (u: number, v: number) => [number, number]> = {
+  0: (u, v) => [u, v],
+  90: (u, v) => [v, 1 - u],
+  180: (u, v) => [1 - u, 1 - v],
+  270: (u, v) => [1 - v, u],
+};
+
+/** Cantos da OBB em px da imagem (mesma ordem de obbGeometry.obbCorners). */
+function obbCorners({ cx, cy, width, height, angle }: NonNullable<Annotation["obb"]>): [number, number][] {
+  const t = (angle * Math.PI) / 180;
+  const [c, s] = [Math.cos(t), Math.sin(t)];
+  return ([[-1, -1], [1, -1], [1, 1], [-1, 1]] as const).map(([kx, ky]) => {
+    const [dx, dy] = [(kx * width) / 2, (ky * height) / 2];
+    return [cx + dx * c - dy * s, cy + dx * s + dy * c];
+  });
 }
 
 /**
- * Corpo do POST em lote para colar numa imagem de `imgW`×`imgH`: escala o bloco se a
- * imagem de origem tinha outro tamanho e descarta o que ficar fora da imagem.
+ * Anotação levada da imagem de origem para a de destino como ela aparecia na tela: a
+ * mesma posição relativa (um campo a 30% da largura continua a 30%) e a mesma orientação
+ * na tela, mesmo que cada imagem esteja com a exibição girada de um jeito (ex.: documento
+ * deitado no arquivo, lido com a exibição girada 90°). Caixa continua alinhada aos eixos;
+ * OBB é refeita pelos 4 cantos (aproximada se as escalas em x e y diferem).
  */
-export function pastePayload(clipboard: Clipboard, imgW: number, imgH: number) {
-  const sx = clipboard.width ? imgW / clipboard.width : 1;
-  const sy = clipboard.height ? imgH / clipboard.height : 1;
-  const scaled = clipboard.annotations.map((ann) => scaleAnnotation(ann, sx, sy));
+export function transformAnnotation(ann: Annotation, from: PasteSpace, to: PasteSpace): Annotation {
+  if (from.rotation === to.rotation && from.width === to.width && from.height === to.height) return ann;
+  const point = (x: number, y: number): [number, number] => {
+    const [u, v] = TO_VIEW[from.rotation](x / from.width, y / from.height);
+    const [a, b] = FROM_VIEW[to.rotation](u, v);
+    return [a * to.width, b * to.height];
+  };
+  const [x, y, w, h] = ann.bbox;
+  const [p, q] = [point(x, y), point(x + w, y + h)];
+  const moved: Annotation = {
+    ...ann,
+    bbox: [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.abs(q[0] - p[0]), Math.abs(q[1] - p[1])],
+  };
+  if (ann.obb) {
+    const [c0, c1, c2, c3] = obbCorners(ann.obb).map(([cx, cy]) => point(cx, cy));
+    moved.obb = {
+      ...ann.obb,
+      cx: (c0[0] + c1[0] + c2[0] + c3[0]) / 4,
+      cy: (c0[1] + c1[1] + c2[1] + c3[1]) / 4,
+      width: Math.hypot(c1[0] - c0[0], c1[1] - c0[1]),
+      height: Math.hypot(c2[0] - c1[0], c2[1] - c1[1]),
+      angle: (Math.atan2(c1[1] - c0[1], c1[0] - c0[0]) * 180) / Math.PI,
+    };
+  }
+  if (ann.keypoints) moved.keypoints = ann.keypoints.map(([px, py, v]) => [...point(px, py), v]);
+  return moved;
+}
+
+/**
+ * Corpo do POST em lote para colar no destino: leva o bloco como ele aparecia na tela na
+ * cópia (tamanho e rotação da exibição) e descarta o que ficar fora da imagem.
+ */
+export function pastePayload(clipboard: Clipboard, to: PasteSpace) {
+  const from: PasteSpace = clipboard.width && clipboard.height ? clipboard : { ...to, rotation: clipboard.rotation };
+  const scaled = clipboard.annotations.map((ann) => transformAnnotation(ann, from, to));
+  const [imgW, imgH] = [to.width, to.height];
   const inside = scaled.filter(({ bbox: [x, y, w, h] }) => x < imgW && y < imgH && x + w > 0 && y + h > 0);
   return {
     skipped: scaled.length - inside.length,
