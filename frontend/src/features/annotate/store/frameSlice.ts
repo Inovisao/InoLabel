@@ -61,7 +61,7 @@ export const createFrameSlice: Slice<FrameSlice> = (set, get) => {
       try {
         const classes = await api.delete<ClassItem[]>(`/classes/${id}`);
         // Os ids acima do removido mudaram: o desfazer guardaria ids velhos.
-        set((s) => ({ classes, selectedClassId: selectedAfterRemoval(s.selectedClassId, id), undoStack: [] }));
+        set((s) => ({ classes, selectedClassId: selectedAfterRemoval(s.selectedClassId, id), undoStack: [], redoStack: [] }));
         await loadFrame(() => api.get<FrameResponse>("/frames/current"));
         return true;
       } catch (e) {

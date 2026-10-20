@@ -5,7 +5,8 @@ import { activeBinds, useKeybindStore } from "../../keybinds/store";
 
 /** Ferramentas da anotação (clicáveis e com o atalho ao lado). */
 export default function ToolList() {
-  const { frame, tool, setTool, undo, undoStack, toggleReviewed, nextFrame, viewRotation, rotateView } = useAnnotationStore();
+  const { frame, tool, setTool, undo, undoStack, redo, redoStack, toggleReviewed, nextFrame, viewRotation, rotateView } =
+    useAnnotationStore();
   const mode = useSessionStore((s) => s.mode);
   const binds = useKeybindStore((s) => activeBinds(s.data));
 
@@ -35,6 +36,7 @@ export default function ToolList() {
           </>
         )}
         <ToolButton label="Desfazer" shortcut={binds.undo.join(" / ")} disabled={undoStack.length === 0} onClick={() => undo()} />
+        <ToolButton label="Refazer" shortcut={binds.redo.join(" / ")} disabled={redoStack.length === 0} onClick={() => redo()} />
         {/* Girar só a exibição (como na 1.0): as anotações gravadas não mudam. */}
         <ToolButton label="Girar imagem ↻" shortcut={binds.rotate_view_cw.join(" / ")} onClick={() => rotateView(90)} />
         <ToolButton

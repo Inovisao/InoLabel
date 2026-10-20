@@ -33,6 +33,7 @@ export function useKeyboardShortcuts(options: Options = {}) {
       if (matches(e, binds, "save")) { e.preventDefault(); onSave?.(); return; }
       if (matches(e, binds, "export")) { e.preventDefault(); onExport?.(); return; }
       if (matches(e, binds, "settings")) { e.preventDefault(); onSettings?.(); return; }
+      if (matches(e, binds, "redo")) { e.preventDefault(); s.redo(); return; }
       if (matches(e, binds, "undo")) {
         e.preventDefault();
         if (!s.kpUndoPoint()) s.undo();

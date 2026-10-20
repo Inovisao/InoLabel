@@ -1,7 +1,7 @@
 import { api } from "../../../shared/api/client";
 import type { ClassificationResult } from "../../../shared/api/types";
 import type { ClassificationSlice, Slice } from "./types";
-import { pushUndo } from "./undoSlice";
+import { recordUndo } from "./undoSlice";
 
 export const createClassificationSlice: Slice<ClassificationSlice> = (set, get) => ({
   classificationResult: null,
@@ -19,7 +19,7 @@ export const createClassificationSlice: Slice<ClassificationSlice> = (set, get) 
       set((s) => ({
         classificationResult: result,
         frame: s.frame ? { ...s.frame, classification_id: result.top1_class_id, is_saved: true } : null,
-        undoStack: pushUndo(s.undoStack, { kind: "classify", index: frame.index }),
+        ...recordUndo(s, { kind: "classify", index: frame.index, categoryId }),
       }));
       return result;
     } catch (e) {

@@ -1,7 +1,7 @@
 import { api } from "../../../shared/api/client";
 import type { Annotation, Keypoint } from "../../../shared/api/types";
 import type { KeypointSlice, KeypointWip, Slice } from "./types";
-import { pushUndo } from "./undoSlice";
+import { recordUndo } from "./undoSlice";
 
 const ABSENT: Keypoint = [0, 0, 0];
 
@@ -26,7 +26,7 @@ export const createKeypointSlice: Slice<KeypointSlice> = (set, get) => {
         selectedAnnotationId: ann.id,
         selectedIds: [ann.id],
         selectedKpIndex: null,
-        undoStack: pushUndo(s.undoStack, { kind: "add", index: frame.index, annId: ann.id }),
+        ...recordUndo(s, { kind: "add", index: frame.index, annId: ann.id }),
       }));
     } catch (e) {
       set({ error: `Erro ao salvar instância: ${(e as Error).message}` });

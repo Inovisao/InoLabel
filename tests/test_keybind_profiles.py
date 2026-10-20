@@ -126,3 +126,10 @@ def test_rejects_gesture_of_wrong_kind(keybinds_file, action, keys):
 def test_pan_hold_key_conflicts_with_other_actions(keybinds_file):
     with pytest.raises(ValueError, match="atribuída"):
         storage.save_profiles(_custom_profile(pan_hold=["B"]))
+
+
+def test_redo_default_fills_profiles_saved_before_it(keybinds_file):
+    old = {key: value for key, value in storage.DEFAULT_PROFILE.items() if key != "redo"}
+    keybinds_file.write_text(json.dumps({"active_profile": "Antigo", "profiles": {"Antigo": old}}), encoding="utf-8")
+
+    assert storage.load_profiles().profiles["Antigo"]["redo"] == ["Ctrl+Y"]

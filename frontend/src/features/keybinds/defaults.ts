@@ -6,7 +6,7 @@ export const DEFAULT_BINDS = {
   kp_skip: ["X"], kp_visibility: ["C"], kp_finish: ["F"],
   kp_undo: ["Backspace"], kp_cancel: ["Escape"],
   classification_skip: ["Space"], search_class: ["Slash"],
-  save: ["Ctrl+S"], export: ["Ctrl+E"], settings: ["Ctrl+Comma"], undo: ["Ctrl+Z"],
+  save: ["Ctrl+S"], export: ["Ctrl+E"], settings: ["Ctrl+Comma"], undo: ["Ctrl+Z"], redo: ["Ctrl+Y"],
   zoom_wheel: ["Ctrl+Wheel"], zoom_fit: ["Ctrl+0"], pan_drag: ["MiddleDrag"], pan_hold: ["H"],
   copy: ["Ctrl+C"], paste: ["Ctrl+V"], select_all: ["Ctrl+A"],
   nudge_left: ["Alt+ArrowLeft"], nudge_right: ["Alt+ArrowRight"], nudge_up: ["Alt+ArrowUp"], nudge_down: ["Alt+ArrowDown"],
@@ -50,7 +50,7 @@ export const GROUPS: { title: string; actions: { id: Action; label: string }[] }
   { title: "Sessão", actions: [
     { id: "search_class", label: "Buscar classe" }, { id: "save", label: "Salvar frame" },
     { id: "export", label: "Exportar" }, { id: "settings", label: "Configurações" },
-    { id: "undo", label: "Desfazer" },
+    { id: "undo", label: "Desfazer" }, { id: "redo", label: "Refazer" },
   ] },
   { title: "Seleção e cópia", actions: [
     { id: "select_all", label: "Selecionar todas do frame" }, { id: "copy", label: "Copiar seleção" },

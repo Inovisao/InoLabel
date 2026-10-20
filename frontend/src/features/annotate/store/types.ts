@@ -35,7 +35,9 @@ export type UndoEntry =
   | { kind: "add"; index: number; annId: number }
   | { kind: "remove"; index: number; ann: Annotation }
   | { kind: "update"; index: number; annId: number; before: AnnotationPatch }
-  | { kind: "classify"; index: number }
+  // Classificação: `categoryId` permite refazer; "reclassify" é o refazer de um desfazer.
+  | { kind: "classify"; index: number; categoryId?: number }
+  | { kind: "reclassify"; index: number; categoryId: number }
   // Bloco (colar, mover, apagar a seleção): um Ctrl+Z desfaz tudo.
   | { kind: "addMany"; index: number; annIds: number[] }
   | { kind: "updateMany"; index: number; before: { id: number; changes: AnnotationPatch }[] }
@@ -101,7 +103,10 @@ export interface EditSlice {
 
 export interface UndoSlice {
   undoStack: UndoEntry[];
+  /** Operações desfeitas, para o Ctrl+Y; uma edição nova a esvazia. */
+  redoStack: UndoEntry[];
   undo: () => Promise<void>;
+  redo: () => Promise<void>;
 }
 
 export interface KeypointSlice {

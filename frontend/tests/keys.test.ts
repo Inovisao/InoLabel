@@ -49,3 +49,11 @@ test("tecla de segurar conflita com atalhos de edição", () => {
   assert.equal(conflict(freshDefaults(), "pan_hold", "B"), "tool_box");
   assert.equal(conflict(freshDefaults(), "pan_hold", "H"), null);
 });
+
+test("Ctrl+Y refaz e não conflita com o Ctrl+Z do desfazer", () => {
+  assert.deepEqual(DEFAULT_BINDS.redo, ["Ctrl+Y"]);
+  const binds = freshDefaults();
+  binds.redo = [];
+  assert.equal(conflict(binds, "redo", "Ctrl+Y"), null);
+  assert.equal(conflict(freshDefaults(), "redo", "Ctrl+Z"), "undo");
+});

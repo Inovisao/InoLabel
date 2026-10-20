@@ -5,19 +5,7 @@ import { normalizeAngle, rotateTo } from "../canvas/obbGeometry";
 import { rotateBy } from "../canvas/viewRotation";
 import { beforeMovePatch, boxDelta, movedPatch, pastePayload, toggleId } from "./selection";
 import type { EditSlice, Slice } from "./types";
-import { pushUndo } from "./undoSlice";
-
-/** Valores anteriores dos campos alterados, para o Ctrl+Z refazer o PATCH ao contrário. */
-function previousValues(current: Annotation, patch: AnnotationPatch): AnnotationPatch {
-  const before: AnnotationPatch = {};
-  if ("category_id" in patch) before.category_id = current.category_id;
-  if ("track_id" in patch) before.track_id = current.track_id ?? null;
-  // No OBB a geometria volta pelo obb (ângulo + posição); o backend refaz o bbox.
-  if (("bbox" in patch || "obb" in patch) && current.obb) before.obb = current.obb;
-  else if ("keypoints" in patch && current.keypoints) before.keypoints = current.keypoints;
-  else if ("bbox" in patch) before.bbox = current.bbox;
-  return before;
-}
+import { previousValues, recordUndo } from "./undoSlice";
 
 export const createEditSlice: Slice<EditSlice> = (set, get) => ({
   selectedClassId: 0,
@@ -58,7 +46,7 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
         frame: s.frame ? { ...s.frame, annotations: [...s.frame.annotations, ann], is_saved: true } : null,
         selectedAnnotationId: ann.id,
         selectedIds: [ann.id],
-        undoStack: pushUndo(s.undoStack, { kind: "add", index: frame.index, annId: ann.id }),
+        ...recordUndo(s, { kind: "add", index: frame.index, annId: ann.id }),
       }));
     } catch (e) {
       set({ error: `Erro ao salvar anotação: ${(e as Error).message}` });
@@ -75,7 +63,7 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
         frame: s.frame
           ? { ...s.frame, annotations: s.frame.annotations.map((a) => (a.id === annId ? updated : a)) }
           : null,
-        undoStack: pushUndo(s.undoStack, {
+        ...recordUndo(s, {
           kind: "update",
           index: frame.index,
           annId,
@@ -100,10 +88,7 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
           frame: { ...s.frame, annotations: remaining, is_saved: remaining.length > 0 || !!s.frame.reviewed },
           selectedAnnotationId: s.selectedAnnotationId === annId ? null : s.selectedAnnotationId,
           selectedIds: s.selectedIds.filter((id) => id !== annId),
-          undoStack:
-            removed && !opts?.skipUndo
-              ? pushUndo(s.undoStack, { kind: "remove", index: frame.index, ann: removed })
-              : s.undoStack,
+          ...(removed && !opts?.skipUndo ? recordUndo(s, { kind: "remove", index: frame.index, ann: removed }) : {}),
         };
       });
     } catch (e) {
@@ -168,7 +153,7 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
         selectedAnnotationId: ids[ids.length - 1] ?? null,
         // Colar já deixa pronto para ajustar o bloco com a ferramenta de seleção.
         tool: "select",
-        undoStack: pushUndo(s.undoStack, { kind: "addMany", index: frame.index, annIds: ids }),
+        ...recordUndo(s, { kind: "addMany", index: frame.index, annIds: ids }),
         ...(notes.length ? { error: notes.join(" ") } : {}),
       }));
     } catch (e) {
@@ -193,7 +178,7 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
       const byId = new Map(updated.map((a) => [a.id, a]));
       set((s) => ({
         frame: s.frame ? { ...s.frame, annotations: s.frame.annotations.map((a) => byId.get(a.id) ?? a) } : null,
-        undoStack: pushUndo(s.undoStack, {
+        ...recordUndo(s, {
           kind: "updateMany",
           index: frame.index,
           before: block.map((ann) => ({ id: ann.id, changes: beforeMovePatch(ann) })),
@@ -218,7 +203,7 @@ export const createEditSlice: Slice<EditSlice> = (set, get) => ({
           frame: { ...s.frame, annotations: remaining, is_saved: remaining.length > 0 || !!s.frame.reviewed },
           selectedIds: [],
           selectedAnnotationId: null,
-          undoStack: pushUndo(s.undoStack, { kind: "removeMany", index: frame.index, anns: block }),
+          ...recordUndo(s, { kind: "removeMany", index: frame.index, anns: block }),
         };
       });
     } catch (e) {
