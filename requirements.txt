@@ -16,3 +16,5 @@ filelock==3.19.1
 # variante CUDA destas mesmas versoes pelo indice do PyTorch.
 torch==2.8.0
 torchvision==0.23.0
+# Empacotamento do executavel (mesmo requisito dos scripts de build).
+pyinstaller>=5.0

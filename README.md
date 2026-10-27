@@ -59,6 +59,10 @@ python main.py
 
 O navegador abre sozinho em `http://127.0.0.1:8765`.
 
+Se aparecer `Interface não compilada`, execute `npm ci` e `npm run build` dentro
+de `frontend/`, usando Node.js 20 ou superior. Depois volte à raiz e rode
+`python main.py` novamente. As dependências Python não incluem a interface web.
+
 ---
 
 ## Instalação — Windows 11
