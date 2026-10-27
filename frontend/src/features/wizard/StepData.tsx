@@ -64,7 +64,7 @@ export default function StepData({ state, onChange }: Props) {
 
       <PathField
         label="Pesos do modelo (opcional)"
-        hint="Arquivo .pt do YOLO para pré-anotar os frames automaticamente."
+        hint="Checkpoint opcional. Em projetos de detecção, configure e gere sugestões no painel Autolabeling após iniciar."
         placeholder="/caminho/para/model.pt"
         value={state.weightsPath}
         onChange={(v) => onChange({ weightsPath: v })}

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Save, Download, Settings, LogOut, Sun, Moon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Download, Settings, LogOut, Sun, Moon, WandSparkles } from "lucide-react";
 import { useSessionStore } from "../../shared/session/store";
 import { useAnnotationStore } from "./store";
 import { useToast } from "../../shared/ui/ToastContext";
@@ -7,12 +7,14 @@ import { MODE_LABELS } from "../../shared/modes";
 import { activeBinds, useKeybindStore } from "../keybinds/store";
 
 interface Props {
+  onAutolabeling?: () => void;
+  autolabelingOpen?: boolean;
   onExport: () => void;
   onSettings: () => void;
   onStop?: () => void;
 }
 
-export default function Topbar({ onExport, onSettings, onStop }: Props) {
+export default function Topbar({ onExport, onSettings, onStop, onAutolabeling, autolabelingOpen = false }: Props) {
   const mode = useSessionStore((s) => s.mode);
   const { frame, loading, prevFrame, nextFrame } = useAnnotationStore();
   const { toast } = useToast();
@@ -124,6 +126,18 @@ export default function Topbar({ onExport, onSettings, onStop }: Props) {
       <div style={{ width: 1, height: 24, background: "var(--color-border)", margin: "0 4px" }} />
 
       <div style={{ display: "flex", gap: 4 }}>
+        {mode === "detection" && onAutolabeling && (
+          <button
+            type="button"
+            className="btn-icon"
+            title="Autolabeling"
+            aria-label="Autolabeling"
+            aria-pressed={autolabelingOpen}
+            onClick={onAutolabeling}
+          >
+            <WandSparkles size={15} />
+          </button>
+        )}
         <button
           className="btn-icon"
           title={themeLabel}

@@ -24,7 +24,10 @@ export const createUndoSlice: Slice<UndoSlice> = (set, get) => ({
         const frame = await api.post<FrameResponse>(`/frames/goto/${entry.index}`);
         set({ frame, ...FRAME_CHANGE_RESET });
       }
-      if (entry.kind === "add") {
+      if (entry.kind === "autolabel") {
+        await api.post(`/autolabeling/runs/${entry.runId}/undo`, { proposal_id: entry.proposalId });
+        await get().fetchFrame();
+      } else if (entry.kind === "add") {
         await get().removeAnnotation(entry.annId, { skipUndo: true });
       } else if (entry.kind === "remove") {
         const { ann } = entry;
@@ -82,6 +85,7 @@ export const createUndoSlice: Slice<UndoSlice> = (set, get) => ({
         }));
       }
     } catch (e) {
+      set({ undoStack: stack });
       set({ error: `Não foi possível desfazer: ${(e as Error).message}` });
     }
   },

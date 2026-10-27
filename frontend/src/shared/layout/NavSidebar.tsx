@@ -1,13 +1,15 @@
 import {
   LayoutGrid, Database, Settings, Folder,
-  History, HelpCircle, Keyboard,
+  History, HelpCircle, Keyboard, WandSparkles,
 } from "lucide-react";
+import { useSessionStore } from "../session/store";
 import { useTheme } from "../ui/ThemeContext";
 
 interface NavItem {
   id: string;
   icon: React.ElementType;
   label: string;
+  requiresDetectionSession?: boolean;
 }
 
 const NAV_GROUPS: NavItem[][] = [
@@ -15,6 +17,7 @@ const NAV_GROUPS: NavItem[][] = [
     { id: "mode",   icon: LayoutGrid, label: "Modo" },
     { id: "data",   icon: Database,   label: "Dados" },
     { id: "config", icon: Settings,   label: "Configuração" },
+    { id: "autolabeling", icon: WandSparkles, label: "Autolabeling", requiresDetectionSession: true },
   ],
   [
     { id: "projects", icon: Folder,  label: "Projetos" },
@@ -33,6 +36,7 @@ interface Props {
 
 export default function NavSidebar({ activeItem = "mode", onNavigate }: Props) {
   const { isDark } = useTheme();
+  const hasDetectionSession = useSessionStore((s) => s.active && s.mode === "detection");
   // Símbolo do Inovisão + letras "InoLabel" (no tema escuro, versão clara para manter contraste).
   const logoSrc = isDark ? "/inolabel-logo-dark.png" : "/inolabel-logo.png";
 
@@ -89,13 +93,14 @@ export default function NavSidebar({ activeItem = "mode", onNavigate }: Props) {
       >
         {NAV_GROUPS.map((group, gi) => (
           <div key={gi}>
-            {group.map((item) => {
+            {group.filter((item) => !item.requiresDetectionSession || hasDetectionSession).map((item) => {
               const active = activeItem === item.id;
               const Icon = item.icon;
               return (
                 <button
                   key={item.id}
                   className={`nav-item ${active ? "nav-item-active" : ""}`}
+                  aria-current={active ? "page" : undefined}
                   onClick={() => onNavigate?.(item.id)}
                   style={{
                     display: "flex",

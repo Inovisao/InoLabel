@@ -23,6 +23,7 @@ export const createFrameSlice: Slice<FrameSlice> = (set, get) => {
     error: null,
 
     fetchFrame: () => loadFrame(() => api.get<FrameResponse>("/frames/current")),
+    gotoFrame: (index) => loadFrame(() => api.post<FrameResponse>(`/frames/goto/${index}`)),
     nextFrame: () => loadFrame(() => api.post<FrameResponse>("/frames/next")),
     prevFrame: () => loadFrame(() => api.post<FrameResponse>("/frames/prev")),
 

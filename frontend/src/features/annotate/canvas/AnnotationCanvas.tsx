@@ -6,6 +6,7 @@ import { useSessionStore } from "../../../shared/session/store";
 import ConfirmModal from "../../../shared/ui/ConfirmModal";
 import { useAnnotationStore } from "../store";
 import BoxShape from "./BoxShape";
+import ProposalLayer from "../../autolabeling/ProposalLayer";
 import {
   ActiveClassBadge,
   CanvasHint,
@@ -196,6 +197,7 @@ export default function AnnotationCanvas() {
               <KeypointLayer offsetX={fit.offsetX} offsetY={fit.offsetY} scale={fit.scale} imgW={fit.imgW} imgH={fit.imgH} fit={fit} />
             )}
             {showsShapes && frame?.annotations.map(renderShape)}
+            {imageReady && mode === "detection" && <ProposalLayer fit={fit} />}
             {pointer.marquee && pointer.marquee.w > 2 && pointer.marquee.h > 2 && (
               <Rect
                 x={pointer.marquee.x}

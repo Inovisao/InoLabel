@@ -32,6 +32,7 @@ export type KeypointVisibility = 1 | 2;
 
 /** Uma operação desfazível; guarda o frame para desfazer mesmo após navegar. */
 export type UndoEntry =
+  | { kind: "autolabel"; index: number; runId: string; proposalId: string }
   | { kind: "add"; index: number; annId: number }
   | { kind: "remove"; index: number; ann: Annotation }
   | { kind: "update"; index: number; annId: number; before: AnnotationPatch }
@@ -49,6 +50,7 @@ export interface FrameSlice {
   loading: boolean;
   error: string | null;
   fetchFrame: () => Promise<void>;
+  gotoFrame: (index: number) => Promise<void>;
   nextFrame: () => Promise<void>;
   prevFrame: () => Promise<void>;
   fetchClasses: () => Promise<void>;

@@ -341,6 +341,11 @@ html, body, #root {
   flex-shrink: 0;
 }
 .btn-icon:hover { background: var(--color-neutral); color: var(--color-text); border-color: var(--color-border-hover); }
+.btn-icon[aria-pressed="true"] {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
 .btn-icon:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* Inputs */
