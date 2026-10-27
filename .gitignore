@@ -11,6 +11,21 @@ videos/
 imagens/
 dataset_original/
 openimages_candidates/
+# Model checkpoints and exported inference weights.
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.engine
+*.tflite
+*.h5
+*.hdf5
+pytorch_model*.bin
+# Ultralytics training/prediction output and local project metadata.
+/runs/
+.inolabel/
+.inolabel.json
 # Projeto criado dentro do repositório por um output_path relativo (antes da correção).
 anotacoes_guavira/
 
@@ -34,16 +49,33 @@ __pycache__/
 *.pyo
 *.so
 *.pyd
+.venv/
+venv/
+/env/
+*.egg-info/
+.eggs/
 
 # ── Testes e cache ────────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
 
 # ── Configurações locais do usuário ──────────────────────────────────────────
 .local/
 .vscode/
 .idea/
+.aws/
+.env
+.env.*
+!.env.example
+!.env.template
+!.env.*.example
+!.env.*.template
 
 # ── Ferramentas de IA ─────────────────────────────────────────────────────────
 .claude/
@@ -65,3 +97,4 @@ docs_agents/
 # Sem package.json na raiz: um lock aqui só aparece por "npm install" na pasta errada.
 /package-lock.json
 frontend/.test-build/
+/workers/
