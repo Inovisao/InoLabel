@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from app.core.runtime_lock import protect_state
 from app.api import state as _state
 from app.api.annotations.project_state import bootstrap_project_state
 from app.api.annotations.service import ensure_loaded_from_disk, reset_annotations
@@ -18,6 +19,7 @@ from app.config import IMAGE_EXTENSIONS
 _IMAGE_EXTS = set(IMAGE_EXTENSIONS)
 
 
+@protect_state
 def load_frame_paths() -> None:
     """Lista as imagens do dataset da sessão (pasta, recursivo, ou um arquivo) em ordem."""
     session = _state.active_session()
@@ -41,6 +43,7 @@ def load_frame_paths() -> None:
         _state.frame_paths.clear()
 
 
+@protect_state
 def init_frames() -> dict:
     """Abre o dataset da sessão e sobe o projeto inteiro para a memória."""
     load_frame_paths()
@@ -58,22 +61,26 @@ def init_frames() -> dict:
     return {"total": len(_state.frame_paths), "current_index": _state.current_frame_index[0]}
 
 
+@protect_state
 def current_frame() -> FrameResponse:
     if not _state.frame_paths:
         raise NotFound("No frames loaded. Call /frames/init first.")
     return _response(_state.current_frame_index[0])
 
 
+@protect_state
 def next_frame() -> FrameResponse:
     _require_frames()
     return _go_to(min(_state.current_frame_index[0] + 1, len(_state.frame_paths) - 1))
 
 
+@protect_state
 def prev_frame() -> FrameResponse:
     _require_frames()
     return _go_to(max(_state.current_frame_index[0] - 1, 0))
 
 
+@protect_state
 def goto_frame(index: int) -> FrameResponse:
     _require_frames()
     if index < 0 or index >= len(_state.frame_paths):

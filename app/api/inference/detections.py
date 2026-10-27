@@ -33,17 +33,13 @@ def _class_name(names, cls_id: int, fallback_classes: list[str]) -> str:
             return str(raw)
     elif isinstance(names, list) and 0 <= cls_id < len(names):
         return str(names[cls_id])
-    if 0 <= cls_id < len(fallback_classes):
-        return fallback_classes[cls_id]
-    return str(cls_id)
+    return f"unknown:{cls_id}"
 
 
 def _category_id(class_name: str, cls_id: int, classes: list[str]) -> int | None:
     for index, candidate in enumerate(classes):
         if class_name == candidate or class_name.casefold() == candidate.casefold():
             return index
-    if 0 <= cls_id < len(classes):
-        return cls_id
     return None
 
 

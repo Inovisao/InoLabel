@@ -12,7 +12,7 @@ from app.api import state as _state
 from app.api.annotations.persistence import autosave
 from app.api.common.errors import BadRequest, InvalidInput, NotFound
 from app.api.common.schemas import Annotation
-from app.api.frames.service import load_frame_paths
+from app.api.frames.service import init_frames
 from app.api.inference.detections import extract_detections
 from app.api.inference.schemas import TrackingDetectionResult, TrackingFrameResult, TrackingInferenceRequest
 from app.core.detector import Detector
@@ -20,7 +20,7 @@ from app.core.detector import Detector
 
 def resolve_frame_indices(indices: Optional[list[int]]) -> list[int]:
     if not _state.frame_paths:
-        load_frame_paths()
+        init_frames()
     if not _state.frame_paths:
         raise NotFound("Nenhum frame carregado para processamento.")
     if indices is None:
@@ -54,6 +54,9 @@ def video_indices(video_path: Path, indices: Optional[list[int]]) -> list[int]:
 
 
 def save_model_annotations(frame_index: int, detections: list[TrackingDetectionResult]) -> None:
+    from app.api.annotations.service import ensure_loaded_from_disk
+
+    ensure_loaded_from_disk(frame_index)
     existing = [
         ann
         for ann in _state.annotation_store.get(frame_index, [])

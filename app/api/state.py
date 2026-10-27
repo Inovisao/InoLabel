@@ -19,6 +19,7 @@ class SessionState:
     output_path: Path
     classes: list[str]
     model_path: Optional[Path] = None
+    confidence_threshold: float = 0.4
     resume: bool = False
     # Modo keypoint: por classe (mesma ordem de ``classes``), {"keypoints": [...], "skeleton": [...]}.
     keypoint_specs: list = field(default_factory=list)

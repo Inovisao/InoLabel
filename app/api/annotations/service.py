@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import List
 
+from app.core.runtime_lock import protect_state
 from app.api import state as _state
 from app.api.annotations import mode_rules
 from app.api.annotations.labels import load_labels_from_txt, reset_label_dir_cache
@@ -26,6 +27,7 @@ from app.api.common.errors import BadRequest, InvalidInput, NotFound
 from app.api.common.schemas import Annotation
 
 
+@protect_state
 def reset_annotations() -> None:
     _state.annotation_store.clear()
     _state.next_ann_id[0] = 1
@@ -34,6 +36,7 @@ def reset_annotations() -> None:
     reset_label_dir_cache()
 
 
+@protect_state
 def ensure_loaded_from_disk(image_id: int) -> None:
     """Carrega do disco as anotações do frame antes da primeira mutação.
 
@@ -77,6 +80,7 @@ def get_annotations(image_id: int) -> List[Annotation]:
     return _state.annotation_store.get(image_id, [])
 
 
+@protect_state
 def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
     session = _require_session()
     mode_rules.check_new(session, body)
@@ -89,6 +93,7 @@ def add_annotation(image_id: int, body: AnnotationUpsert) -> Annotation:
     return ann
 
 
+@protect_state
 def add_annotations(image_id: int, body: AnnotationBatchCreate) -> AnnotationBatchCreated:
     """Cria um bloco de anotações (colar) com uma gravação só; tudo ou nada.
 
@@ -148,6 +153,7 @@ def _check_frame_index(session, image_id: int) -> None:
         raise BadRequest(f"image_id {image_id} fora do intervalo (sessão tem {total} frames, índices 0–{total - 1}).")
 
 
+@protect_state
 def set_reviewed(image_id: int, body: ReviewedUpdate) -> FrameReviewState:
     """Marca (ou desmarca) a imagem como revisada sem objetos: vira negativo no dataset."""
     session = _state.active_session()
@@ -171,6 +177,7 @@ def set_reviewed(image_id: int, body: ReviewedUpdate) -> FrameReviewState:
     )
 
 
+@protect_state
 def update_annotation(image_id: int, ann_id: int, body: AnnotationPatch) -> Annotation:
     """Altera classe, ID de rastreamento ou geometria de uma anotação existente."""
     session = _require_session()
@@ -186,6 +193,7 @@ def update_annotation(image_id: int, ann_id: int, body: AnnotationPatch) -> Anno
     return anns[pos]
 
 
+@protect_state
 def update_annotations(image_id: int, body: AnnotationBatchUpdate) -> List[Annotation]:
     """Edita várias anotações do frame (mover o bloco) com uma gravação só; tudo ou nada."""
     session = _require_session()
@@ -206,6 +214,7 @@ def update_annotations(image_id: int, body: AnnotationBatchUpdate) -> List[Annot
     return [anns[pos] for pos, _ in staged]
 
 
+@protect_state
 def delete_annotations(image_id: int, body: AnnotationBatchDelete) -> dict:
     """Apaga várias anotações do frame com uma gravação só."""
     ids = set(body.ids)
@@ -218,6 +227,7 @@ def delete_annotations(image_id: int, body: AnnotationBatchDelete) -> dict:
     return {"ok": True, "removed": len(anns) - len(kept)}
 
 
+@protect_state
 def delete_annotation(image_id: int, ann_id: int) -> dict:
     anns = _state.annotation_store.get(image_id, [])
     before = len(anns)
@@ -228,6 +238,7 @@ def delete_annotation(image_id: int, ann_id: int) -> dict:
     return {"ok": True}
 
 
+@protect_state
 def clear_annotations(image_id: int) -> dict:
     _state.annotation_store.pop(image_id, None)
     autosave(image_id)

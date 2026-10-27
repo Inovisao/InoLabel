@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from pydantic import ValidationError
 
+from app.core.runtime_lock import protect_state
 from app.api import state as _state
 from app.api.annotations.labels import write_label_file
 from app.api.annotations.project_state import frame_dims, save_project_state
@@ -42,6 +43,7 @@ def list_classes() -> List[ClassItem]:
     ]
 
 
+@protect_state
 def add_class(body: ClassCreate) -> List[ClassItem]:
     session = _require_session()
     name = _valid_name(session, body.name)
@@ -62,6 +64,7 @@ def add_class(body: ClassCreate) -> List[ClassItem]:
     return list_classes()
 
 
+@protect_state
 def rename_class(class_id: int, body: ClassRename) -> List[ClassItem]:
     session = _require_session()
     _require_class(session, class_id)
@@ -85,6 +88,7 @@ def class_usage(class_id: int) -> ClassUsage:
     )
 
 
+@protect_state
 def remove_class(class_id: int) -> List[ClassItem]:
     session = _require_session()
     _require_class(session, class_id)

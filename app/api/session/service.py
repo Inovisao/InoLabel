@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.annotation.infrastructure.persistence.state_file import AnnotationStateUnreadableError, read_annotation_state
+from app.core.runtime_lock import protect_state
 from app.api import state as _state
 from app.api.annotations.service import reset_annotations
 from app.api.common.errors import InvalidInput, NotFound
@@ -40,6 +41,7 @@ class _StartPlan:
     keypoint_specs: list
 
 
+@protect_state
 def start_session(req: SessionStartRequest) -> SessionStartResponse:
     """Abre a sessão: valida tudo, só então encerra a sessão ativa e cria a nova.
 
@@ -50,6 +52,9 @@ def start_session(req: SessionStartRequest) -> SessionStartResponse:
     _stop_active_session()
     _prepare_output_dir(plan.output_path)
     reset_annotations()
+    _state.frame_paths.clear()
+    _state.frame_dims.clear()
+    _state.loaded_from_disk.clear()
 
     # Lido antes de gravar: frame para retomar e created_at a preservar.
     existing_meta = project_meta.read(plan.output_path)
@@ -62,6 +67,7 @@ def start_session(req: SessionStartRequest) -> SessionStartResponse:
         data_path=plan.data_path,
         output_path=plan.output_path,
         model_path=plan.model_path,
+        confidence_threshold=req.confidence_threshold,
         resume=req.resume,
         classes=req.classes,
         total_frames=total,
@@ -104,7 +110,7 @@ def _validate(req: SessionStartRequest) -> _StartPlan:
     model_path: Optional[Path] = None
     if req.model_path:
         model_path = Path(req.model_path).expanduser().resolve()
-        if not model_path.exists():
+        if not model_path.is_file():
             raise InvalidInput(f"Modelo não encontrado: {model_path}")
         if model_path.suffix.lower() != ".pt":
             raise InvalidInput("Modelo deve ser um arquivo .pt válido.")
@@ -210,6 +216,7 @@ def active_status() -> dict:
     }
 
 
+@protect_state
 def run_action(session_id: str, body: SessionActionRequest) -> SessionActionResponse:
     session = get_session(session_id)
     if session is None:
@@ -229,6 +236,7 @@ def run_action(session_id: str, body: SessionActionRequest) -> SessionActionResp
     return SessionActionResponse(current_frame=session.current_frame, annotation_count=session.annotation_count)
 
 
+@protect_state
 def stop(session_id: str) -> SessionStopResponse:
     _flush_project_state()
     session = remove_session(session_id)
@@ -239,6 +247,7 @@ def stop(session_id: str) -> SessionStopResponse:
     return SessionStopResponse(saved_frames=session.saved_frames, output_path=str(session.output_path))
 
 
+@protect_state
 def stop_active() -> dict:
     session = active_session()
     if session is None:

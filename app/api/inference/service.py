@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from app.core.runtime_lock import protect_state
 from app.api import state as _state
 from app.api.common.errors import InvalidInput, NotFound
 from app.api.inference.schemas import TrackingInferenceRequest, TrackingInferenceResponse
@@ -42,8 +43,11 @@ def session_for_request(session_id: Optional[str]):
     return session
 
 
+@protect_state
 def run_tracking_inference(session, req: TrackingInferenceRequest) -> TrackingInferenceResponse:
-    confidence = req.confidence_threshold if req.confidence_threshold is not None else 0.4
+    if _state.active_session() is not session:
+        raise InvalidInput("The active project changed before inference started.")
+    confidence = req.confidence_threshold if req.confidence_threshold is not None else session.confidence_threshold
     detector = Detector(session.model_path)
     tracker = _tracker_class()(ByteTrackerArgs(track_thresh=confidence), frame_rate=req.frame_rate)
 
