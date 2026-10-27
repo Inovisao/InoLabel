@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.autolabeling.router import router as autolabeling_router
 from app.api.annotations.router import router as annotations_router
 from app.api.browse.router import router as browse_router
 from app.api.classes.router import router as classes_router
@@ -40,6 +41,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(autolabeling_router)
 app.include_router(modes_router)
 app.include_router(projects_router)
 app.include_router(session_router)
@@ -67,6 +69,9 @@ def _flush_project_state_on_shutdown() -> None:
     """Fechar o app não pode perder a última gravação do annotations.coco.json."""
     from app.api import state as _state
 
+    from app.autolabeling.jobs import shutdown
+
+    shutdown()
     _state.coco_writer.flush(timeout=60)
 
 
