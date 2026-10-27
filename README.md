@@ -8,7 +8,7 @@ The app runs on your machine: a local server (FastAPI) serves the interface (Rea
 in your browser at `http://127.0.0.1:8765`. No images leave your computer.
 
 Organization, implementation, data preservation, documentation, and validation rules
-are documented in [AGENTS.md](AGENTS.md) and apply to contributions.
+are documented in [AGENTS.md](docs_to_ai/AGENTS.md) and apply to contributions.
 
 ---
 
@@ -219,9 +219,43 @@ press `V` to move, `Del` to delete, and `N` to mark a frame as **reviewed withou
 
 ### Model pre-annotation
 
-The wizard accepts YOLO `.pt` weights and a minimum confidence threshold. The API provides a tracking
-inference endpoint (`POST /api/inference/tracking`). **The interface does not yet include a button to
-start inference** — annotation is currently manual.
+The proposed extension to trained-model and prompt-based labeling is documented in
+[Autolabeling architecture](docs_to_ai/AUTOLABELING_ARCHITECTURE.md). It is a design
+proposal; the current capabilities are described below.
+The [implementation plan](docs_to_ai/AUTOLABELING_IMPLEMENTATION_PLAN.md) defines
+delivery phases, editor integration, and acceptance criteria.
+
+**Detection projects now support local YOLO autolabeling in the editor.** Open
+**Autolabeling** in the top toolbar for the integrated panel, or in the sidebar for
+configuration and run history. Switching between these two views keeps the session open.
+
+1. Select a trusted YOLO detection `.pt` checkpoint and click **Inspecionar modelo**.
+2. Map model classes explicitly to project classes; leave unwanted classes ignored.
+3. Set the confidence threshold and choose the current image, selected image numbers
+   (starting at 1), or the whole dataset. Test the current image before a larger run.
+4. Generate suggestions. Pending boxes appear with dashed amber outlines and stay
+   separate from accepted annotations and exports.
+5. Review each suggestion, adjust its class or pixel coordinates if needed, and
+   accept or reject it. Selected suggestions can be accepted together. Acceptance
+   can be undone from the panel or with `Ctrl+Z`; an annotation edited afterward
+   must be handled manually to protect the correction.
+
+Jobs run in a bounded local queue. The panel shows progress, errors, cancellation,
+and resume controls. Interrupted runs are detected after reopening the project;
+resume skips successful images and retries failed ones. A changed checkpoint or
+input image requires a new run. Closing the application cancels further work after
+any current inference operation finishes.
+
+Model configuration and run/proposal manifests are stored in
+`<project>/.inolabel/autolabeling/`. Accepted annotations use existing project state
+and label persistence. Repeated acceptance recovers previously committed proposals
+instead of creating duplicates. No detections does not mark an image reviewed.
+
+The wizard's optional checkpoint remains supported as an initial model path.
+The legacy tracking API (`POST /api/inference/tracking`) remains available, including
+preview-only video inference. The new proposal UI currently supports detection on
+images; tracking proposals, foundation models, full segmentation, Ollama, and OpenAI
+are not yet implemented. No new external inference provider is contacted.
 
 ---
 
@@ -427,6 +461,28 @@ on pushes and pull requests to `main` and `master`.
 ---
 
 ## Troubleshooting
+
+The Autolabeling panel includes runtime diagnostics for the Python interpreter
+serving the API. If it reports missing Ultralytics/PyTorch packages, installing
+packages in a different terminal environment will not repair the running server.
+Stop the server, activate the prepared Python 3.9 environment, and restart it.
+The requirements pins are validated on Python 3.9; do not try to repair a Python
+3.14 environment by installing incompatible pinned wheels.
+
+For an existing incompatible environment, keep it intact and create a separate one:
+
+```bash
+conda create -n inolabel-runtime python=3.9 pip -y
+conda activate inolabel-runtime
+python -m pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cpu
+python -m pip install cython numpy==2.0.2
+python -m pip install --no-build-isolation cython-bbox==0.1.5
+python -m pip install -r requirements.txt
+python main.py
+```
+
+This example installs the CPU runtime. GPU installations need the corresponding
+PyTorch variant described in `requirements.txt`.
 
 | Problem | Solution |
 |---------|----------|
