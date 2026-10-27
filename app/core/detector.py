@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from app.core.model_runtime import ModelRuntimeError, import_error_message
+
 
 class Detector:
     """Load YOLO only when a session explicitly needs inference."""
@@ -18,7 +20,10 @@ class Detector:
         if self._model is None:
             # Coexistence: never import ultralytics at FastAPI startup; Windows
             # multiprocessing stays isolated to the background session path.
-            from ultralytics import YOLO
+            try:
+                from ultralytics import YOLO
+            except ImportError as exc:
+                raise ModelRuntimeError(import_error_message(exc)) from exc
 
             self._model = YOLO(str(self.model_path))
         return self._model

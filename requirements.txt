@@ -1,5 +1,6 @@
-# Versoes validadas no ambiente conda "inolabel" (Python 3.9) para a release 2.0.
-# Atualize de proposito e rode a suite de testes antes de mudar qualquer pino.
+# Versions validated in the "inolabel" conda environment (Python 3.9), release 2.0.
+# Update pins deliberately and run the test suite before changing them.
+# Local detection and YOLO autolabeling: model loading and image processing.
 ultralytics==8.4.57
 opencv-python==4.13.0.92
 Pillow==11.3.0
@@ -7,14 +8,16 @@ numpy==2.0.2
 scipy==1.13.1
 lap==0.5.13
 cython-bbox==0.1.5
-# Backend web (app/api): servidor e validacao.
+# Web API and autolabeling request/configuration validation.
 fastapi==0.128.8
 uvicorn==0.39.0
 pydantic==2.13.4
 filelock==3.19.1
-# Dependencias do ultralytics fixadas por reprodutibilidade. Para GPU, instale a
-# variante CUDA destas mesmas versoes pelo indice do PyTorch.
+# Ultralytics/autolabeling runtime, pinned for reproducibility. For GPU execution,
+# install the CUDA variants of these versions from the PyTorch index.
 torch==2.8.0
 torchvision==0.23.0
-# Empacotamento do executavel (mesmo requisito dos scripts de build).
+# Executable packaging (same requirement as the build scripts).
 pyinstaller>=5.0
+# Job execution uses Python's standard library (concurrent.futures/threading).
+# Foundation-model SDKs are not required by the implemented local YOLO workflow.
