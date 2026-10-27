@@ -1,17 +1,20 @@
 # InoLabel
 
-Ferramenta de anotação de imagens desenvolvida pelo **Laboratório de Visão Computacional — Inovisão**.
-Suporta cinco modos de trabalho: rastreamento (tracking), detecção padrão, detecção orientada (OBB),
-keypoints (pose) e classificação de imagens.
+An image annotation tool developed by the **Computer Vision Laboratory — Inovisão**.
+Supports five workflows: tracking, standard detection, oriented bounding boxes (OBB),
+keypoints (pose), and image classification.
 
-O app roda na sua máquina: um servidor local (FastAPI) serve a interface (React), que abre no navegador
-em `http://127.0.0.1:8765`. Nenhuma imagem sai do computador.
+The app runs on your machine: a local server (FastAPI) serves the interface (React), which opens
+in your browser at `http://127.0.0.1:8765`. No images leave your computer.
+
+Organization, implementation, data preservation, documentation, and validation rules
+are documented in [AGENTS.md](AGENTS.md) and apply to contributions.
 
 ---
 
-## Instalação — Linux (Ubuntu/Debian)
+## Installation — Linux (Ubuntu/Debian)
 
-### 1. Dependências do sistema
+### 1. System dependencies
 
 ```bash
 sudo apt-get update
@@ -21,89 +24,89 @@ sudo apt-get install -y \
     zenity git
 ```
 
-> `build-essential`, `python3-dev` e `cmake` são necessários para compilar `lap` e `cython-bbox`.
-> `zenity` (GNOME) ou `kdialog` (KDE) abrem o seletor de pastas do sistema.
+> `build-essential`, `python3-dev`, and `cmake` are required to compile `lap` and `cython-bbox`.
+> `zenity` (GNOME) or `kdialog` (KDE) opens the system folder picker.
 
-Para construir a interface também é preciso o **Node.js 18 ou mais novo** (recomendado 20), por exemplo
-pelo [nodejs.org](https://nodejs.org/) ou pelo `nvm`.
+Building the interface also requires **Node.js 20 or newer** (22 is used in CI), available
+from [nodejs.org](https://nodejs.org/) or through `nvm`.
 
-### 2. Instalar Miniconda (recomendado)
+### 2. Install Miniconda (recommended)
 
 ```bash
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh
-# Feche e reabra o terminal após a instalação
+# Close and reopen the terminal after installation
 ```
 
-### 3. Criar ambiente Python
+### 3. Create the Python environment
 
 ```bash
 conda create -n inolabel python=3.9 -y
 conda activate inolabel
 ```
 
-### 4. Instalar dependências do projeto
+### 4. Install project dependencies
 
 ```bash
-git clone <url-do-repositorio>
+git clone <repository-url>
 cd tracking-anotator
 pip install -r requirements.txt
 cd frontend && npm install && npm run build && cd ..
 ```
 
-### 5. Rodar
+### 5. Run
 
 ```bash
 python main.py
 ```
 
-O navegador abre sozinho em `http://127.0.0.1:8765`.
+The browser opens automatically at `http://127.0.0.1:8765`.
 
-Se aparecer `Interface não compilada`, execute `npm ci` e `npm run build` dentro
-de `frontend/`, usando Node.js 20 ou superior. Depois volte à raiz e rode
-`python main.py` novamente. As dependências Python não incluem a interface web.
+If you see `Interface não compilada` (interface not built), run `npm ci` and
+`npm run build` inside `frontend/`, using Node.js 20 or newer. Then return to the
+project root and run `python main.py` again. Python dependencies do not include the web interface.
 
 ---
 
-## Instalação — Windows 11
+## Installation — Windows 11
 
-### 1. Instalar Python 3.9
+### 1. Install Python 3.9
 
-1. Acesse [python.org/downloads](https://www.python.org/downloads/) e baixe o Python **3.9.x** (64-bit)
-2. No instalador, marque **"Add Python to PATH"** antes de clicar em Install
-3. Após instalar, abra o **Prompt de Comando** e confirme:
+1. Visit [python.org/downloads](https://www.python.org/downloads/) and download Python **3.9.x** (64-bit).
+2. In the installer, select **"Add Python to PATH"** before clicking Install.
+3. After installation, open **Command Prompt** and verify:
    ```cmd
    python --version
    ```
 
-### 2. Instalar Visual C++ Build Tools
+### 2. Install Visual C++ Build Tools
 
-Necessário para compilar `lap` e `cython-bbox`.
+Required to compile `lap` and `cython-bbox`.
 
-1. Acesse [visualstudio.microsoft.com/visual-cpp-build-tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-2. Baixe e execute o instalador
-3. Selecione **"Desenvolvimento para desktop com C++"** e clique em Instalar
-4. Aguarde (pode demorar alguns minutos)
+1. Visit [visualstudio.microsoft.com/visual-cpp-build-tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
+2. Download and run the installer.
+3. Select **"Desktop development with C++"** and click Install.
+4. Wait for installation to finish (this may take a few minutes).
 
-### 3. Instalar CMake
+### 3. Install CMake
 
-1. Acesse [cmake.org/download](https://cmake.org/download/) e baixe o instalador `.msi`
-2. Durante a instalação, selecione **"Add CMake to the system PATH"**
+1. Visit [cmake.org/download](https://cmake.org/download/) and download the `.msi` installer.
+2. During installation, select **"Add CMake to the system PATH"**.
 
-### 4. Instalar Node.js
+### 4. Install Node.js
 
-1. Acesse [nodejs.org](https://nodejs.org/) e instale a versão **LTS** (20 ou mais nova)
+1. Visit [nodejs.org](https://nodejs.org/) and install **Node.js 20 or newer** (22 is used in CI).
 
-### 5. Instalar Git (opcional, para clonar o repositório)
+### 5. Install Git (optional, for cloning the repository)
 
-1. Acesse [git-scm.com](https://git-scm.com/) e instale com as opções padrão
+1. Visit [git-scm.com](https://git-scm.com/) and install with the default options.
 
-### 6. Clonar e instalar o projeto
+### 6. Clone and install the project
 
-Abra o **Prompt de Comando** ou **PowerShell**:
+Open **Command Prompt** or **PowerShell**:
 
 ```cmd
-git clone <url-do-repositorio>
+git clone <repository-url>
 cd tracking-anotator
 pip install -r requirements.txt
 cd frontend
@@ -112,300 +115,305 @@ npm run build
 cd ..
 ```
 
-### 7. Rodar
+### 7. Run
 
 ```cmd
 python main.py
 ```
 
-O navegador abre sozinho em `http://127.0.0.1:8765`.
+The browser opens automatically at `http://127.0.0.1:8765`.
 
 ---
 
-## Gerar executável (build)
+## Build an executable
 
-| Sistema | Comando | O que faz |
-|---------|---------|-----------|
-| Windows (PowerShell) | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` e `.\scripts\build.ps1` | Cria o ambiente conda `inolabel` se não existir, instala as dependências, roda `npm install` + `npm run build` e o PyInstaller |
-| Linux / Git Bash | `bash scripts/build.sh` | Roda o PyInstaller; exige o frontend já construído (`npm run build` em `frontend/`) |
+| System | Command | Behavior |
+|--------|---------|----------|
+| Windows (PowerShell) | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` and `.\scripts\build.ps1` | Creates the `inolabel` conda environment if needed, installs dependencies, runs `npm install` + `npm run build`, and runs PyInstaller |
+| Linux / Git Bash | `bash scripts/build.sh` | Runs PyInstaller; requires a prebuilt frontend (`npm run build` inside `frontend/`) |
 
-Saída:
+Output:
 
 ```
 APLICATIVO/InoLabel/InoLabel.exe           # build.ps1 (Windows)
 dist/InoLabel-linux/InoLabel/InoLabel      # build.sh (Linux)
 ```
 
-> O executável não inclui modelos nem dados — apenas o código da aplicação e a interface.
-> **Tamanho esperado:** entre 1.5 GB e 3 GB (Ultralytics/PyTorch são pesados).
+> The executable includes application code and the interface, but no models or data.
+> **Expected size:** between 1.5 GB and 3 GB (Ultralytics/PyTorch are large).
 
 ---
 
-## Como usar
+## Usage
 
-1. **Workspace** — na primeira vez, escolha a pasta onde os projetos ficam (como um "vault" do Obsidian).
-   Os workspaces recentes aparecem nas próximas aberturas; **Projetos → Trocar workspace** muda de pasta.
-2. **Modo** — escolha um dos cinco modos abaixo.
-3. **Dados** — escolha a pasta do dataset (ou uma imagem) e dê um **nome ao projeto**. O projeto vira uma
-   subpasta do workspace.
-4. **Classes** — adicione as classes. No modo keypoint, defina também os pontos de cada classe.
-5. **Anotar** — as alterações são salvas a cada operação. Para continuar depois, use **Projetos → Continuar**.
-6. **Exportar** — `Ctrl+E` ou o botão de exportação na barra superior.
+The interface currently uses Portuguese labels; the relevant labels are included below for navigation.
 
-As páginas **Projetos** e **Histórico** listam os projetos do workspace (com a contagem de frames anotados);
-**Atalhos** mostra todas as teclas.
+1. **Workspace** — on first launch, choose the folder where projects are stored (similar to an Obsidian vault).
+   Recent workspaces appear on subsequent launches; **Projetos → Trocar workspace** switches folders.
+2. **Mode** — choose one of the five modes below.
+3. **Data** — choose the dataset folder (or an image) and enter a **project name**. The project becomes
+   a subfolder of the workspace.
+4. **Classes** — add classes. In keypoint mode, also define the points for each class.
+5. **Annotate** — changes are saved after each operation. To resume later, use **Projetos → Continuar**.
+6. **Export** — press `Ctrl+E` or use the export button in the top toolbar.
+
+The **Projetos** (Projects) and **Histórico** (History) pages list workspace projects with annotated frame
+counts; **Atalhos** (Shortcuts) lists all keyboard shortcuts.
 
 ---
 
-## Modos de anotação
+## Annotation modes
 
-| Modo | Descrição |
-|------|-----------|
-| **Rastreamento** | Caixas com ID do objeto (`track_id`), mantido entre frames |
-| **Detecção padrão** | Caixas independentes por frame, sem ID |
-| **Detecção orientada (OBB)** | Caixas giradas, exportadas no formato YOLO OBB |
-| **Keypoints** | Pontos nomeados por classe, clicados em ordem; exporta YOLO Pose e COCO Keypoints |
-| **Classificação** | Cada imagem é copiada para a pasta da sua classe |
+| Mode | Description |
+|------|-------------|
+| **Tracking** | Boxes with an object ID (`track_id`) maintained across frames |
+| **Standard detection** | Independent boxes per frame, without IDs |
+| **Oriented detection (OBB)** | Rotated boxes exported in YOLO OBB format |
+| **Keypoints** | Named points per class, placed in order; exports YOLO Pose and COCO Keypoints |
+| **Classification** | Each image is copied into its class folder |
 
-Em todos os modos de caixa: arraste para desenhar, clique numa caixa para selecioná-la e editar a classe no
-painel lateral, `V` para mover, `Del` para apagar e `N` para marcar um frame **revisado sem objetos**
-(ele entra na exportação como negativo).
+In all box modes: drag to draw, click a box to select it and edit its class in the sidebar,
+press `V` to move, `Del` to delete, and `N` to mark a frame as **reviewed without objects**
+(it is exported as a negative sample).
 
-### Rastreamento
+### Tracking
 
-- Cada caixa nova recebe o **próximo ID livre**; o painel **ID das próximas caixas** permite fixar um ID
-  para seguir o mesmo objeto entre frames.
-- O ID da caixa selecionada pode ser trocado no painel (**Novo ID** gera o próximo livre).
+- Each new box receives the **next available ID**; the **ID das próximas caixas** panel lets you fix
+  an ID to follow the same object across frames.
+- Change the selected box's ID in the panel (**Novo ID** generates the next available ID).
 
-### Detecção orientada (OBB)
+### Oriented detection (OBB)
 
-- Desenhe a caixa reta e gire pela **alça ○** acima dela (com `Shift`, de 15° em 15°), por `Q`/`E` (5°;
-  com `Shift`, 1°) ou pelo campo **Ângulo** no painel.
-- Com `V`, arraste a caixa girada para movê-la. A caixa nunca sai da imagem: perto da borda ela é
-  empurrada para dentro, e uma rotação que não cabe é recusada.
+- Draw an axis-aligned box and rotate it using the **○ handle** above it (`Shift` snaps to 15°),
+  `Q`/`E` (5°; 1° with `Shift`), or the **Ângulo** field in the panel.
+- With `V`, drag the rotated box to move it. The box stays within the image: near an edge it is
+  pushed inward, and rotations that do not fit are rejected.
 
 ### Keypoints (pose)
 
-- No wizard, cada classe declara os nomes dos pontos **em ordem**, separados por vírgula (padrão:
-  `top_left, top_right, bottom_right, bottom_left`). Sem pontos em todas as classes, o início fica bloqueado.
-- Clique para marcar os pontos na ordem; um aviso no topo mostra o próximo. Ao marcar o último, a
-  instância é salva.
-- A **bounding box** é calculada a partir dos pontos marcados. Visibilidade (convenção COCO): `0` ausente,
-  `1` oculto (círculo vazado), `2` visível (círculo cheio).
-- Ao retomar um projeto, os pontos de cada classe vêm do próprio projeto. Mudar a quantidade de pontos de
-  uma classe que já tem anotações é recusado.
+- In the wizard, each class declares point names **in order**, separated by commas (default:
+  `top_left, top_right, bottom_right, bottom_left`). Starting is blocked until all classes have points.
+- Click to place points in order; a prompt at the top shows the next point. Placing the last point
+  saves the instance.
+- The **bounding box** is calculated from the placed points. Visibility follows the COCO convention:
+  `0` absent, `1` occluded (hollow circle), `2` visible (filled circle).
+- When resuming a project, point definitions come from the project itself. Changing the number of
+  points in a class that already has annotations is rejected.
 
-| Tecla | Ação (modo keypoint) |
-|-------|----------------------|
-| Clique | Marcar o próximo ponto da classe (ferramenta `B`) |
-| `X` | Pular o ponto (fica ausente) |
-| `C` | Alternar visível/oculto — do ponto selecionado ou dos próximos pontos |
-| `F` | Fechar a instância agora (pontos restantes ficam ausentes) |
-| `Backspace` | Desfazer o último ponto da instância em andamento |
-| `Esc` | Cancelar a instância em andamento |
-| `V` + arrastar | Mover um ponto de uma instância salva |
+| Key | Action (keypoint mode) |
+|-----|------------------------|
+| Click | Place the next point for the class (`B` tool) |
+| `X` | Skip the point (mark it absent) |
+| `C` | Toggle visible/occluded for the selected point or upcoming points |
+| `F` | Finish the instance now (remaining points are absent) |
+| `Backspace` | Undo the last point in the current instance |
+| `Esc` | Cancel the current instance |
+| `V` + drag | Move a point in a saved instance |
 
-### Classificação
+### Classification
 
-- Clique na classe ou digite o **número** dela (a posição na lista). Até 9 classes a tecla já classifica;
-  acima disso, digite o número e confirme com `Enter` (ele confirma sozinho quando não há ambiguidade).
-- `/` busca a classe pelo nome, `Espaço` pula o frame e `Ctrl+Z` desfaz.
-- Reclassificar **move** a imagem para a nova classe, sem duplicar.
+- Click a class or type its **number** (its position in the list). With up to 9 classes, a single key
+  classifies immediately; with more classes, type the number and press `Enter` (confirmation is automatic when unambiguous).
+- `/` searches for a class by name, `Space` skips the frame, and `Ctrl+Z` undoes an action.
+- Reclassification **moves** the image to the new class without duplicating it.
 
-### Pré-anotação por modelo
+### Model pre-annotation
 
-O wizard aceita pesos YOLO `.pt` e a confiança mínima, e a API tem a rota de inferência com rastreamento
-(`POST /api/inference/tracking`). **A interface ainda não tem o botão para disparar a inferência** — por
-enquanto a anotação é manual.
-
----
-
-## Atalhos principais
-
-| Tecla | Ação |
-|-------|------|
-| `→` / `D` | Próximo frame |
-| `←` / `A` | Frame anterior |
-| `B` | Ferramenta de caixa (ou de pontos, no modo keypoint) |
-| `V` | Ferramenta de seleção / mover |
-| Clique | Selecionar a caixa para editar classe / ID |
-| `Del` | Remover a anotação selecionada |
-| `Esc` | Desmarcar a anotação selecionada |
-| `N` | Marcar frame revisado sem objetos (negativo) |
-| `Q` / `E` | OBB: girar a caixa selecionada |
-| `Ctrl+Z` | Desfazer (volta ao frame da operação, se preciso) |
-| `Ctrl+E` | Abrir a exportação |
-| `Ctrl+,` | Configurações da sessão |
-
-A lista completa, por modo, está na página **Atalhos** do app.
+The wizard accepts YOLO `.pt` weights and a minimum confidence threshold. The API provides a tracking
+inference endpoint (`POST /api/inference/tracking`). **The interface does not yet include a button to
+start inference** — annotation is currently manual.
 
 ---
 
-## Exportação de dataset
+## Main shortcuts
 
-| Opção | Descrição |
-|-------|-----------|
-| **Formatos** | YOLO e/ou COCO, juntos. Nos modos especiais: YOLO OBB e YOLO Pose / COCO Keypoints |
-| **Organização do COCO** | Estilo **Roboflow** (padrão): `_annotations.coco.json` com as imagens na mesma pasta; ou pasta `images/` |
-| **Destino / Nome** | Por padrão, a pasta `exports/` dentro do projeto |
-| **Split train/val/test** | Divide as imagens em proporções configuráveis (somam 100%) |
-| **Data augmentation** | Escolha das transformações e de 1 a 5 cópias por imagem. Só nas imagens de **treino** do YOLO — ligar o augmentation liga o split |
-| **Pacote .zip** | Gera também `<nome>.zip`. As referências são conferidas antes (imagem ↔ label, `file_name` do COCO ↔ imagem) e o `data.yaml` vai sem caminho absoluto, para funcionar em outra máquina |
+| Key | Action |
+|-----|--------|
+| `→` / `D` | Next frame |
+| `←` / `A` | Previous frame |
+| `B` | Box tool (or point tool in keypoint mode) |
+| `V` | Selection / move tool |
+| Click | Select a box to edit its class / ID |
+| `Del` | Remove the selected annotation |
+| `Esc` | Deselect the annotation |
+| `N` | Mark the frame as reviewed without objects (negative sample) |
+| `Q` / `E` | OBB: rotate the selected box |
+| `Ctrl+Z` | Undo (returns to the action's frame if necessary) |
+| `Ctrl+E` | Open export |
+| `Ctrl+,` | Session settings |
 
-- As subpastas do dataset são preservadas; as categorias do COCO começam em `1`.
-- Frames marcados como **revisados sem objetos** entram como negativos (imagem sem anotação).
-- No modo keypoint, espelhar a imagem não troca os nomes dos pontos (um ponto "esquerdo" passa a ficar à
-  direita); por isso o espelhamento fica fora do augmentation padrão nesse modo.
-
-A exportação roda em segundo plano, com barra de progresso.
-
-**Proteções do destino:**
-
-- A exportação só apaga e recria pastas criadas por ela mesma (marcadas com o arquivo oculto `.inolabel_export`) ou vazias.
-- Se o nome escolhido já existe e não é uma exportação do InoLabel, a saída vai para `<nome>_<data>` e a pasta existente não é tocada.
-- São recusados como destino: a pasta do projeto e qualquer pasta acima dela, o dataset de origem (dentro, igual ou acima), a pasta pessoal e a raiz do disco, além de nomes como `.` e `..`.
-
-Para conferir um dataset exportado, use `utils/verificar_export.py` (veja Utilitários).
+The full list, grouped by mode, is on the app's **Atalhos** (Shortcuts) page.
 
 ---
 
-## Saídas geradas
+## Dataset export
+
+| Option | Description |
+|--------|-------------|
+| **Formats** | YOLO and/or COCO together. Special modes: YOLO OBB and YOLO Pose / COCO Keypoints |
+| **COCO layout** | **Roboflow** style (default): `_annotations.coco.json` alongside images; alternatively, an `images/` folder |
+| **Destination / Name** | Defaults to the project's `exports/` folder |
+| **Train/val/test split** | Splits images into configurable proportions totaling 100% |
+| **Data augmentation** | Select transformations and 1–5 copies per image. Applies only to YOLO **training** images; enabling augmentation enables splitting |
+| **ZIP package** | Also generates `<name>.zip`. References are checked first (image ↔ label, COCO `file_name` ↔ image), and `data.yaml` excludes the absolute path for portability |
+
+- Dataset subfolders are preserved; COCO category IDs start at `1`.
+- Frames marked as **reviewed without objects** are exported as negative samples (images without annotations).
+- In keypoint mode, mirroring does not swap point names (a "left" point moves to the right);
+  mirroring is therefore excluded from default augmentation in this mode.
+
+Export runs in the background with a progress bar.
+
+**Destination protection:**
+
+- Export only deletes and recreates empty folders or folders created by an export (marked with the hidden `.inolabel_export` file).
+- If the chosen name already exists and is not an InoLabel export, output goes to `<name>_<date>` and the existing folder is left untouched.
+- Invalid destinations include the project folder and its ancestors, the source dataset (inside, equal to, or above it), the home folder, the disk root, and names such as `.` and `..`.
+
+To validate an exported dataset, use `utils/verificar_export.py` (see Utilities).
+
+---
+
+## Generated output
 
 ```
 <workspace>/
-├── .inolabel/workspace.json                 # índice do workspace (reconstruído se sumir)
-└── <projeto>/
-    ├── .inolabel.json                       # manifesto: modo, dataset, classes, pontos, frame atual
-    ├── saved_data_states/                   # estado do projeto (fonte da verdade)
-    │   ├── annotations.coco.json            # detecção / rastreamento (com track_id)
-    │   ├── annotations_obb.coco.json        # modo OBB
-    │   ├── annotations_keypoints.coco.json  # modo keypoint
-    │   └── *.coco.json.bak                  # cópia do último estado, feita ao abrir a sessão
-    ├── labels/                              # espelho .txt no formato YOLO do modo
-    ├── classification_state.json            # modo classificação (+ uma pasta por classe)
-    └── exports/                             # destino padrão da exportação
+├── .inolabel/workspace.json                 # workspace index (rebuilt if missing)
+└── <project>/
+    ├── .inolabel.json                       # manifest: mode, dataset, classes, points, current frame
+    ├── saved_data_states/                   # project state (source of truth)
+    │   ├── annotations.coco.json            # detection / tracking (with track_id)
+    │   ├── annotations_obb.coco.json        # OBB mode
+    │   ├── annotations_keypoints.coco.json  # keypoint mode
+    │   └── *.coco.json.bak                  # previous state backup, created when opening a session
+    ├── labels/                              # .txt mirror in the mode's YOLO format
+    ├── classification_state.json            # classification mode (+ one folder per class)
+    └── exports/                             # default export destination
 ```
 
-O estado COCO segue o formato da versão 1.0.0 (categorias a partir de 1, `bbox` em pixels, `file_name`
-relativo ao dataset) e é a base para os scripts de treino.
+COCO state follows the version 1.0.0 format (category IDs starting at 1, `bbox` in pixels,
+`file_name` relative to the dataset) and serves as the input for training scripts.
 
 ---
 
-## Utilitários
+## Utilities
 
-### Conferir um dataset exportado
+### Validate an exported dataset
 
-Confere um export COCO ou YOLO (incluindo YOLO Pose e COCO Keypoints): imagens × anotações, ids, caixas
-fora da imagem, categorias e pontos. A saída é só agregada, sem nomes de arquivo.
+Validates a COCO or YOLO export (including YOLO Pose and COCO Keypoints): images versus annotations,
+IDs, boxes outside image bounds, categories, and points. Output contains aggregate results only, without filenames.
 
 ```bash
-python utils/verificar_export.py <pasta exportada>
+python utils/verificar_export.py <export-folder>
 ```
 
-### Converter COCO → YOLO
+### Convert COCO → YOLO
 
 ```bash
-python utils/convert_coco_to_yolo_dataset.py <projeto>/saved_data_states/annotations.coco.json \
-    --image-root <pasta das imagens> \
-    --output-root <projeto>/yolo_dataset \
+python utils/convert_coco_to_yolo_dataset.py <project>/saved_data_states/annotations.coco.json \
+    --image-root <image-folder> \
+    --output-root <project>/yolo_dataset \
     --train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1
 ```
 
-### Consolidar splits YOLO em train único
+### Merge YOLO splits into a single training split
 
 ```bash
-python utils/merge_yolo_splits.py <projeto>/yolo_dataset \
-    --output-root <projeto>/yolo_dataset_train_only
+python utils/merge_yolo_splits.py <project>/yolo_dataset \
+    --output-root <project>/yolo_dataset_train_only
 ```
 
-### Converter anotações de tracking → detecção
+### Convert tracking annotations → detection
 
 ```bash
-python utils/convert_coco_tracking_to_detection.py <projeto>/saved_data_states/annotations.coco.json
+python utils/convert_coco_tracking_to_detection.py <project>/saved_data_states/annotations.coco.json
 ```
 
-### Consertar COCO Keypoints antigo
+### Repair legacy COCO Keypoints
 
-`utils/fix_keypoint_coco.py` repara um COCO Keypoints inconsistente: preenche `categories[].keypoints`,
-remove ponto de fechamento duplicado e recalcula `bbox`/`num_keypoints`. Por **padrão**, instâncias de 4
-pontos são ordenadas em **TL → TR → BR → BL**; use `--no-sort-corners` para preservar a ordem original.
+`utils/fix_keypoint_coco.py` repairs inconsistent COCO Keypoints files: fills in `categories[].keypoints`,
+removes duplicate closing points, and recalculates `bbox`/`num_keypoints`. By **default**, four-point
+instances are ordered **TL → TR → BR → BL**; use `--no-sort-corners` to preserve their original order.
 
 ```bash
-python utils/fix_keypoint_coco.py <projeto>/saved_data_states/annotations_keypoints.coco.json
+python utils/fix_keypoint_coco.py <project>/saved_data_states/annotations_keypoints.coco.json
 ```
 
-### Baixar candidatas do Open Images para revisão
+### Download Open Images candidates for review
 
-Baixa selfies com acessório (um rosto grande com a classe encostando nele) para `openimages_candidates/<classe>/`, sem tocar no dataset. Revise, apague o que não servir e mova as aprovadas para o dataset. O `candidates.csv` de cada pasta guarda a licença (CC BY 2.0: mantenha a atribuição), o autor e as caixas originais.
+Downloads selfies with accessories (a large face touching an instance of the selected class) into
+`openimages_candidates/<class>/`, leaving the dataset untouched. Review candidates, delete unsuitable
+images, and move approved ones into the dataset. Each folder's `candidates.csv` records the license
+(CC BY 2.0: retain attribution), author, and original bounding boxes.
 
 ```bash
 python utils/fetch_openimages.py --classes hat --limit 150
-python utils/fetch_openimages.py --classes hat glasses --splits validation test train  # train: CSV de 2,2 GB lido em streaming
+python utils/fetch_openimages.py --classes hat glasses --splits validation test train  # train: streams a 2.2 GB CSV
 ```
 
-O Open Images não tem classe de máscara.
+Open Images does not include a mask class.
 
-> **LGPD:** este utilitário baixa fotos de rosto de pessoas reais. A licença CC BY 2.0 cobre direitos autorais, não a proteção de dados pessoais. Antes de usar, registre a finalidade, a base legal e o prazo de retenção do material; mantenha `openimages_candidates/` fora do git (já está no `.gitignore`) e apague as candidatas descartadas. O utilitário não faz parte do executável distribuído.
+> **LGPD:** this utility downloads photographs of real people's faces. The CC BY 2.0 license covers copyright, not personal data protection. Before use, record the purpose, legal basis, and retention period; keep `openimages_candidates/` out of Git (already covered by `.gitignore`) and delete rejected candidates. This utility is not included in the distributed executable.
 
-### Data augmentation de um dataset de saída
+### Augment an output dataset
 
 ```bash
-python utils/augment_output_dataset.py --annotations <projeto>/saved_data_states/annotations.coco.json \
-    --images-dir <pasta das imagens> --rotate90
+python utils/augment_output_dataset.py --annotations <project>/saved_data_states/annotations.coco.json \
+    --images-dir <image-folder> --rotate90
 ```
 
-> `utils/annotation_tool_bytetracked.py` é a ferramenta monolítica antiga, **obsoleta**: tem bugs já corrigidos no app (ex.: recorte de caixas) e não deve ser usada para anotar.
+> `utils/annotation_tool_bytetracked.py` is the old, **obsolete** monolithic tool. It contains bugs already fixed in the app (such as box clipping) and must not be used for annotation.
 
 ---
 
-## Privacidade e segurança
+## Privacy and security
 
-- **Tudo local:** o servidor escuta só em `127.0.0.1`; imagens e anotações não saem da máquina.
-- **Logs sem nomes de arquivo:** mensagens no terminal identificam imagens por `image_id` ou por uma referência anônima (`<arquivo 3f2a91c0>`), nunca pelo nome — nomes de arquivo em datasets de pessoas podem conter dados pessoais. A interface continua mostrando o nome ao próprio usuário.
-- **Dados fora do git:** não versione datasets, pastas de projeto nem exportações; mantenha-os fora do repositório.
-- **Pesos de modelo:** arquivos `.pt` usam pickle e executam código ao serem carregados. Abra apenas pesos de origem confiável.
-- **Estado ilegível:** se o `annotations*.coco.json` não puder ser lido, a sessão não abre e o arquivo não é alterado. Restaure o `.bak` ao lado dele (gerado ao abrir cada sessão) ou corrija o JSON.
-
----
-
-## Configuração
-
-O app web não usa mais os parâmetros do app Tkinter em `app/config.py`. Os caminhos podem ser trocados por
-variáveis de ambiente:
-
-| Variável | Padrão | Uso |
-|----------|--------|-----|
-| `INOLABEL_LOCAL_DIR` | `.local/` ao lado do app | Workspaces recentes e atalhos |
-| `INOLABEL_OUTPUT_BASE` | `outputs/` ao lado do app | Pasta de saída quando nenhuma é informada |
-| `INOLABEL_ASSETS_DIR` | `assets/` | Recursos estáticos |
-| `INOLABEL_ENV=development` | — | `python main.py` com recarga automática do servidor |
+- **Local execution:** the server listens only on `127.0.0.1`; images and annotations stay on your machine.
+- **Logs without filenames:** terminal messages identify images by `image_id` or an anonymous reference (`<arquivo 3f2a91c0>`), never by filename — filenames in datasets of people may contain personal data. The interface still shows filenames to the user.
+- **Data outside Git:** do not commit datasets, project folders, or exports; keep them outside the repository.
+- **Model weights:** `.pt` files use pickle and execute code when loaded. Only open weights from trusted sources.
+- **Unreadable state:** if `annotations*.coco.json` cannot be read, the session does not open and the file is left unchanged. Restore the adjacent `.bak` file (generated when opening each session) or repair the JSON.
 
 ---
 
-## Desenvolvimento
+## Configuration
 
-O código é organizado por funcionalidade:
+The web app no longer uses the Tkinter app parameters in `app/config.py`. Paths can be overridden
+with environment variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `INOLABEL_LOCAL_DIR` | `.local/` next to the app | Recent workspaces and keyboard shortcuts |
+| `INOLABEL_OUTPUT_BASE` | `outputs/` next to the app | Output folder when none is specified |
+| `INOLABEL_ASSETS_DIR` | `assets/` | Static assets |
+| `INOLABEL_ENV=development` | — | `python main.py` with server auto-reload |
+
+---
+
+## Development
+
+Code is organized by feature:
 
 ```
-app/api/<funcionalidade>/     router.py (HTTP) → service.py (casos de uso) + schemas.py e módulos de domínio
+app/api/<feature>/            router.py (HTTP) → service.py (use cases) + schemas.py and domain modules
                               annotations, classification, session, frames, export, inference,
                               workspace, projects, classes, modes, keybinds, browse
-app/api/common/               schemas compartilhados e erros de regra de negócio (DomainError)
-app/api/state.py              estado em memória da sessão
-app/core/project_state/       estado do projeto em annotations.coco.json
-app/annotation/               exportadores YOLO/COCO, split e augmentation
+app/api/common/               shared schemas and business rule errors (DomainError)
+app/api/state.py              session state in memory
+app/core/project_state/       project state in annotations.coco.json
+app/annotation/               YOLO/COCO exporters, splitting, and augmentation
 frontend/src/features/        annotate, export, wizard, projects, workspace, help
-frontend/src/shared/          cliente da API, tipos, sessão, layout e componentes de UI
+frontend/src/shared/          API client, types, sessions, layout, and UI components
 ```
 
-Rodar com recarga automática (backend + frontend):
+Run with auto-reload (backend and frontend, in separate terminals):
 
 ```bash
-INOLABEL_ENV=development python main.py      # API em 127.0.0.1:8765
-cd frontend && npm run dev                   # interface em localhost:5173 (encaminha /api para a 8765)
+INOLABEL_ENV=development python main.py      # API at 127.0.0.1:8765
+cd frontend && npm run dev                   # interface at localhost:5173 (proxies /api to port 8765)
 ```
 
-Testes e verificação:
+Tests and checks:
 
 ```bash
 pip install -r requirements-dev.txt
@@ -413,25 +421,25 @@ python -m pytest -q tests
 cd frontend && npx tsc --noEmit && npm run build
 ```
 
-O CI (`.github/workflows/ci.yml`) roda os testes Python e a checagem de tipos + build do frontend em todo
-push e pull request para a `main`.
+CI (`.github/workflows/ci.yml`) runs Python tests and frontend type checks, unit tests, and builds
+on pushes and pull requests to `main` and `master`.
 
 ---
 
-## Resolução de problemas
+## Troubleshooting
 
-| Problema | Solução |
-|----------|---------|
-| Página em branco ou "Not Found" ao abrir | O frontend não foi construído: rode `npm install && npm run build` em `frontend/` |
-| Seletor de pasta não abre no Linux | Instale `zenity` (GNOME) ou `kdialog` (KDE) |
-| Porta 8765 em uso | Feche a outra instância do InoLabel (ou o processo que usa a porta) |
-| `lap`/`cython_bbox` falhando no Linux | Instale `build-essential python3-dev cmake` e tente novamente |
-| `lap`/`cython_bbox` falhando no Windows | Instale o Visual C++ Build Tools e CMake conforme descrito acima |
-| Sessão não abre com erro do `annotations.coco.json` | Estado ilegível: restaure o `.bak` ao lado do arquivo |
+| Problem | Solution |
+|---------|----------|
+| Blank page or "Not Found" on startup | The frontend has not been built: run `npm install && npm run build` inside `frontend/` |
+| Folder picker does not open on Linux | Install `zenity` (GNOME) or `kdialog` (KDE) |
+| Port 8765 is in use | Close the other InoLabel instance (or the process using the port) |
+| `lap`/`cython_bbox` fails on Linux | Install `build-essential python3-dev cmake` and try again |
+| `lap`/`cython_bbox` fails on Windows | Install Visual C++ Build Tools and CMake as described above |
+| Session does not open because of an `annotations.coco.json` error | Unreadable state: restore the adjacent `.bak` file |
 
 ---
 
-## Créditos
+## Credits
 
-- BYTETracker retirado de [FoundationVision/ByteTrack](https://github.com/FoundationVision/ByteTrack)
-- Detecção e OBB via [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
+- BYTETracker from [FoundationVision/ByteTrack](https://github.com/FoundationVision/ByteTrack)
+- Detection and OBB via [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
