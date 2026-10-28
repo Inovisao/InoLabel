@@ -20,4 +20,5 @@ torchvision==0.23.0
 # Executable packaging (same requirement as the build scripts).
 pyinstaller>=5.0
 # Job execution uses Python's standard library (concurrent.futures/threading).
-# Foundation-model SDKs are not required by the implemented local YOLO workflow.
+# Optional SAM 3 uses a separate runtime: see requirements-sam3.txt and
+# docs_to_ai/FOUNDATION_MODEL_INTEGRATIONS.md. Keep these environments separate.

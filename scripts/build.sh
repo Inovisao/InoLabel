@@ -508,6 +508,8 @@ $PYTHON -m PyInstaller \
     --hidden-import "xmlrpc" \
     --hidden-import "xmlrpc.client" \
     --collect-all "ultralytics" \
+    --collect-submodules "app.autolabeling" \
+    --add-data "app/autolabeling/runtimes/roboflow_worker.py:app/autolabeling/runtimes" \
     --collect-all "matplotlib" \
     --collect-all "uvicorn" \
     --collect-all "fastapi" \

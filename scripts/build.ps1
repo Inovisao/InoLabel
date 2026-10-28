@@ -270,6 +270,7 @@ $pyiArgs = @(
     "--hidden-import=xmlrpc",
     "--hidden-import=xmlrpc.client",
     "--collect-all=ultralytics",
+    "--add-data=app/autolabeling/runtimes/roboflow_worker.py;app/autolabeling/runtimes",
     "--collect-all=matplotlib",
     "--collect-all=uvicorn",
     "--collect-all=fastapi",
