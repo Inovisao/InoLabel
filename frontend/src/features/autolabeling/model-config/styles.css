@@ -1,0 +1,21 @@
+.model-source-selector { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.model-source-option {
+  display: flex; align-items: center; gap: 8px; min-height: 62px; padding: 10px;
+  font-family: var(--font-sans); font-size: 12px; font-weight: 500; text-align: left;
+  color: var(--color-sidebar-text); background: var(--color-panel);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md); cursor: pointer;
+  transition: background-color var(--motion-base), border-color var(--motion-base), color var(--motion-base);
+}
+.model-source-option svg { flex-shrink: 0; }
+.model-source-option:hover:not(:disabled) { background: var(--color-neutral); border-color: var(--color-border-hover); }
+.model-source-selected, .model-source-selected:hover:not(:disabled) {
+  background: var(--color-primary-light); color: var(--color-primary); border-color: var(--color-primary);
+}
+.model-source-option:disabled { cursor: not-allowed; opacity: .45; }
+.model-source-option:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.model-config-form, .model-config-field, .model-class-prompts { display: grid; gap: 8px; min-width: 0; }
+.model-config-form { gap: 14px; }
+.model-class-prompt, .model-catalog-card {
+  display: grid; gap: 8px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+}
+.model-class-prompt label { display: flex; align-items: center; gap: 6px; font-size: 13px; }

@@ -12,13 +12,14 @@ from app.api.annotations.labels import write_label_file
 from app.api.annotations.schemas import AnnotationUpsert
 from app.api.common.errors import InvalidInput, NotFound
 from app.autolabeling import jobs
-from app.autolabeling.adapters.ultralytics import checkpoint
+from app.autolabeling.model_catalog.configuration import definition_of, resolve_config, runtime_snapshot
 from app.autolabeling.adapters.registry import create_adapter
 from app.autolabeling.models import ModelConfig
 from app.autolabeling.storage import list_runs, read_run, root, storage_lock, write_run
 from app.core.project_state.paths import state_path
 from app.core.project_state.writer import write_json_atomic
 from app.core.runtime_lock import protect_state
+from app.core.model_runtime import runtime_info
 
 
 def _session(session_id=None):
@@ -31,14 +32,16 @@ def _session(session_id=None):
 
 
 def inspect_model(config):
-    path = checkpoint(config.model_path)
+    config, definition = resolve_config(config)
     try:
-        names = create_adapter(config.adapter, path).inspect()
+        adapter = create_adapter(config.adapter, config.model_path, config.model_id) if config.adapter == 'ollama' else create_adapter(config.adapter, config.model_path)
+        names = adapter.inspect()
     except InvalidInput:
         raise
     except Exception as exc:
         raise InvalidInput('Cannot load the detection model: ' + str(exc)) from exc
-    return {'adapter': 'ultralytics', 'task': 'detect_boxes', 'classes': list(names.values()), 'model_path': str(path)}
+    return {'adapter': config.adapter, 'model_id': definition.id, 'task': 'detect_boxes',
+            'classes': list(names.values()), 'model_path': config.model_path}
 
 
 @protect_state
@@ -46,7 +49,10 @@ def configuration():
     session = _session()
     path = root(session.output_path) / 'config.json'
     try:
-        return ModelConfig.model_validate_json(path.read_text(encoding='utf-8')).model_dump()
+        config = ModelConfig.model_validate_json(path.read_text(encoding='utf-8'))
+        if definition_of(config).source == 'catalog':
+            config = config.model_copy(update={'model_path': ''})
+        return config.model_dump()
     except (OSError, ValueError):
         return {'model_path': str(session.model_path or ''), 'confidence': session.confidence_threshold, 'class_mapping': {}}
 
@@ -54,7 +60,9 @@ def configuration():
 @protect_state
 def save_configuration(config):
     session = _session()
-    config = config.model_copy(update={'model_path': str(checkpoint(config.model_path))})
+    config, _ = resolve_config(config)
+    if definition_of(config).source == 'catalog':
+        config = config.model_copy(update={'model_path': ''})
     write_json_atomic(root(session.output_path) / 'config.json', config.model_dump())
     return config.model_dump()
 
@@ -69,20 +77,19 @@ def create_run(request):
         raise InvalidInput('Select distinct image indices within the dataset.')
     if len(indices) > 10000:
         raise InvalidInput('Choose at most 10,000 images per run.')
-    config = request.config.model_copy(update={'model_path': str(checkpoint(request.config.model_path))})
-    if any(target is not None and target not in session.classes for target in config.class_mapping.values()):
-        raise InvalidInput('The class mapping no longer matches this project.')
-    if not any(target is not None for target in config.class_mapping.values()):
-        raise InvalidInput('Map at least one model class before running.')
+    config, definition = resolve_config(request.config, session.classes)
+    provider_runtime = runtime_snapshot(definition)
     try:
         media = [{'index': i, 'path': str(state.frame_paths[i]), 'hash': jobs.fingerprint(state.frame_paths[i])} for i in indices]
-        model_hash = jobs.fingerprint(config.model_path)
+        model_hash = jobs.fingerprint(config.model_path) if definition.requires_checkpoint else None
     except OSError as exc:
         raise InvalidInput('Cannot snapshot the model or dataset: ' + str(exc)) from exc
-    run = {'id': str(uuid4()), 'schema_version': 1, 'created_at': datetime.now(timezone.utc).isoformat(),
+    run = {'id': str(uuid4()), 'schema_version': 2, 'created_at': datetime.now(timezone.utc).isoformat(),
            'status': 'queued', 'project': str(session.output_path), 'data_path': str(session.data_path),
            'classes': list(session.classes), 'mode': session.mode, 'config': config.model_dump(),
-           'model_hash': model_hash, 'media': media, 'proposals': [], 'outcomes': {}, 'error': None}
+           'model_hash': model_hash, 'model_definition': definition.describe(),
+           'runtime': runtime_info(), 'provider_runtime': provider_runtime,
+           'media': media, 'proposals': [], 'outcomes': {}, 'error': None}
     with storage_lock:
         write_run(session.output_path, run)
     try:
@@ -103,7 +110,9 @@ def summary(run):
         'failed': sum(o['status'] == 'failed' for o in run['outcomes'].values()),
         'pending': sum(p['status'] == 'pending' for p in run['proposals']),
         'accepted': sum(p['status'] == 'accepted' for p in run['proposals']),
+        'pending_frames': sorted({p['frame_index'] for p in run['proposals'] if p['status'] == 'pending'}),
         'config': run['config'], 'outcomes': run['outcomes'],
+        'model_definition': run.get('model_definition'),
     }
 
 

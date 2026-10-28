@@ -12,6 +12,7 @@ import cv2
 from app.api.common.errors import InvalidInput
 from app.autolabeling.adapters.registry import create_adapter
 from app.autolabeling.models import ModelConfig, Proposal
+from app.autolabeling.model_catalog.configuration import definition_of, validate_project_classes, validate_model_vocabulary, runtime_snapshot
 from app.autolabeling.storage import read_run, storage_lock, write_run
 
 executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='autolabeling')
@@ -61,6 +62,7 @@ def is_active(project, run_id):
 
 
 def _execute(project, run_id, stop):
+    adapter = None
     try:
         with storage_lock:
             run = read_run(project, run_id)
@@ -72,14 +74,18 @@ def _execute(project, run_id, stop):
                 write_run(project, run)
             return
         config = ModelConfig.model_validate(run['config'])
-        if fingerprint(config.model_path) != run['model_hash']:
+        definition = definition_of(config)
+        model_inputs = definition.inputs.model_validate(config.parameters)
+        if run.get('model_definition', {}).get('schema_version', definition.schema_version) != definition.schema_version:
+            raise InvalidInput('The model definition changed. Create a new run.')
+        if run['model_hash'] is not None and fingerprint(config.model_path) != run['model_hash']:
             raise InvalidInput('The checkpoint changed. Create a new run.')
-        adapter = create_adapter(config.adapter, config.model_path)
+        if run.get('provider_runtime') != runtime_snapshot(definition):
+            raise InvalidInput('The model runtime or cache changed. Create a new run.')
+        adapter = create_adapter(config.adapter, config.model_path, config.model_id) if config.adapter == 'ollama' else create_adapter(config.adapter, config.model_path)
         names = adapter.inspect()
-        if set(config.class_mapping) - set(names.values()):
-            raise InvalidInput('The mapping contains classes not present in this model.')
-        if not any(v in run['classes'] for v in config.class_mapping.values() if v is not None):
-            raise InvalidInput('Map at least one model class to a project class.')
+        validate_model_vocabulary(config, names)
+        validate_project_classes(config, run['classes'])
         for media in run['media']:
             if stop.is_set():
                 break
@@ -96,7 +102,8 @@ def _execute(project, run_id, stop):
                 predictions = adapter.predict(image, config, run['classes'])
                 proposals = [Proposal(id=str(uuid4()), frame_index=media['index'],
                                       category_id=cat, class_name=run['classes'][cat],
-                                      bbox=bbox, score=score).model_dump()
+                                      bbox=bbox, score=score, score_type=definition.score_type,
+                                      prompt=model_inputs.proposal_prompt(run['classes'][cat])).model_dump()
                              for cat, bbox, score in predictions]
                 outcome = {'status': 'succeeded', 'count': len(proposals), 'width': image.shape[1], 'height': image.shape[0]}
             except Exception as exc:
@@ -119,8 +126,12 @@ def _execute(project, run_id, stop):
             current.update(status='failed', error=type(exc).__name__ + ': ' + str(exc))
             write_run(project, current)
     finally:
-        with execution_lock:
-            active_jobs.pop((str(project), run_id), None)
+        try:
+            if adapter is not None and callable(getattr(adapter, 'close', None)):
+                adapter.close()
+        finally:
+            with execution_lock:
+                active_jobs.pop((str(project), run_id), None)
 
 
 def shutdown():

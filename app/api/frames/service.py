@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import cv2
+
 from app.core.runtime_lock import protect_state
 from app.api import state as _state
 from app.api.annotations.project_state import bootstrap_project_state
@@ -66,6 +68,41 @@ def current_frame() -> FrameResponse:
     if not _state.frame_paths:
         raise NotFound("No frames loaded. Call /frames/init first.")
     return _response(_state.current_frame_index[0])
+
+
+@protect_state
+def list_frames(offset=0, limit=100, query='') -> dict:
+    _require_frames()
+    session = _state.active_session()
+    base = session.data_path if session and session.data_path.is_dir() else (session.data_path.parent if session else None)
+    needle = query.strip().casefold()
+    matches = []
+    for index, path in enumerate(_state.frame_paths):
+        try:
+            relative_path = path.relative_to(base).as_posix() if base else path.name
+        except ValueError:
+            relative_path = path.name
+        if not needle or needle in relative_path.casefold():
+            matches.append({'index': index, 'filename': path.name, 'relative_path': relative_path})
+    return {'frames': matches[offset:offset + limit], 'total': len(matches), 'offset': offset, 'limit': limit}
+
+
+@protect_state
+def thumbnail(index: int) -> bytes:
+    _require_frames()
+    if index < 0 or index >= len(_state.frame_paths):
+        raise BadRequest('Index out of range.')
+    image = cv2.imread(str(_state.frame_paths[index]))
+    if image is None:
+        raise NotFound('Cannot read image for thumbnail.')
+    height, width = image.shape[:2]
+    scale = min(240 / width, 160 / height, 1.)
+    size = (max(1, round(width * scale)), max(1, round(height * scale)))
+    thumbnail_image = cv2.resize(image, size, interpolation=cv2.INTER_AREA) if scale < 1 else image
+    ok, encoded = cv2.imencode('.jpg', thumbnail_image, [cv2.IMWRITE_JPEG_QUALITY, 78])
+    if not ok:
+        raise NotFound('Could not create image thumbnail.')
+    return encoded.tobytes()
 
 
 @protect_state

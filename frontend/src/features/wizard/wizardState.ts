@@ -7,7 +7,6 @@ export interface WizardState {
   outputDir: string;
   projectName: string;
   classes: string[];
-  weightsPath: string;
   confidence: number;
   resumeExisting: boolean;
   /** Modo keypoint: nomes dos pontos por classe, separados por vírgula. */
@@ -32,7 +31,6 @@ export const INITIAL_WIZARD_STATE: WizardState = {
   outputDir: "",
   projectName: "",
   classes: [],
-  weightsPath: "",
   confidence: 0.4,
   resumeExisting: false,
   keypointNames: {},

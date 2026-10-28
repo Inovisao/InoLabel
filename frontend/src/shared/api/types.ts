@@ -15,7 +15,6 @@ export interface SessionStartRequest {
   data_root: string;
   output_dir: string;
   classes: string[];
-  weights_paths: string[];
   confidence_threshold: number;
   resume_existing: boolean;
   keypoint_classes?: KeypointClassSpec[];

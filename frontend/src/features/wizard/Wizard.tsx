@@ -62,7 +62,6 @@ export default function Wizard({ step, onStepChange, activeNav, onNavigate, init
       data_root: state.dataRoot,
       output_dir: outputDir,
       classes: state.classes,
-      weights_paths: state.weightsPath ? [state.weightsPath] : [],
       confidence_threshold: state.confidence,
       resume_existing: state.resumeExisting,
       // Classe sem pontos digitados ao retomar: o backend usa os do próprio projeto.

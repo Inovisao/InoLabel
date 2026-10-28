@@ -8,7 +8,8 @@
     "noCheck": true,
     "skipLibCheck": true,
     "rootDir": ".",
-    "outDir": ".test-build"
+    "outDir": ".test-build",
+    "jsx": "react-jsx"
   },
   "include": ["tests"]
 }
