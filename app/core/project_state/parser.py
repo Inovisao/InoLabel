@@ -41,6 +41,7 @@ def parse_payload(
     frame_paths: Sequence[Path],
     data_path: Optional[Path],
     num_classes: int,
+    classes: Optional[Sequence[str]] = None,
 ) -> ParsedState:
     """Converte o COCO do projeto em anotações por índice de frame.
 
@@ -69,7 +70,15 @@ def parse_payload(
             parsed.dims[idx] = (width, height)
         parsed.reviewed.add(idx)
 
-    category_ids = {cat.get("id"): pos for pos, cat in enumerate(data.get("categories", []) or [])}
+    if classes is None:
+        category_ids = {cat.get("id"): pos for pos, cat in enumerate(data.get("categories", []) or [])}
+    else:
+        class_indices = {name: index for index, name in enumerate(classes)}
+        category_ids = {
+            cat.get("id"): class_indices[str(cat.get("name", "")).strip()]
+            for cat in data.get("categories", []) or []
+            if str(cat.get("name", "")).strip() in class_indices
+        }
     for ann in data.get("annotations", []) or []:
         idx = index_by_image_id.get(ann.get("image_id"))
         if idx is None:

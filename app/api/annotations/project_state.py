@@ -71,6 +71,7 @@ def bootstrap_project_state() -> set:
         parsed = parse_payload(
             data, frame_paths=_state.frame_paths, data_path=session.data_path,
             num_classes=len(session.classes),
+            classes=session.classes,
         )
         for idx, entries in parsed.annotations.items():
             _state.annotation_store[idx] = [annotation_from_state(e) for e in entries]

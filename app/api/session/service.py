@@ -26,6 +26,7 @@ from app.api.session.schemas import (
 from app.api.state import active_session, create_session, get_session, remove_session
 from app.config import IMAGE_EXTENSIONS, IMAGE_LIST_EXTENSIONS, OUTPUT_BASE, VIDEO_EXTENSIONS
 from app.core.project_state.paths import state_path
+from app.core.project_state.dataset_import import import_dataset_coco, write_import_if_missing
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +40,8 @@ class _StartPlan:
     model_path: Optional[Path]
     project_state: Optional[Path]   # annotations*.coco.json (None na classificação)
     keypoint_specs: list
+    imported_coco: Optional[dict] = None
+    project_state_existed: bool = False
 
 
 @protect_state
@@ -49,8 +52,13 @@ def start_session(req: SessionStartRequest) -> SessionStartResponse:
     abrir outra no lugar.
     """
     plan = _validate(req)
-    _stop_active_session()
     _prepare_output_dir(plan.output_path)
+    if plan.imported_coco is not None and plan.project_state is not None and not plan.project_state.exists():
+        try:
+            write_import_if_missing(plan.project_state, plan.imported_coco)
+        except OSError as exc:
+            raise InvalidInput(f"Não foi possível importar as anotações COCO para o projeto: {exc}") from exc
+    _stop_active_session()
     reset_annotations()
     _state.frame_paths.clear()
     _state.frame_dims.clear()
@@ -59,7 +67,7 @@ def start_session(req: SessionStartRequest) -> SessionStartResponse:
     # Lido antes de gravar: frame para retomar e created_at a preservar.
     existing_meta = project_meta.read(plan.output_path)
     total = count_frames(plan.data_path)
-    if plan.project_state is not None:
+    if plan.project_state_existed and plan.project_state is not None:
         _backup(plan.project_state)
 
     session = create_session(
@@ -119,16 +127,23 @@ def _validate(req: SessionStartRequest) -> _StartPlan:
     # ele possa ser restaurado (.bak) ou corrigido.
     project_state = None
     project_data = None
+    imported_coco = None
+    project_state_existed = False
     if req.mode.value != "classification":
         project_state = state_path(output_path, req.mode.value)
         try:
             project_data = read_annotation_state(project_state)
+            project_state_existed = project_data is not None
+            if project_data is None:
+                imported_coco = import_dataset_coco(data_path, output_path)
+                project_data = imported_coco
         except AnnotationStateUnreadableError as exc:
             raise InvalidInput(str(exc)) from exc
     keypoint_specs = (
         resolve_keypoint_specs(req, output_path, project_data) if req.mode.value == "keypoint" else []
     )
-    return _StartPlan(data_path, output_path, model_path, project_state, keypoint_specs)
+    return _StartPlan(data_path, output_path, model_path, project_state, keypoint_specs,
+                      imported_coco, project_state_existed)
 
 
 def _stop_active_session() -> None:

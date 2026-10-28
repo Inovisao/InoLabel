@@ -17,20 +17,11 @@ export default function StepData({ state, onChange }: Props) {
     }
   };
 
-  const browseFile = async () => {
-    try {
-      const res = await api.get<{ path: string }>("/browse/file?ext=pt");
-      if (res.path) onChange({ weightsPath: res.path });
-    } catch {
-      /* usuário cancelou ou backend indisponível */
-    }
-  };
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <PathField
         label="Pasta de dados"
-        hint="Pasta com as imagens ou arquivo de vídeo a ser anotado."
+        hint="Pasta com as imagens ou arquivo de vídeo. Se houver um JSON COCO nessa pasta, as anotações serão importadas automaticamente quando o projeto ainda não tiver um estado salvo."
         placeholder="/caminho/para/dados"
         value={state.dataRoot}
         onChange={(v) => onChange({ dataRoot: v })}
@@ -61,16 +52,6 @@ export default function StepData({ state, onChange }: Props) {
           />
         </div>
       )}
-
-      <PathField
-        label="Pesos do modelo (opcional)"
-        hint="Checkpoint opcional. Em projetos de detecção, configure e gere sugestões no painel Autolabeling após iniciar."
-        placeholder="/caminho/para/model.pt"
-        value={state.weightsPath}
-        onChange={(v) => onChange({ weightsPath: v })}
-        onBrowse={browseFile}
-        browseIcon="file"
-      />
 
       {/* Só faz sentido ao reabrir um projeto: um projeto novo começa vazio. */}
       {state.outputDir && (
