@@ -231,8 +231,8 @@ configuration and run history. Switching between these two views keeps the sessi
 
 1. Select a trusted YOLO detection `.pt` checkpoint and click **Inspecionar modelo**.
 2. Map model classes explicitly to project classes; leave unwanted classes ignored.
-3. Set the confidence threshold and choose the current image, selected image numbers
-   (starting at 1), or the whole dataset. Test the current image before a larger run.
+3. Set the confidence threshold and choose the current image, images from the visual
+   selection dialog, or the whole dataset. Test the current image before a larger run.
 4. Generate suggestions. Pending boxes appear with dashed amber outlines and stay
    separate from accepted annotations and exports.
 5. Review each suggestion, adjust its class or pixel coordinates if needed, and
@@ -246,6 +246,11 @@ resume skips successful images and retries failed ones. A changed checkpoint or
 input image requires a new run. Closing the application cancels further work after
 any current inference operation finishes.
 
+For a batch, select individual images from the thumbnail dialog or choose the whole
+dataset. After suggestions finish, **Review batch** navigates the annotation canvas
+through images with pending proposals. Approve or reject suggestions for each image;
+they remain proposals until accepted.
+
 Model configuration and run/proposal manifests are stored in
 `<project>/.inolabel/autolabeling/`. Accepted annotations use existing project state
 and label persistence. Repeated acceptance recovers previously committed proposals
@@ -253,9 +258,40 @@ instead of creating duplicates. No detections does not mark an image reviewed.
 
 The wizard's optional checkpoint remains supported as an initial model path.
 The legacy tracking API (`POST /api/inference/tracking`) remains available, including
-preview-only video inference. The new proposal UI currently supports detection on
-images; tracking proposals, foundation models, full segmentation, Ollama, and OpenAI
-are not yet implemented. No new external inference provider is contacted.
+preview-only video inference. The proposal UI supports detection on images. Model selection now separates
+**Modelo importado** from **Fundacional / público**, populated by a task-filtered
+catalog. SAM 3 generates box proposals from project-bound text descriptions using
+local **Roboflow Inference**, following the
+[Roboflow weights guide](https://roboflow.com/blog/download-sam-3-weights).
+
+Install `requirements-sam3.txt` in a **separate Python 3.12 environment**. Before
+launching the backend, set `INOLABEL_SAM3_PYTHON` to that environment's Python
+executable and `ROBOFLOW_API_KEY` to your authorized private key. Then open
+**Fundacional / público → SAM 3 → Configurar modelo → Preparar modelo** to download
+and cache the weights. Select classes, enter visual descriptions, and test the
+current image before generating a batch of suggestions.
+
+SAM 3 runs in a local worker and uses the existing detection review/export flow.
+Roboflow may need network access for authentication and weight downloads. The API
+key stays in the backend environment. Preparation never changes annotations.
+The foundation catalog also offers local Ollama vision models (`qwen3-vl:4b`,
+`qwen3-vl:8b`, and `gemma3:4b`). Start Ollama locally; the catalog detects installed
+models and lets you download approved choices with progress. Add an image instruction
+and descriptions per project class to generate reviewable box proposals. Ollama manages
+its model files and GPU use. Results require evaluation on your images.
+Inference keeps the original dataset unchanged. The Ollama adapter resizes only
+its in-memory inference copy above 1.5 million pixels, preserves aspect ratio, and
+maps normalized boxes back to original-image coordinates. It uses an 8,192-token
+context and detects truncated JSON responses. This can reduce visibility of very
+small objects; evaluate against the smallest targets in the project.
+
+Full segmentation annotation/export, tracking proposals, GPT/OpenAI, and Grounding DINO
+are not implemented in this catalog. Real SAM 3 inference and hardware compatibility
+have not yet been validated with authorized weights.
+
+See the [foundation model setup and extension guide](docs_to_ai/FOUNDATION_MODEL_INTEGRATIONS.md)
+for installation commands, cache behavior, typed parameters, schema-driven forms,
+and instructions for adding compatible models without changing the main panel.
 
 ---
 
@@ -327,6 +363,13 @@ To validate an exported dataset, use `utils/verificar_export.py` (see Utilities)
 
 COCO state follows the version 1.0.0 format (category IDs starting at 1, `bbox` in pixels,
 `file_name` relative to the dataset) and serves as the input for training scripts.
+When a selected dataset contains COCO files such as `_annotations.coco.json`,
+`annotations.coco.json`, `annotations.json`, or `instances*.json`, InoLabel imports
+them automatically if the project does not already have saved COCO state. Split
+files are combined, image paths are normalized relative to the dataset, and classes
+are matched by category name. The source files are read only; the imported copy is
+stored under the project's `saved_data_states/` directory. An existing project state
+always takes precedence.
 
 ---
 

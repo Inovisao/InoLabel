@@ -16,8 +16,15 @@ full roadmap below remains the target, not a claim that every phase is complete.
 - Shared runtime mutation locking and fixes to legacy confidence/class mapping and
   persisted-label loading.
 
-Not implemented: tracking proposals in the new flow, isolated foundation-model
-workers, Grounding DINO, SAM, full segmentation annotation/export, Ollama, and OpenAI.
+Additional delivery: task-filtered model catalog, typed model-specific input schemas,
+shared schema-driven forms, independent model drafts, a SAM 3 adapter through an
+isolated Roboflow Inference worker, and a curated Ollama vision catalog with background
+downloads and prompt-driven box proposals. SAM 3 requirements are pinned separately;
+explicit preparation downloads/caches weights using a backend API key.
+See [foundation integrations](FOUNDATION_MODEL_INTEGRATIONS.md) for setup and scope.
+
+Not implemented: tracking proposals in the new flow, Grounding DINO, full
+segmentation annotation/export, and OpenAI.
 No real-model quality or hardware evaluation has been completed. The concrete
 initial layout uses focused `models.py`, `service.py`, `jobs.py`, `storage.py`, and
 `adapters/` modules; introduce further layers only when their responsibilities grow.

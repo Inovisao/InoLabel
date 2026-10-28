@@ -181,6 +181,13 @@ spatial convention; adapters reverse resizing, padding, orientation, and croppin
 Document box endpoints and convert to the existing annotation bbox format only at
 the annotation gateway. Preserve transforms for audit and testing.
 
+Keep dataset images immutable. Preprocessing is model-specific and happens only
+for inference: use pixel/edge budgets that preserve aspect ratio, and record the
+transform needed to map results back to the original image. Do not impose one
+global resize on all modalities or project data. For high-resolution inputs where
+downscaling could erase small targets, use overlapping tiles and merge proposals
+in original-image coordinates.
+
 Keep masks as binary/RLE artifacts, with optional derived polygons. Do not force
 masks into a four-corner box or silently lose holes and disconnected components.
 If the project only accepts boxes, require an explicit mask-to-box conversion.

@@ -72,6 +72,10 @@ requiring a general rewrite of existing code.
 - Frontend HTTP requests: `frontend/src/shared/api/client.ts` and existing contracts.
 - Inference: the `app/core/detector.py` wrapper. Preserve lazy model loading;
   opening the interface must not load YOLO/PyTorch in advance.
+- Autolabeling integrations: register definitions and typed inputs in
+  `app/autolabeling/model_catalog/`; reuse shared jobs and proposal review.
+  Render model fields from the catalog schema instead of branching on model names
+  in the panel. Keep incompatible optional SDKs in isolated runtimes.
 
 ## Data preservation and overwrite prevention
 
