@@ -9,7 +9,9 @@ on:
 jobs:
   backend:
     name: Testes Python
-    runs-on: ubuntu-latest
+    # Fixado: o ubuntu-latest (26.04) não tem Python 3.9 no setup-python, e o 3.9 é a
+    # versão do ambiente de quem desenvolve. Ao subir o Python do projeto, liberar.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
