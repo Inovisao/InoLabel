@@ -55,6 +55,8 @@ export interface FrameSlice {
   /** Edição das classes no meio da anotação; devolvem false (e `error`) se o backend recusar. */
   addClass: (name: string, keypoints?: string[]) => Promise<boolean>;
   renameClass: (id: number, name: string) => Promise<boolean>;
+  /** Troca a cor da classe (#RRGGBB); fica salva no projeto. */
+  recolorClass: (id: number, color: string) => Promise<boolean>;
   /** Remove a classe e as anotações dela no projeto; limpa o desfazer (ids mudam). */
   removeClass: (id: number) => Promise<boolean>;
   setImageSize: (size: ImageSize | null) => void;

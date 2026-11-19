@@ -67,6 +67,7 @@ def start_session(req: SessionStartRequest) -> SessionStartResponse:
         total_frames=total,
         current_frame=_restored_frame(req, existing_meta, total),
         keypoint_specs=plan.keypoint_specs,
+        class_colors=_saved_colors(existing_meta, req.classes),
     )
     log.info(
         "start_session: created session %s mode=%s frames=%d path=%s resume=%s frame=%d",
@@ -138,6 +139,14 @@ def _prepare_output_dir(output_path: Path) -> None:
         output_path.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         raise InvalidInput(f"Não foi possível criar a pasta de saída ({output_path}): {exc}") from exc
+
+
+def _saved_colors(meta: dict, classes: list) -> dict:
+    """Cores escolhidas para as classes que o projeto ainda tem."""
+    saved = meta.get("class_colors")
+    if not isinstance(saved, dict):
+        return {}
+    return {name: color for name, color in saved.items() if name in classes and isinstance(color, str)}
 
 
 def _restored_frame(req: SessionStartRequest, meta: dict, total: int) -> int:

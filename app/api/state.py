@@ -18,6 +18,8 @@ class SessionState:
     data_path: Path
     output_path: Path
     classes: list[str]
+    # Cor escolhida pelo usuário para cada classe, por nome ("#RRGGBB"); sem ela, a da paleta.
+    class_colors: dict = field(default_factory=dict)
     model_path: Optional[Path] = None
     resume: bool = False
     # Modo keypoint: por classe (mesma ordem de ``classes``), {"keypoints": [...], "skeleton": [...]}.

@@ -161,3 +161,34 @@ def test_classification_allows_only_adding(client):
     assert c.patch("/api/classes/0", json={"name": "x"}).status_code == 422
     assert c.delete("/api/classes/0").status_code == 422
     assert _names(c) == ["gato", "cachorro", "passaro"]
+
+
+def test_class_color_can_be_changed_and_survives_rename_and_resume(client):
+    c, data, out = client
+    _start(c, data, out)
+
+    r = c.patch("/api/classes/1", json={"color": "#ff8800"})
+
+    assert r.status_code == 200
+    assert r.json()[1]["color"] == "#FF8800"
+    assert r.json()[0]["color"] != "#FF8800"   # as outras seguem a paleta
+    c.patch("/api/classes/1", json={"name": "carro"})
+    assert c.get("/api/classes/").json()[1]["color"] == "#FF8800"
+    c.post("/api/session/stop")
+
+    meta = json.loads((out / META_FILE).read_text(encoding="utf-8"))
+    _start(c, data, out, classes=meta["classes"], resume=True)
+    assert c.get("/api/classes/").json()[1]["color"] == "#FF8800"
+
+
+@pytest.mark.parametrize("color", ["red", "#12345", "#GGGGGG", "123456"])
+def test_rejects_invalid_color(client, color):
+    c, data, out = client
+    _start(c, data, out)
+    assert c.patch("/api/classes/0", json={"color": color}).status_code == 422
+
+
+def test_classification_allows_changing_color(client):
+    c, data, out = client
+    _start(c, data, out, mode="classification", classes=("gato", "cachorro"))
+    assert c.patch("/api/classes/0", json={"color": "#00AA00"}).json()[0]["color"] == "#00AA00"

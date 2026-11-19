@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Palette, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../../../shared/api/client";
 import type { ClassItem } from "../../../shared/api/types";
 import { useSessionStore } from "../../../shared/session/store";
@@ -26,7 +26,7 @@ interface Removal {
 export default function ClassList() {
   const {
     frame, classes, selectedClassId, setSelectedClass, classifyFrame, nextFrame, classKeyBuffer,
-    addClass, renameClass, removeClass,
+    addClass, renameClass, recolorClass, removeClass,
   } = useAnnotationStore();
   const mode = useSessionStore((s) => s.mode);
   const isClassification = mode === "classification";
@@ -193,8 +193,15 @@ export default function ClassList() {
           </span>
           <Kbd>{String(shortcut)}</Kbd>
         </button>
+        <div className="class-row-actions">
+          <ColorPicker
+            key={cls.color}
+            label={`Cor de ${cls.name}`}
+            color={cls.color ?? "#4F46E5"}
+            onPick={(color) => recolorClass(cls.id, color)}
+          />
         {!isClassification && (
-          <div className="class-row-actions">
+          <>
             <button className="btn-icon-sm" onClick={() => setEditingId(cls.id)} title={`Renomear ${cls.name}`} aria-label={`Renomear ${cls.name}`}>
               <Pencil size={13} />
             </button>
@@ -207,8 +214,9 @@ export default function ClassList() {
             >
               <Trash2 size={13} />
             </button>
-          </div>
+          </>
         )}
+        </div>
         </div>
       );
     })}
@@ -238,6 +246,37 @@ export default function ClassList() {
     onCancel={() => setRemoval(null)}
   />
     </>
+  );
+}
+
+/**
+ * Botão de cor da classe com o seletor nativo do navegador. Grava só quando o seletor
+ * fecha (evento nativo "change"); o onChange do React dispara a cada arraste.
+ */
+function ColorPicker({ label, color, onPick }: { label: string; color: string; onPick: (color: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const pick = useRef(onPick);
+  pick.current = onPick;
+  useEffect(() => {
+    const input = ref.current;
+    if (!input) return;
+    const onChange = () => {
+      if (input.value.toUpperCase() !== color.toUpperCase()) pick.current(input.value);
+    };
+    input.addEventListener("change", onChange);
+    return () => input.removeEventListener("change", onChange);
+  }, [color]);
+  return (
+    <label className="btn-icon-sm" title={label} style={{ position: "relative" }}>
+      <Palette size={13} />
+      <input
+        ref={ref}
+        type="color"
+        aria-label={label}
+        defaultValue={color}
+        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
+      />
+    </label>
   );
 }
 

@@ -68,6 +68,7 @@ def update_classes(session) -> None:
     """Classes editadas durante a anotação: o projeto retomado já abre com elas."""
     meta = read(session.output_path)
     meta["classes"] = list(session.classes)
+    meta["class_colors"] = dict(session.class_colors)
     if session.keypoint_specs:
         meta["keypoint_classes"] = [{"name": name, **spec} for name, spec in zip(session.classes, session.keypoint_specs)]
     meta["last_modified"] = _now()
