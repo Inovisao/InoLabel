@@ -57,6 +57,16 @@ export const createFrameSlice: Slice<FrameSlice> = (set, get) => {
       }
     },
 
+    recolorClass: async (id, color) => {
+      try {
+        set({ classes: await api.patch<ClassItem[]>(`/classes/${id}`, { color }) });
+        return true;
+      } catch (e) {
+        set({ error: (e as Error).message });
+        return false;
+      }
+    },
+
     removeClass: async (id) => {
       try {
         const classes = await api.delete<ClassItem[]>(`/classes/${id}`);

@@ -34,7 +34,7 @@ def list_classes() -> List[ClassItem]:
         ClassItem(
             id=i,
             name=name,
-            color=CLASS_COLORS[i % len(CLASS_COLORS)],
+            color=session.class_colors.get(name, CLASS_COLORS[i % len(CLASS_COLORS)]),
             keypoints=(specs[i] if i < len(specs) else {}).get("keypoints", []),
             skeleton=(specs[i] if i < len(specs) else {}).get("skeleton", []),
         )
@@ -63,11 +63,19 @@ def add_class(body: ClassCreate) -> List[ClassItem]:
 
 
 def rename_class(class_id: int, body: ClassRename) -> List[ClassItem]:
+    """Renomeia e/ou troca a cor da classe. A cor vale em todos os modos (só a exibição)."""
     session = _require_session()
     _require_class(session, class_id)
-    if session.mode == "classification":
-        raise InvalidInput("Na classificação, cada classe é uma pasta com imagens; renomear não está disponível.")
-    session.classes[class_id] = _valid_name(session, body.name, ignore=class_id)
+    old = session.classes[class_id]
+    if body.name is not None and body.name.strip() != old:
+        if session.mode == "classification":
+            raise InvalidInput("Na classificação, cada classe é uma pasta com imagens; renomear não está disponível.")
+        new = _valid_name(session, body.name, ignore=class_id)
+        session.classes[class_id] = new
+        if old in session.class_colors:
+            session.class_colors[new] = session.class_colors.pop(old)
+    if body.color is not None:
+        session.class_colors[session.classes[class_id]] = body.color.upper()
     # Os .txt guardam só o id; o nome está no COCO e no manifesto.
     _persist(session, frames=[])
     return list_classes()
@@ -114,6 +122,7 @@ def remove_class(class_id: int) -> List[ClassItem]:
             _state.annotation_store[idx] = kept
             touched.append(idx)
 
+    session.class_colors.pop(session.classes[class_id], None)
     session.classes.pop(class_id)
     if class_id < len(session.keypoint_specs):
         session.keypoint_specs.pop(class_id)

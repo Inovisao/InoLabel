@@ -2,17 +2,17 @@ import type { Annotation, ClassItem, TaskMode } from "../../../shared/api/types"
 
 const FALLBACK_COLOR = "#4F46E5";
 
-const TRACK_COLOR_VARS = [
-  "--color-icon-track-fg",
-  "--color-icon-detect-fg",
-  "--color-icon-obb-fg",
-  "--color-icon-class-fg",
-  "--color-primary",
-  "--color-danger",
+/**
+ * Cores dos IDs no rastreamento. Precisam ser cores reais: o canvas não entende
+ * variáveis de CSS (var(--…)) e desenhava essas caixas em preto.
+ */
+export const TRACK_COLORS = [
+  "#3B82F6", "#22C55E", "#F59E0B", "#EF4444", "#A855F7", "#14B8A6",
+  "#EC4899", "#84CC16", "#06B6D4", "#F97316",
 ];
 
 function colorForTrack(trackId: number) {
-  return `var(${TRACK_COLOR_VARS[Math.abs(trackId) % TRACK_COLOR_VARS.length]})`;
+  return TRACK_COLORS[Math.abs(trackId) % TRACK_COLORS.length];
 }
 
 /** Cor e rótulo da forma: no rastreamento a cor segue o ID; nos outros modos, a classe. */

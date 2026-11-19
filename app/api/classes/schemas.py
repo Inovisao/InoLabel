@@ -23,7 +23,10 @@ class ClassCreate(BaseModel):
 
 
 class ClassRename(BaseModel):
-    name: str
+    """Edição da classe: nome e/ou cor ("#RRGGBB"); o campo omitido não muda."""
+
+    name: Optional[str] = None
+    color: Optional[str] = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class ClassUsage(BaseModel):
