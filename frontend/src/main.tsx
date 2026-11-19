@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import App from "./App";
+import ErrorBoundary from "./shared/ui/ErrorBoundary";
 
 const storedTheme = window.localStorage.getItem("inolabel_theme");
 const initialTheme =
@@ -16,6 +17,8 @@ document.documentElement.style.colorScheme = initialTheme;
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>
 );
