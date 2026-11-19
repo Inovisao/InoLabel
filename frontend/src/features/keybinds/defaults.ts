@@ -29,6 +29,19 @@ export function restoreDefaults(current: Binds, defaults: Binds): Binds {
   ) as Binds;
 }
 
+/**
+ * Completa cada perfil com os atalhos padrão que faltarem. Um perfil salvo antes de uma
+ * ação existir, ou vindo de um backend de outra versão, não tem todas as ações; sem
+ * isso a tela de anotação lia `binds.<ação>` indefinido e ficava em branco.
+ */
+export function withDefaults(data: Profiles): Profiles {
+  const profiles = Object.fromEntries(
+    Object.entries(data.profiles ?? {}).map(([name, binds]) => [name, { ...freshDefaults(), ...binds }])
+  ) as Record<string, Binds>;
+  if (!profiles["Padrão"]) profiles["Padrão"] = freshDefaults();
+  return { active_profile: profiles[data.active_profile] ? data.active_profile : "Padrão", profiles };
+}
+
 export const DEFAULT_PROFILES = (): Profiles => ({ active_profile: "Padrão", profiles: { "Padrão": freshDefaults() } });
 
 export const GROUPS: { title: string; actions: { id: Action; label: string }[] }[] = [

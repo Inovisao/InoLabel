@@ -80,6 +80,18 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
 else:
     _base = Path(__file__).resolve().parents[2]
 
+class _FrontendFiles(StaticFiles):
+    """Interface compilada. O index.html sempre é revalidado: em cache, ele apontava para
+    o JS de um build antigo (outra branch) e a tela quebrava com o backend atual. Os JS e
+    CSS têm hash no nome e podem ficar em cache."""
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if not path.startswith("assets/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 FRONTEND_DIST = _base / "frontend" / "dist"
 if FRONTEND_DIST.exists():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="static")
+    app.mount("/", _FrontendFiles(directory=str(FRONTEND_DIST), html=True), name="static")
